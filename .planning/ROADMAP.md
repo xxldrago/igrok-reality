@@ -6,7 +6,7 @@ A Telegram quest platform delivering 90-day challenges with gamification, paymen
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - Project scaffolding, database models, Docker infrastructure
+- [x] **Phase 1: Foundation** - Project scaffolding, database models, Docker infrastructure
 - [ ] **Phase 2: Registration & Onboarding** - /start flow, consent, archetype test, user profiles
 - [ ] **Phase 3: Quest Engine** - Content models, ARQ worker, 08:00 channel delivery
 - [ ] **Phase 4: User Progress** - Completion tracking, XP, streaks, leaderboards
@@ -28,9 +28,9 @@ A Telegram quest platform delivering 90-day challenges with gamification, paymen
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Docker infrastructure, pyproject.toml, shared kernel config
-- [ ] 01-02-PLAN.md — SQLAlchemy 2.0 async models (7 tables: users, referrals, scrolls, payments, user_completions, settings, audit_log)
-- [ ] 01-03-PLAN.md — Alembic migrations, FastAPI health check, all 4 process entrypoints
+- [x] 01-01-PLAN.md — Docker infrastructure, pyproject.toml, shared kernel config
+- [x] 01-02-PLAN.md — SQLAlchemy 2.0 async models (7 tables: users, referrals, scrolls, payments, user_completions, settings, audit_log)
+- [x] 01-03-PLAN.md — Alembic migrations, FastAPI health check, all 4 process entrypoints
 
 ### Phase 2: Registration & Onboarding
 **Goal**: Users can create accounts with archetype-based profiles
@@ -42,12 +42,12 @@ Plans:
   3. User answers 4 archetype questions and receives Head/Shell/Whirlwind/Ghost classification
   4. User profile is created with Telegram data and archetype
   5. Referral link is tracked when user joins via referral
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: /start handler, consent flow, PDn compliance
-- [ ] 02-02: Archetype test (4 questions) and assignment logic
-- [ ] 02-03: User profile creation, referral link tracking
+- [ ] 02-01-PLAN.md — /start handler, consent flow, FSM foundation (Wave 1)
+- [ ] 02-02-PLAN.md — Archetype quiz (4 questions) and scoring logic (Wave 2)
+- [ ] 02-03-PLAN.md — User profile creation, referral link tracking (Wave 3)
 
 ### Phase 3: Quest Engine
 **Goal**: Users receive personalized daily scrolls at 08:00 Moscow time
@@ -145,7 +145,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 3/3 | Complete | 2026-09-04 |
 | 2. Registration & Onboarding | 0/3 | Not started | - |
 | 3. Quest Engine | 0/3 | Not started | - |
 | 4. User Progress | 0/3 | Not started | - |
