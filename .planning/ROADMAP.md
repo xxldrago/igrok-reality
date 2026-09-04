@@ -25,12 +25,12 @@ A Telegram quest platform delivering 90-day challenges with gamification, paymen
   2. PostgreSQL database accepts migrations and all core tables exist
   3. Redis connection is established and functional
   4. Basic health check endpoint responds on FastAPI
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: Project structure, Docker Compose, environment config
-- [ ] 01-02: SQLAlchemy models (User, Scroll, Payment, Referral, AuditLog)
-- [ ] 01-03: Alembic migrations, base CRUD operations
+- [ ] 01-01-PLAN.md — Docker infrastructure, pyproject.toml, shared kernel config
+- [ ] 01-02-PLAN.md — SQLAlchemy 2.0 async models (7 tables: users, referrals, scrolls, payments, user_completions, settings, audit_log)
+- [ ] 01-03-PLAN.md — Alembic migrations, FastAPI health check, all 4 process entrypoints
 
 ### Phase 2: Registration & Onboarding
 **Goal**: Users can create accounts with archetype-based profiles
