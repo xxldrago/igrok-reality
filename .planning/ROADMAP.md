@@ -45,9 +45,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — /start handler, consent flow, FSM foundation (Wave 1)
-- [ ] 02-02-PLAN.md — Archetype quiz (4 questions) and scoring logic (Wave 2)
-- [ ] 02-03-PLAN.md — User profile creation, referral link tracking (Wave 3)
+- [x] 02-01-PLAN.md — /start handler, consent flow, FSM foundation (Wave 1)
+- [x] 02-02-PLAN.md — Archetype quiz (4 questions) and scoring logic (Wave 2)
+- [x] 02-03-PLAN.md — User profile creation, referral link tracking (Wave 3)
 
 ### Phase 3: Quest Engine
 **Goal**: Users receive personalized daily scrolls at 08:00 Moscow time
