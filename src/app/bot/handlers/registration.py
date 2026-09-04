@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message
+from aiogram.utils.deep_linking import create_start_link
 
 from app.bot.callbacks.registration import ArchetypeAnswer, ConsentCallback
 from app.bot.keyboards.registration import (
@@ -15,6 +16,12 @@ from app.bot.keyboards.registration import (
     consent_keyboard,
 )
 from app.bot.services.archetype import ARCHETYPE_NAMES, calculate_archetype
+from app.bot.services.user_service import (
+    create_referral,
+    create_user,
+    generate_referral_code,
+    get_user_by_id,
+)
 from app.bot.states.registration import RegistrationState
 
 if TYPE_CHECKING:
@@ -97,10 +104,11 @@ async def _handle_quiz_answer(
     state: FSMContext,
     question: int,
     next_state: RegistrationState,
-) -> None:
+) -> tuple[str, str] | None:
     """Shared logic for processing a quiz answer.
 
     Stores the answer, edits the message to the next question, and transitions state.
+    Returns (archetype, archetype_name) when question == 4, else None.
     """
     await state.update_data(**{f"q{question}_answer": callback.data.split(":")[-1]})
 
@@ -108,15 +116,16 @@ async def _handle_quiz_answer(
         next_q = question + 1
         q_text = ARCHETYPE_QUESTIONS[next_q]["text"]
         await callback.message.edit_text(q_text, reply_markup=archetype_keyboard(next_q))
+        await callback.answer()
+        return None
     else:
         data = await state.get_data()
         archetype = calculate_archetype(data)
         archetype_name = ARCHETYPE_NAMES[archetype]
         await state.update_data(archetype=archetype)
-        await callback.message.edit_text(f"Ваш архетип: {archetype_name}!")
         await state.set_state(RegistrationState.complete)
-
-    await callback.answer()
+        await callback.answer()
+        return archetype, archetype_name
 
 
 @registration_router.callback_query(
@@ -166,5 +175,57 @@ async def handle_q4(
     callback: CallbackQuery,
     state: FSMContext,
 ) -> None:
-    """Process question 4 answer — store, calculate archetype, show result."""
-    await _handle_quiz_answer(callback, state, question=4, next_state=RegistrationState.complete)
+    """Process question 4 answer — create user, handle referral, show profile."""
+    result = await _handle_quiz_answer(callback, state, question=4, next_state=RegistrationState.complete)
+    if result is None:
+        return
+
+    archetype, archetype_name = result
+    data = await state.get_data()
+
+    # Create user record in the database
+    user_referral_code = generate_referral_code()
+    user = await create_user(
+        telegram_id=data["telegram_id"],
+        first_name=data["first_name"],
+        last_name=data.get("last_name"),
+        username=data.get("username"),
+        archetype=archetype,
+        referral_code=user_referral_code,
+    )
+
+    # Handle referral if deep_link was present
+    referral_msg = ""
+    stored_referral_code = data.get("referral_code")
+    if stored_referral_code:
+        referrer = await create_referral(
+            referrer_code=stored_referral_code,
+            referee_id=user.id,
+        )
+        if referrer:
+            referrer_user = await get_user_by_id(referrer.referrer_id)
+            referrer_name = referrer_user.first_name if referrer_user else "Неизвестный"
+            referral_msg = f"\nВы приглашены {referrer_name}!"
+        else:
+            referral_msg = "\nПриглашение не найдено, но вы можете начать квест!"
+
+    # Build referral link for this user
+    referral_link = await create_start_link(callback.bot, user_referral_code)
+
+    # Show profile summary
+    profile_text = (
+        f"Регистрация завершена!\n"
+        f"\n"
+        f"Имя: {data['first_name']}\n"
+        f"Архетип: {archetype_name}{referral_msg}\n"
+        f"\n"
+        f"Ваш код для приглашения: {user_referral_code}\n"
+        f"\n"
+        f"Ссылка для приглашения:\n"
+        f"{referral_link}\n"
+        f"\n"
+        f"Добро пожаловать в квест!"
+    )
+
+    await callback.message.edit_text(profile_text)
+    await state.clear()

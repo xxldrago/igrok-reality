@@ -25,6 +25,15 @@ async def get_user_by_telegram_id(telegram_id: int) -> User | None:
         return result.scalar_one_or_none()
 
 
+async def get_user_by_id(user_id: UUID) -> User | None:
+    """Look up a user by their UUID primary key."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+
 async def create_user(
     telegram_id: int,
     first_name: str,
