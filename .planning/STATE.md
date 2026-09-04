@@ -1,6 +1,6 @@
 ---
 gsd_state_version: '1.0'
-status: planning
+status: ready
 progress:
   total_phases: 7
   completed_phases: 0
