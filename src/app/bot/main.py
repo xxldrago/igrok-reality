@@ -6,21 +6,29 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.redis import RedisStorage
 
+from app.bot.handlers.registration import registration_router
 from app.shared.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    """Start the Telegram bot."""
-    logger.info("Bot starting...")
+    """Start the Telegram bot with Redis-backed FSM storage."""
+    logger.info(
+        "Bot starting — environment=%s log_level=%s",
+        settings.ENVIRONMENT,
+        settings.LOG_LEVEL,
+    )
 
     bot = Bot(token=settings.BOT_TOKEN)
-    dp = Dispatcher()
+    storage = RedisStorage.from_url(settings.REDIS_URL)
+    dp = Dispatcher(storage=storage)
 
-    # TODO: Register routers here in later phases
+    dp.include_router(registration_router)
 
+    logger.info("Dispatcher configured — polling started")
     await dp.start_polling(bot)
 
 
