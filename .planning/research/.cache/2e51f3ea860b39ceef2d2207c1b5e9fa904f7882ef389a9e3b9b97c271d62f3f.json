@@ -1,0 +1,1 @@
+{"content":"Telegram rate limits (verified Aug 2026): per-chat ~1msg/sec, per-group 20msg/min, global ~30msg/sec. Exceeding returns HTTP 429 with retry_after. Use aiolimiter + per-chat locks. At 500 users, 08:00 broadcast takes ~3 min at 30msg/sec.","source":"web","provider":"websearch","confidence":"MEDIUM","fetched_at":"2026-09-04T12:10:15.853Z","ttl":86400000,"kind":"web"}
