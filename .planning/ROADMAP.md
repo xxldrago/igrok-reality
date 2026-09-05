@@ -114,12 +114,12 @@ Plans:
   4. Commission percentage is configurable per mentor
   5. Commission balance is tracked per mentor
   6. Manual commission payout is possible via admin
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 06-01: Referral link generation, tracking on /start
-- [ ] 06-02: Commission calculation, configurable rates
-- [ ] 06-03: Commission balance tracking, manual payout
+- [ ] 06-01-PLAN.md — CommissionBalance model, Alembic migration, enhanced commission service with one-time logic (Wave 1)
+- [ ] 06-02-PLAN.md — /referral handler, configurable COMMISSION_RATE, Referral record creation (Wave 2)
+- [ ] 06-03-PLAN.md — Admin payout endpoint, process_payout service, balance query, audit trail (Wave 2)
 
 ### Phase 7: Admin Panel
 **Goal**: Leaders and masters can manage all platform operations
