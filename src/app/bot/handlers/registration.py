@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from aiogram import Router, F
@@ -192,6 +193,7 @@ async def handle_q4(
         username=data.get("username"),
         archetype=archetype,
         referral_code=user_referral_code,
+        started_at=datetime.now(timezone.utc),
     )
 
     # Handle referral if deep_link was present

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -41,6 +42,7 @@ async def create_user(
     username: str | None,
     archetype: str,
     referral_code: str,
+    started_at: datetime | None = None,
 ) -> User:
     """Create a new User record and return it."""
     async with session_factory() as session:
@@ -52,6 +54,7 @@ async def create_user(
             archetype=archetype,
             referral_code=referral_code,
             is_active=True,
+            started_at=started_at,
         )
         session.add(user)
         await session.commit()
