@@ -108,6 +108,34 @@ async def get_user_stats(user_id: UUID) -> dict:
         return {"xp": user.xp, "streak": user.streak, "completions": completions}
 
 
+async def get_leaderboard(top_n: int = 10) -> list[dict]:
+    """Get top N users from Redis leaderboard sorted set.
+
+    Returns:
+        List of dicts with keys: user_id, xp
+    """
+    redis = aioredis.from_url(settings.REDIS_URL)
+    try:
+        result = await redis.zrevrange("leaderboard:xp", 0, top_n - 1, withscores=True)
+        return [{"user_id": uid.decode(), "xp": int(score)} for uid, score in result]
+    finally:
+        await redis.aclose()
+
+
+async def get_user_rank(user_id: UUID) -> int | None:
+    """Get user's rank in the leaderboard (0-indexed).
+
+    Returns:
+        Rank position (0 = top), or None if user is not in leaderboard.
+    """
+    redis = aioredis.from_url(settings.REDIS_URL)
+    try:
+        rank = await redis.zrevrank("leaderboard:xp", str(user_id))
+        return rank
+    finally:
+        await redis.aclose()
+
+
 async def update_leaderboard(user_id: UUID, xp: int) -> None:
     """Update the Redis leaderboard sorted set with the user's XP score."""
     redis = aioredis.from_url(settings.REDIS_URL)
