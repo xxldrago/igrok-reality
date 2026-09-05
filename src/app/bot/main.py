@@ -11,6 +11,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from app.bot.handlers.leaderboard import leaderboard_router
 from app.bot.handlers.payment import payment_router
 from app.bot.handlers.progress import progress_router
+from app.bot.handlers.referral import referral_router
 from app.bot.handlers.registration import registration_router
 from app.bot.handlers.scroll import scroll_router
 from app.shared.config import settings
@@ -35,6 +36,7 @@ async def main() -> None:
     dp.include_router(progress_router)
     dp.include_router(leaderboard_router)
     dp.include_router(payment_router)
+    dp.include_router(referral_router)
 
     logger.info("Dispatcher configured — polling started")
     await dp.start_polling(bot)

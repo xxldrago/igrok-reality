@@ -1,4 +1,4 @@
-"""Commission calculation — 10% of payment amount for mentor (referrer).
+"""Commission calculation — configurable rate for mentor (referrer).
 
 One-time commission: only the first succeeded payment per referee triggers commission.
 Results are persisted to CommissionBalance for tracking.
@@ -12,15 +12,13 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 
+from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.commission import CommissionBalance
 from app.shared.models.payment import Payment
 from app.shared.models.user import User
 
 logger = logging.getLogger(__name__)
-
-# 10% commission rate — will become a settings field in Phase 6
-COMMISSION_RATE = 0.10
 
 
 async def _get_or_create_balance(
@@ -32,7 +30,12 @@ async def _get_or_create_balance(
     )
     balance = result.scalar_one_or_none()
     if balance is None:
-        balance = CommissionBalance(user_id=user_id)
+        balance = CommissionBalance(
+            user_id=user_id,
+            total_earned=0,
+            total_pending=0,
+            total_paid_out=0,
+        )
         session.add(balance)
         await session.flush()
     return balance
@@ -103,7 +106,7 @@ async def calculate_commission(payment_id: UUID) -> dict:
         logger.error("calculate_commission: mentor %s not found", user.referred_by_id)
         return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
 
-    commission = int(payment.amount * COMMISSION_RATE)
+    commission = int(payment.amount * settings.COMMISSION_RATE)
 
     # Persist commission to balance
     async with session_factory() as session:

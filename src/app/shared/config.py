@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     PLATEGA_SECRET: str = ""
     PLATEGA_WEBHOOK_URL: str = ""
 
+    # Commission
+    COMMISSION_RATE: float = 0.10
+
     # Application
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
