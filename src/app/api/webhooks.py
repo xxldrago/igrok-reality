@@ -10,6 +10,7 @@ from fastapi import APIRouter, Request, status
 from sqlalchemy import select
 
 from app.bot.services.channel_access import grant_access, revoke_access
+from app.bot.services.commission import calculate_commission
 from app.bot.services.payment_service import get_payment
 from app.shared.config import settings
 from app.shared.database import session_factory
@@ -134,6 +135,19 @@ async def platega_webhook(request: Request) -> dict:
             user.telegram_id,
             "Оплата прошла успешно! Доступ в канал открыт.",
         )
+        # Calculate mentor commission
+        commission = await calculate_commission(payment.id)
+        if commission["amount"] > 0:
+            await _send_payment_notification(
+                commission["mentor_telegram_id"],
+                f"Ваш реферал оплатил доступ! Начислено: {commission['amount']} руб.",
+            )
+            logger.info(
+                "Commission calculated: %d kopecks for mentor %s from payment %s",
+                commission["amount"],
+                commission["mentor_id"],
+                payment.id,
+            )
     elif new_status == "canceled":
         await _send_payment_notification(
             user.telegram_id,

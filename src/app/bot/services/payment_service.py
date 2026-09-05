@@ -16,9 +16,23 @@ from app.shared.models.payment import Payment
 async def create_payment(user_id: UUID, amount: int, currency: str = "RUB") -> Payment:
     """Create a pending payment record with a unique idempotency key.
 
-    The Payment record is created BEFORE calling the Platega.io API
-    for an audit trail — the platega_transaction_id is set later.
+    If a pending payment already exists for this user, reuses it instead
+    of creating a duplicate — prevents duplicate charges when the user
+    taps /pay multiple times.
     """
+    # Idempotency: return existing pending payment if one exists
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(
+                Payment.user_id == user_id,
+                Payment.status == "pending",
+            )
+        )
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            return existing
+
+    # No pending payment — create a new one
     idempotency_key = str(uuid.uuid4())
 
     payment = Payment(
@@ -35,6 +49,24 @@ async def create_payment(user_id: UUID, amount: int, currency: str = "RUB") -> P
         await session.refresh(payment)
 
     return payment
+
+
+async def update_payment_status(idempotency_key: str, status: str) -> Payment | None:
+    """Update payment status by idempotency key.
+
+    Looks up the payment, sets the new status, commits, and returns
+    the updated payment. Returns None if no payment found.
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(Payment.idempotency_key == idempotency_key)
+        )
+        payment = result.scalar_one_or_none()
+        if payment is None:
+            return None
+        payment.status = status
+        await session.commit()
+        return payment
 
 
 async def get_payment(idempotency_key: str) -> Payment | None:
