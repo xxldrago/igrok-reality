@@ -95,13 +95,13 @@ Plans:
   5. CHARGEBACKED/REFUNDED status revokes channel access
   6. Payment is idempotent (no duplicate charges)
   7. Mentor commission is calculated per successful payment
-**Plans**: TBD
+**Plans:** 4 plans
 
 Plans:
-- [ ] 05-01: Platega.io API integration, payment initiation
-- [ ] 05-02: Webhook handler, payment state machine
-- [ ] 05-03: Channel access (invite links), revocation logic
-- [ ] 05-04: Payment idempotency, mentor commission calculation
+- [x] 05-01-PLAN.md — Platega.io API integration, payment initiation via inline keyboard (Wave 1)
+- [x] 05-02-PLAN.md — Webhook handler, payment state machine, status notifications (Wave 2)
+- [x] 05-03-PLAN.md — Channel access: one-time invite links, revocation logic (Wave 2)
+- [x] 05-04-PLAN.md — Payment idempotency, mentor commission calculation (Wave 3)
 
 ### Phase 6: Referrals & Commission
 **Goal**: Users earn commissions by referring new participants
