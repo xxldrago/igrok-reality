@@ -21,6 +21,8 @@ dependencies = [
     # HTTP
     "httpx",
     "python-multipart",
+    # Auth
+    "pyjwt>=2.8",
 ]
 
 [project.optional-dependencies]

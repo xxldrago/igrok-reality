@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Commission
     COMMISSION_RATE: float = 0.10
 
+    # JWT Auth
+    JWT_SECRET: str = "change-me-in-production"
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
+
     # Application
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"

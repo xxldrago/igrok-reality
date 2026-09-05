@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
+from app.api.auth import auth_router
 from app.api.routes.health import router as health_router
+from app.api.routes.admin import admin_router
 from app.api.webhooks import router as webhook_router
+
+ADMIN_DIST = Path("src/admin/dist")
 
 
 @asynccontextmanager
@@ -38,6 +45,23 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router)
 app.include_router(webhook_router)
+app.include_router(auth_router)
+app.include_router(admin_router)
+
+
+# SPA catch-all — serve index.html for all /admin/* routes
+@app.get("/admin/{full_path:path}")
+async def serve_admin(full_path: str) -> FileResponse:
+    """Serve the admin SPA for any route under /admin/."""
+    index = ADMIN_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return FileResponse(ADMIN_DIST / "index.html", status_code=404)
+
+
+# Mount admin static files AFTER the catch-all route
+if ADMIN_DIST.exists():
+    app.mount("/admin/assets", StaticFiles(directory=str(ADMIN_DIST / "assets")), name="admin-assets")
 
 
 if __name__ == "__main__":
