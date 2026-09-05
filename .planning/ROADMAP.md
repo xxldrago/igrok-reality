@@ -79,9 +79,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Progress service layer, completion callback wiring, XP awards, leaderboard Redis write (Wave 1)
-- [ ] 04-02-PLAN.md — Streak tracking with timezone-aware calculations (Wave 2)
-- [ ] 04-03-PLAN.md — Leaderboard display, /progress and /leaderboard commands (Wave 2)
+- [x] 04-01-PLAN.md — Progress service layer, completion callback wiring, XP awards, leaderboard Redis write (Wave 1)
+- [x] 04-02-PLAN.md — Streak tracking with timezone-aware calculations (Wave 2)
+- [x] 04-03-PLAN.md — Leaderboard display, /progress and /leaderboard commands (Wave 2)
 
 ### Phase 5: Payments & Access
 **Goal**: Users can purchase channel access via Platega.io
