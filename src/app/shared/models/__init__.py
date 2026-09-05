@@ -9,6 +9,7 @@ from app.shared.models.payment import Payment
 from app.shared.models.completion import UserCompletion
 from app.shared.models.settings import Setting
 from app.shared.models.audit import AuditLog
+from app.shared.models.commission import CommissionBalance
 
 __all__ = [
     "Base",
@@ -19,4 +20,5 @@ __all__ = [
     "UserCompletion",
     "Setting",
     "AuditLog",
+    "CommissionBalance",
 ]
