@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # Telegram
     BOT_TOKEN: str = ""
+    BOT_USERNAME: str = ""
     MASTER_CHANNEL_ID: int = 0
     QUEST_CHANNEL_ID: int = 0
     PAYMENT_CHANNEL_ID: int = 0
