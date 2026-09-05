@@ -59,12 +59,12 @@ Plans:
   3. Scroll contains a completion button the user can tap
   4. Failed deliveries retry up to 3 times before logging error
   5. 90 scrolls are pre-loaded and ready for daily delivery
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Scroll CRUD, archetype-based content mapping
-- [ ] 03-02: ARQ worker, APScheduler cron, 08:00 delivery spike handling
-- [ ] 03-03: Delivery retry logic, pre-load 90 scrolls
+- [x] 03-01-PLAN.md — Scroll service, User.started_at migration, 360 scrolls seed script (Wave 1)
+- [x] 03-02-PLAN.md — ARQ delivery task, completion callback, keyboard, handler (Wave 2)
+- [x] 03-03-PLAN.md — APScheduler cron wiring, unit tests, integration test (Wave 3)
 
 ### Phase 4: User Progress
 **Goal**: Users see their completion streaks, XP, and leaderboard position
