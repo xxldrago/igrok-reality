@@ -117,9 +117,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — CommissionBalance model, Alembic migration, enhanced commission service with one-time logic (Wave 1)
-- [ ] 06-02-PLAN.md — /referral handler, configurable COMMISSION_RATE, Referral record creation (Wave 2)
-- [ ] 06-03-PLAN.md — Admin payout endpoint, process_payout service, balance query, audit trail (Wave 2)
+- [x] 06-01-PLAN.md — CommissionBalance model, Alembic migration, enhanced commission service with one-time logic (Wave 1)
+- [x] 06-02-PLAN.md — /referral handler, configurable COMMISSION_RATE, Referral record creation (Wave 2)
+- [x] 06-03-PLAN.md — Admin payout endpoint, process_payout service, balance query, audit trail (Wave 2)
 
 ### Phase 7: Admin Panel
 **Goal**: Leaders and masters can manage all platform operations
