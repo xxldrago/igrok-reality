@@ -1,8 +1,10 @@
-"""Progress service — completion recording, XP award, and leaderboard updates."""
+"""Progress service — completion recording, XP award, streak tracking, and leaderboard updates."""
 
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import redis.asyncio as aioredis
 from sqlalchemy import select
@@ -49,6 +51,39 @@ async def add_xp(user_id: UUID, xp: int) -> int:
         user.xp += xp
         await session.commit()
         return user.xp
+
+
+async def update_streak(user_id: UUID) -> int:
+    """Update user streak based on timezone-aware day boundary.
+
+    - First completion ever (streak_last_date is None): streak becomes 1
+    - Completing on same day as last completion: streak unchanged
+    - Completing the day after last completion: streak increments by 1
+    - Missing a day (2+ days gap): streak resets to 1
+
+    Returns the current streak count.
+    """
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one()
+
+        tz = ZoneInfo(user.timezone)
+        today = datetime.now(tz).date()
+
+        if user.streak_last_date is None:
+            user.streak = 1
+        elif user.streak_last_date == today:
+            # Already completed today — no change
+            pass
+        elif user.streak_last_date == today - timedelta(days=1):
+            user.streak += 1
+        else:
+            # Broken streak — reset
+            user.streak = 1
+
+        user.streak_last_date = today
+        await session.commit()
+        return user.streak
 
 
 async def update_leaderboard(user_id: UUID, xp: int) -> None:

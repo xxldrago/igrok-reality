@@ -12,6 +12,7 @@ from app.bot.services.progress_service import (
     add_xp,
     create_completion,
     update_leaderboard,
+    update_streak,
 )
 
 scroll_router = Router(name="scroll")
@@ -37,6 +38,7 @@ async def handle_scroll_completion(callback: CallbackQuery) -> None:
         return
 
     new_xp = await add_xp(user_id=user_id, xp=completion.xp_awarded)
+    await update_streak(user_id=user_id)
     await update_leaderboard(user_id=user_id, xp=new_xp)
 
     await callback.answer(f"+{completion.xp_awarded} XP! \u26a1")
