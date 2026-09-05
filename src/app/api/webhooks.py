@@ -9,7 +9,7 @@ from aiogram import Bot
 from fastapi import APIRouter, Request, status
 from sqlalchemy import select
 
-from app.bot.services.channel_access import grant_channel_access, revoke_channel_access
+from app.bot.services.channel_access import grant_access, revoke_access
 from app.bot.services.payment_service import get_payment
 from app.shared.config import settings
 from app.shared.database import session_factory
@@ -127,8 +127,9 @@ async def platega_webhook(request: Request) -> dict:
         return {"status": "ok"}
 
     # --- Route by status ---
+    bot = Bot(token=settings.BOT_TOKEN)
     if new_status == "succeeded":
-        await grant_channel_access(user.telegram_id, None)
+        await grant_access(user.id, bot)
         await _send_payment_notification(
             user.telegram_id,
             "Оплата прошла успешно! Доступ в канал открыт.",
@@ -139,7 +140,7 @@ async def platega_webhook(request: Request) -> dict:
             "Оплата отменена. Вы можете попробовать снова.",
         )
     elif new_status in ("chargebacked", "refunded"):
-        await revoke_channel_access(user.telegram_id, None)
+        await revoke_access(user.id, bot)
         await _send_payment_notification(
             user.telegram_id,
             "Возврат оформлен. Доступ в канал закрыт.",
