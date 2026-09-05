@@ -133,13 +133,13 @@ Plans:
   5. Admin can configure platform settings
   6. All admin actions are logged in audit trail
   7. Admin authentication restricts access to authorized roles
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 07-01: React app setup, auth, routing
-- [ ] 07-02: User management (list, search, details)
-- [ ] 07-03: Scroll CRUD, payment management
-- [ ] 07-04: Settings, audit log, role-based access
+- [ ] 07-01-PLAN.md — React app scaffolding, JWT auth, routing (Wave 1)
+- [ ] 07-02-PLAN.md — User management: list, search, detail view (Wave 2)
+- [ ] 07-03-PLAN.md — Scroll CRUD, payment list and details (Wave 2)
+- [ ] 07-04-PLAN.md — Settings, audit log, role-based access (Wave 3)
 
 ## Progress
 
