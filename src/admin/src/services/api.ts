@@ -184,4 +184,62 @@ export function getPayment(id: string) {
   return api.get<PaymentItem>(`/admin/payments/${id}`)
 }
 
+// --- Settings interfaces ---
+
+export interface SettingItem {
+  key: string
+  value: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SettingListResponse {
+  settings: SettingItem[]
+}
+
+export interface SettingUpdateData {
+  settings: { key: string; value: string }[]
+}
+
+// --- Settings API methods ---
+
+export function getSettings() {
+  return api.get<SettingListResponse>('/admin/settings')
+}
+
+export function updateSettings(data: SettingUpdateData) {
+  return api.put<SettingListResponse>('/admin/settings', data)
+}
+
+// --- Audit log interfaces ---
+
+export interface AuditEntry {
+  id: string
+  admin_id: string | null
+  admin_name: string | null
+  action: string
+  details: string | null
+  created_at: string
+}
+
+export interface AuditListResponse {
+  entries: AuditEntry[]
+  total: number
+  page: number
+  page_size: number
+}
+
+// --- Audit log API methods ---
+
+export interface GetAuditParams {
+  action?: string
+  admin_id?: string
+  page?: number
+  page_size?: number
+}
+
+export function getAuditLog(params: GetAuditParams = {}) {
+  return api.get<AuditListResponse>('/admin/audit', { params })
+}
+
 export default api

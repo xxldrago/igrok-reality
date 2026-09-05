@@ -6,6 +6,8 @@ import AdminLayout from './layouts/AdminLayout'
 import Users from './pages/Users'
 import Scrolls from './pages/Scrolls'
 import Payments from './pages/Payments'
+import Settings from './pages/Settings'
+import AuditLog from './pages/AuditLog'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -38,8 +40,8 @@ export default function App() {
           <Route path="users" element={<Users />} />
           <Route path="scrolls" element={<Scrolls />} />
           <Route path="payments" element={<Payments />} />
-          <Route path="settings" element={<div>Настройки</div>} />
-          <Route path="audit" element={<div>Аудит</div>} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="audit" element={<AuditLog />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
