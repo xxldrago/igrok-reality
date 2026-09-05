@@ -1,15 +1,15 @@
-"""Admin API endpoints — user management, commission payout and balance query."""
+"""Admin API endpoints — user management, scroll CRUD, payment list, commission payout."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
 from app.api.dependencies import get_current_user, require_role
 from app.bot.services.commission import get_commission_balance, process_payout
@@ -18,6 +18,7 @@ from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
 from app.shared.models.completion import UserCompletion
 from app.shared.models.payment import Payment
+from app.shared.models.scroll import Scroll
 from app.shared.models.user import Referral, User
 
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -88,6 +89,330 @@ class PayoutRequest(BaseModel):
 
     user_id: UUID
     amount: int = Field(ge=1, description="Payout amount in kopecks")
+
+
+# --- Scroll management Pydantic models ---
+
+
+VALID_ARCHETYPES = ["head", "shell", "whirlwind", "ghost"]
+
+
+class ScrollCreateRequest(BaseModel):
+    """Request body for creating a scroll."""
+
+    day_number: int = Field(ge=1, le=90, description="Day number 1-90")
+    archetype: Literal["head", "shell", "whirlwind", "ghost"]
+    text: str = Field(min_length=1, description="Scroll content text")
+    media_file_id: Optional[str] = None
+
+
+class ScrollUpdateRequest(BaseModel):
+    """Request body for updating a scroll (day_number + archetype immutable)."""
+
+    text: str = Field(min_length=1, description="Scroll content text")
+    media_file_id: Optional[str] = None
+
+
+class ScrollResponse(BaseModel):
+    """Single scroll in list or detail response."""
+
+    id: UUID
+    day_number: int
+    archetype: str
+    text: str
+    media_file_id: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class ScrollListResponse(BaseModel):
+    """Paginated scroll list response."""
+
+    scrolls: list[ScrollResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class PaymentResponse(BaseModel):
+    """Payment with user info for admin list."""
+
+    id: UUID
+    user_id: UUID
+    user_name: str
+    user_username: Optional[str] = None
+    amount: int
+    currency: str
+    status: str
+    payment_method: Optional[str] = None
+    platega_transaction_id: Optional[str] = None
+    created_at: datetime
+
+
+class PaymentListResponse(BaseModel):
+    """Paginated payment list response."""
+
+    payments: list[PaymentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+# --- Scroll management endpoints ---
+
+
+@admin_router.get(
+    "/scrolls",
+    response_model=ScrollListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_scrolls(
+    archetype: Optional[str] = Query(None, description="Filter by archetype"),
+    day_number: Optional[int] = Query(None, ge=1, le=90, description="Filter by day number"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> ScrollListResponse:
+    """Return a paginated list of scrolls with optional filters."""
+    async with session_factory() as session:
+        query = select(Scroll)
+        count_query = select(func.count(Scroll.id))
+
+        if archetype:
+            query = query.where(Scroll.archetype == archetype)
+            count_query = count_query.where(Scroll.archetype == archetype)
+
+        if day_number is not None:
+            query = query.where(Scroll.day_number == day_number)
+            count_query = count_query.where(Scroll.day_number == day_number)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(Scroll.day_number.asc(), Scroll.archetype.asc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        scrolls = result.scalars().all()
+
+        return ScrollListResponse(
+            scrolls=[ScrollResponse.model_validate(s) for s in scrolls],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+
+@admin_router.get(
+    "/scrolls/{scroll_id}",
+    response_model=ScrollResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_scroll(scroll_id: UUID) -> ScrollResponse:
+    """Return a single scroll by ID."""
+    async with session_factory() as session:
+        result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
+        scroll = result.scalar_one_or_none()
+        if scroll is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Scroll not found",
+            )
+        return ScrollResponse.model_validate(scroll)
+
+
+@admin_router.post(
+    "/scrolls",
+    response_model=ScrollResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def create_scroll(request: ScrollCreateRequest) -> ScrollResponse:
+    """Create a new scroll. Enforces unique (day_number, archetype)."""
+    async with session_factory() as session:
+        scroll = Scroll(
+            day_number=request.day_number,
+            archetype=request.archetype,
+            text=request.text,
+            media_file_id=request.media_file_id,
+        )
+        session.add(scroll)
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Scroll for day {request.day_number} archetype '{request.archetype}' already exists",
+            )
+
+        # Audit log
+        audit_entry = AuditLog(
+            action="scroll_created",
+            details=f"day={request.day_number} archetype={request.archetype}",
+        )
+        session.add(audit_entry)
+        await session.commit()
+
+        await session.refresh(scroll)
+        return ScrollResponse.model_validate(scroll)
+
+
+@admin_router.put(
+    "/scrolls/{scroll_id}",
+    response_model=ScrollResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def update_scroll(
+    scroll_id: UUID, request: ScrollUpdateRequest
+) -> ScrollResponse:
+    """Update scroll text and media (day_number + archetype immutable)."""
+    async with session_factory() as session:
+        result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
+        scroll = result.scalar_one_or_none()
+        if scroll is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Scroll not found",
+            )
+
+        scroll.text = request.text
+        scroll.media_file_id = request.media_file_id
+
+        audit_entry = AuditLog(
+            action="scroll_updated",
+            details=f"Updated scroll {scroll_id}",
+        )
+        session.add(audit_entry)
+        await session.commit()
+        await session.refresh(scroll)
+        return ScrollResponse.model_validate(scroll)
+
+
+@admin_router.delete(
+    "/scrolls/{scroll_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def delete_scroll(scroll_id: UUID) -> None:
+    """Delete a scroll and create an audit log entry."""
+    async with session_factory() as session:
+        result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
+        scroll = result.scalar_one_or_none()
+        if scroll is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Scroll not found",
+            )
+
+        await session.delete(scroll)
+
+        audit_entry = AuditLog(
+            action="scroll_deleted",
+            details=f"Deleted scroll {scroll_id}",
+        )
+        session.add(audit_entry)
+        await session.commit()
+
+
+# --- Payment management endpoints ---
+
+
+@admin_router.get(
+    "/payments",
+    response_model=PaymentListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_payments(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by payment status"),
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> PaymentListResponse:
+    """Return a paginated list of payments with optional filters, joined with user info."""
+    async with session_factory() as session:
+        query = select(Payment, User).join(User, Payment.user_id == User.id)
+        count_query = select(func.count(Payment.id))
+
+        if status_filter:
+            query = query.where(Payment.status == status_filter)
+            count_query = count_query.where(Payment.status == status_filter)
+
+        if user_id:
+            query = query.where(Payment.user_id == user_id)
+            count_query = count_query.where(Payment.user_id == user_id)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(Payment.created_at.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        rows = result.all()
+
+        payments = []
+        for payment, user in rows:
+            user_name = user.first_name
+            if user.last_name:
+                user_name += f" {user.last_name}"
+            payments.append(
+                PaymentResponse(
+                    id=payment.id,
+                    user_id=payment.user_id,
+                    user_name=user_name,
+                    user_username=user.username,
+                    amount=payment.amount,
+                    currency=payment.currency,
+                    status=payment.status,
+                    payment_method=payment.payment_method,
+                    platega_transaction_id=payment.platega_transaction_id,
+                    created_at=payment.created_at,
+                )
+            )
+
+        return PaymentListResponse(
+            payments=payments,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+
+@admin_router.get(
+    "/payments/{payment_id}",
+    response_model=PaymentResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_payment(payment_id: UUID) -> PaymentResponse:
+    """Return a single payment with user info."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment, User)
+            .join(User, Payment.user_id == User.id)
+            .where(Payment.id == payment_id)
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payment not found",
+            )
+
+        payment, user = row
+        user_name = user.first_name
+        if user.last_name:
+            user_name += f" {user.last_name}"
+
+        return PaymentResponse(
+            id=payment.id,
+            user_id=payment.user_id,
+            user_name=user_name,
+            user_username=user.username,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=payment.status,
+            payment_method=payment.payment_method,
+            platega_transaction_id=payment.platega_transaction_id,
+            created_at=payment.created_at,
+        )
 
 
 # --- User management endpoints ---
