@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.health import router as health_router
+from app.api.webhooks import router as webhook_router
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health_router)
+app.include_router(webhook_router)
 
 
 if __name__ == "__main__":
