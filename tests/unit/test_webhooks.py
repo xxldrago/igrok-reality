@@ -96,7 +96,8 @@ async def test_webhook_invalid_secret(mock_settings: MagicMock) -> None:
 
 @pytest.mark.asyncio
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
-@patch("app.api.webhooks.grant_channel_access", new_callable=AsyncMock)
+@patch("app.api.webhooks.grant_access", new_callable=AsyncMock)
+@patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
 @patch("app.api.webhooks.settings")
@@ -104,6 +105,7 @@ async def test_webhook_confirmed(
     mock_settings: MagicMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
+    mock_bot_cls: MagicMock,
     mock_grant_access: AsyncMock,
     mock_notify: AsyncMock,
 ) -> None:
@@ -163,6 +165,7 @@ async def test_webhook_confirmed(
 
 @pytest.mark.asyncio
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
+@patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
 @patch("app.api.webhooks.settings")
@@ -170,6 +173,7 @@ async def test_webhook_canceled(
     mock_settings: MagicMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
+    mock_bot_cls: MagicMock,
     mock_notify: AsyncMock,
 ) -> None:
     """CANCELED status updates payment to 'canceled' and sends cancel message."""
@@ -218,7 +222,8 @@ async def test_webhook_canceled(
 
 @pytest.mark.asyncio
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
-@patch("app.api.webhooks.revoke_channel_access", new_callable=AsyncMock)
+@patch("app.api.webhooks.revoke_access", new_callable=AsyncMock)
+@patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
 @patch("app.api.webhooks.settings")
@@ -226,6 +231,7 @@ async def test_webhook_chargebacked(
     mock_settings: MagicMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
+    mock_bot_cls: MagicMock,
     mock_revoke_access: AsyncMock,
     mock_notify: AsyncMock,
 ) -> None:
