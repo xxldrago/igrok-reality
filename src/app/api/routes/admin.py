@@ -1,4 +1,4 @@
-"""Admin API endpoints — user management, scroll CRUD, payment list, commission payout."""
+"""Admin API endpoints — user management, scroll CRUD, payment list, settings, audit, commission payout."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from app.shared.models.commission import CommissionBalance
 from app.shared.models.completion import UserCompletion
 from app.shared.models.payment import Payment
 from app.shared.models.scroll import Scroll
+from app.shared.models.settings import Setting
 from app.shared.models.user import Referral, User
 
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -153,6 +154,60 @@ class PaymentListResponse(BaseModel):
     """Paginated payment list response."""
 
     payments: list[PaymentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+# --- Settings management Pydantic models ---
+
+
+class SettingItem(BaseModel):
+    """Single setting key-value pair."""
+
+    key: str
+    value: str
+
+
+class SettingUpdateRequest(BaseModel):
+    """Request body for bulk settings update."""
+
+    settings: list[SettingItem]
+
+
+class SettingResponse(BaseModel):
+    """Setting with timestamps."""
+
+    key: str
+    value: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SettingListResponse(BaseModel):
+    """List of all settings."""
+
+    settings: list[SettingResponse]
+
+
+# --- Audit log Pydantic models ---
+
+
+class AuditEntryResponse(BaseModel):
+    """Single audit log entry."""
+
+    id: UUID
+    admin_id: Optional[UUID] = None
+    admin_name: Optional[str] = None
+    action: str
+    details: Optional[str] = None
+    created_at: datetime
+
+
+class AuditListResponse(BaseModel):
+    """Paginated audit log response."""
+
+    entries: list[AuditEntryResponse]
     total: int
     page: int
     page_size: int
@@ -611,3 +666,166 @@ async def commission_balance(user_id: UUID) -> dict:
     if balance is None:
         return {"status": "error", "error": "Commission balance not found"}
     return {"status": "ok", **balance}
+
+
+# --- Settings management endpoints ---
+
+
+@admin_router.get(
+    "/settings",
+    response_model=SettingListResponse,
+    dependencies=[Depends(require_role("master", "leader", "curator"))],
+)
+async def list_settings() -> SettingListResponse:
+    """Return all platform settings as key-value pairs."""
+    async with session_factory() as session:
+        result = await session.execute(select(Setting).order_by(Setting.key.asc()))
+        settings = result.scalars().all()
+        return SettingListResponse(
+            settings=[SettingResponse.model_validate(s) for s in settings]
+        )
+
+
+@admin_router.get(
+    "/settings/{key}",
+    response_model=SettingResponse,
+    dependencies=[Depends(require_role("master", "leader", "curator"))],
+)
+async def get_setting(key: str) -> SettingResponse:
+    """Return a single setting by key."""
+    async with session_factory() as session:
+        result = await session.execute(select(Setting).where(Setting.key == key))
+        setting = result.scalar_one_or_none()
+        if setting is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Setting '{key}' not found",
+            )
+        return SettingResponse.model_validate(setting)
+
+
+@admin_router.put(
+    "/settings",
+    response_model=SettingListResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_settings(request: SettingUpdateRequest) -> SettingListResponse:
+    """Bulk update settings (upsert). Only master role can modify settings."""
+    async with session_factory() as session:
+        updated_keys: list[str] = []
+        for item in request.settings:
+            result = await session.execute(
+                select(Setting).where(Setting.key == item.key)
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.value = item.value
+            else:
+                new_setting = Setting(key=item.key, value=item.value)
+                session.add(new_setting)
+            updated_keys.append(item.key)
+
+        # Audit log for settings change
+        audit_entry = AuditLog(
+            action="settings_updated",
+            details=f"updated keys: {', '.join(updated_keys)}",
+        )
+        session.add(audit_entry)
+        await session.commit()
+
+        # Return updated settings
+        result = await session.execute(select(Setting).order_by(Setting.key.asc()))
+        settings = result.scalars().all()
+        return SettingListResponse(
+            settings=[SettingResponse.model_validate(s) for s in settings]
+        )
+
+
+# --- Audit log endpoints ---
+
+
+@admin_router.get(
+    "/audit",
+    response_model=AuditListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_audit_entries(
+    action: Optional[str] = Query(None, description="Filter by action type"),
+    admin_id: Optional[UUID] = Query(None, description="Filter by admin user ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+) -> AuditListResponse:
+    """Return paginated audit log entries with optional filters."""
+    async with session_factory() as session:
+        # Base query with left join to get admin name
+        query = select(AuditLog, User.username).outerjoin(
+            User, AuditLog.admin_id == User.id
+        )
+        count_query = select(func.count(AuditLog.id))
+
+        if action:
+            query = query.where(AuditLog.action == action)
+            count_query = count_query.where(AuditLog.action == action)
+
+        if admin_id:
+            query = query.where(AuditLog.admin_id == admin_id)
+            count_query = count_query.where(AuditLog.admin_id == admin_id)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(AuditLog.created_at.desc())
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        rows = result.all()
+
+        entries = []
+        for audit_log, admin_username in rows:
+            entries.append(
+                AuditEntryResponse(
+                    id=audit_log.id,
+                    admin_id=audit_log.admin_id,
+                    admin_name=admin_username,
+                    action=audit_log.action,
+                    details=audit_log.details,
+                    created_at=audit_log.created_at,
+                )
+            )
+
+        return AuditListResponse(
+            entries=entries,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+
+@admin_router.get(
+    "/audit/{entry_id}",
+    response_model=AuditEntryResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_audit_entry(entry_id: UUID) -> AuditEntryResponse:
+    """Return a single audit log entry."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(AuditLog, User.username)
+            .outerjoin(User, AuditLog.admin_id == User.id)
+            .where(AuditLog.id == entry_id)
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audit entry not found",
+            )
+
+        audit_log, admin_username = row
+        return AuditEntryResponse(
+            id=audit_log.id,
+            admin_id=audit_log.admin_id,
+            admin_name=admin_username,
+            action=audit_log.action,
+            details=audit_log.details,
+            created_at=audit_log.created_at,
+        )
