@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 
 from app.bot.handlers.registration import registration_router
+from app.bot.handlers.scroll import scroll_router
 from app.shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ async def main() -> None:
     dp = Dispatcher(storage=storage)
 
     dp.include_router(registration_router)
+    dp.include_router(scroll_router)
 
     logger.info("Dispatcher configured — polling started")
     await dp.start_polling(bot)
