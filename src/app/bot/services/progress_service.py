@@ -86,6 +86,28 @@ async def update_streak(user_id: UUID) -> int:
         return user.streak
 
 
+async def get_user_stats(user_id: UUID) -> dict:
+    """Get user stats including XP, streak, and completions count.
+
+    Returns:
+        dict with keys: xp, streak, completions
+    """
+    async with session_factory() as session:
+        # Load user
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one()
+
+        # Count completions
+        from sqlalchemy import func
+
+        count_result = await session.execute(
+            select(func.count(UserCompletion.id)).where(UserCompletion.user_id == user_id)
+        )
+        completions = count_result.scalar()
+
+        return {"xp": user.xp, "streak": user.streak, "completions": completions}
+
+
 async def update_leaderboard(user_id: UUID, xp: int) -> None:
     """Update the Redis leaderboard sorted set with the user's XP score."""
     redis = aioredis.from_url(settings.REDIS_URL)
