@@ -3,6 +3,7 @@ import { Spin } from 'antd'
 import { useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import AdminLayout from './layouts/AdminLayout'
+import Users from './pages/Users'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -32,7 +33,7 @@ export default function App() {
           }
         >
           <Route index element={<div>Добро пожаловать в админ-панель</div>} />
-          <Route path="users" element={<div>Пользователи</div>} />
+          <Route path="users" element={<Users />} />
           <Route path="scrolls" element={<div>Свитки</div>} />
           <Route path="payments" element={<div>Платежи</div>} />
           <Route path="settings" element={<div>Настройки</div>} />
