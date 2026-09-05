@@ -4,6 +4,8 @@ import { useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import AdminLayout from './layouts/AdminLayout'
 import Users from './pages/Users'
+import Scrolls from './pages/Scrolls'
+import Payments from './pages/Payments'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -34,8 +36,8 @@ export default function App() {
         >
           <Route index element={<div>Добро пожаловать в админ-панель</div>} />
           <Route path="users" element={<Users />} />
-          <Route path="scrolls" element={<div>Свитки</div>} />
-          <Route path="payments" element={<div>Платежи</div>} />
+          <Route path="scrolls" element={<Scrolls />} />
+          <Route path="payments" element={<Payments />} />
           <Route path="settings" element={<div>Настройки</div>} />
           <Route path="audit" element={<div>Аудит</div>} />
         </Route>

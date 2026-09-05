@@ -85,4 +85,103 @@ export function getUser(id: string) {
   return api.get<UserDetailResponse>(`/admin/users/${id}`)
 }
 
+// --- Scroll interfaces ---
+
+export interface ScrollItem {
+  id: string
+  day_number: number
+  archetype: string
+  text: string
+  media_file_id: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ScrollListResponse {
+  scrolls: ScrollItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface ScrollCreateData {
+  day_number: number
+  archetype: string
+  text: string
+  media_file_id?: string | null
+}
+
+export interface ScrollUpdateData {
+  text: string
+  media_file_id?: string | null
+}
+
+// --- Scroll API methods ---
+
+export interface GetScrollsParams {
+  archetype?: string
+  day_number?: number
+  page?: number
+  page_size?: number
+}
+
+export function getScrolls(params: GetScrollsParams = {}) {
+  return api.get<ScrollListResponse>('/admin/scrolls', { params })
+}
+
+export function getScroll(id: string) {
+  return api.get<ScrollItem>(`/admin/scrolls/${id}`)
+}
+
+export function createScroll(data: ScrollCreateData) {
+  return api.post<ScrollItem>('/admin/scrolls', data)
+}
+
+export function updateScroll(id: string, data: ScrollUpdateData) {
+  return api.put<ScrollItem>(`/admin/scrolls/${id}`, data)
+}
+
+export function deleteScroll(id: string) {
+  return api.delete(`/admin/scrolls/${id}`)
+}
+
+// --- Payment interfaces ---
+
+export interface PaymentItem {
+  id: string
+  user_id: string
+  user_name: string
+  user_username: string | null
+  amount: number
+  currency: string
+  status: string
+  payment_method: string | null
+  platega_transaction_id: string | null
+  created_at: string
+}
+
+export interface PaymentListResponse {
+  payments: PaymentItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+// --- Payment API methods ---
+
+export interface GetPaymentsParams {
+  status?: string
+  user_id?: string
+  page?: number
+  page_size?: number
+}
+
+export function getPayments(params: GetPaymentsParams = {}) {
+  return api.get<PaymentListResponse>('/admin/payments', { params })
+}
+
+export function getPayment(id: string) {
+  return api.get<PaymentItem>(`/admin/payments/${id}`)
+}
+
 export default api
