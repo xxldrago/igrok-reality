@@ -1,0 +1,1802 @@
+[
+  {
+    "day_number": 1,
+    "archetype": "head",
+    "text": "День 1 для Голова: Текст свитка номер 1."
+  },
+  {
+    "day_number": 1,
+    "archetype": "shell",
+    "text": "День 1 для Панцирь: Текст свитка номер 1."
+  },
+  {
+    "day_number": 1,
+    "archetype": "whirlwind",
+    "text": "День 1 для Вихрь: Текст свитка номер 1."
+  },
+  {
+    "day_number": 1,
+    "archetype": "ghost",
+    "text": "День 1 для Призрак: Текст свитка номер 1."
+  },
+  {
+    "day_number": 2,
+    "archetype": "head",
+    "text": "День 2 для Голова: Текст свитка номер 2."
+  },
+  {
+    "day_number": 2,
+    "archetype": "shell",
+    "text": "День 2 для Панцирь: Текст свитка номер 2."
+  },
+  {
+    "day_number": 2,
+    "archetype": "whirlwind",
+    "text": "День 2 для Вихрь: Текст свитка номер 2."
+  },
+  {
+    "day_number": 2,
+    "archetype": "ghost",
+    "text": "День 2 для Призрак: Текст свитка номер 2."
+  },
+  {
+    "day_number": 3,
+    "archetype": "head",
+    "text": "День 3 для Голова: Текст свитка номер 3."
+  },
+  {
+    "day_number": 3,
+    "archetype": "shell",
+    "text": "День 3 для Панцирь: Текст свитка номер 3."
+  },
+  {
+    "day_number": 3,
+    "archetype": "whirlwind",
+    "text": "День 3 для Вихрь: Текст свитка номер 3."
+  },
+  {
+    "day_number": 3,
+    "archetype": "ghost",
+    "text": "День 3 для Призрак: Текст свитка номер 3."
+  },
+  {
+    "day_number": 4,
+    "archetype": "head",
+    "text": "День 4 для Голова: Текст свитка номер 4."
+  },
+  {
+    "day_number": 4,
+    "archetype": "shell",
+    "text": "День 4 для Панцирь: Текст свитка номер 4."
+  },
+  {
+    "day_number": 4,
+    "archetype": "whirlwind",
+    "text": "День 4 для Вихрь: Текст свитка номер 4."
+  },
+  {
+    "day_number": 4,
+    "archetype": "ghost",
+    "text": "День 4 для Призрак: Текст свитка номер 4."
+  },
+  {
+    "day_number": 5,
+    "archetype": "head",
+    "text": "День 5 для Голова: Текст свитка номер 5."
+  },
+  {
+    "day_number": 5,
+    "archetype": "shell",
+    "text": "День 5 для Панцирь: Текст свитка номер 5."
+  },
+  {
+    "day_number": 5,
+    "archetype": "whirlwind",
+    "text": "День 5 для Вихрь: Текст свитка номер 5."
+  },
+  {
+    "day_number": 5,
+    "archetype": "ghost",
+    "text": "День 5 для Призрак: Текст свитка номер 5."
+  },
+  {
+    "day_number": 6,
+    "archetype": "head",
+    "text": "День 6 для Голова: Текст свитка номер 6."
+  },
+  {
+    "day_number": 6,
+    "archetype": "shell",
+    "text": "День 6 для Панцирь: Текст свитка номер 6."
+  },
+  {
+    "day_number": 6,
+    "archetype": "whirlwind",
+    "text": "День 6 для Вихрь: Текст свитка номер 6."
+  },
+  {
+    "day_number": 6,
+    "archetype": "ghost",
+    "text": "День 6 для Призрак: Текст свитка номер 6."
+  },
+  {
+    "day_number": 7,
+    "archetype": "head",
+    "text": "День 7 для Голова: Текст свитка номер 7."
+  },
+  {
+    "day_number": 7,
+    "archetype": "shell",
+    "text": "День 7 для Панцирь: Текст свитка номер 7."
+  },
+  {
+    "day_number": 7,
+    "archetype": "whirlwind",
+    "text": "День 7 для Вихрь: Текст свитка номер 7."
+  },
+  {
+    "day_number": 7,
+    "archetype": "ghost",
+    "text": "День 7 для Призрак: Текст свитка номер 7."
+  },
+  {
+    "day_number": 8,
+    "archetype": "head",
+    "text": "День 8 для Голова: Текст свитка номер 8."
+  },
+  {
+    "day_number": 8,
+    "archetype": "shell",
+    "text": "День 8 для Панцирь: Текст свитка номер 8."
+  },
+  {
+    "day_number": 8,
+    "archetype": "whirlwind",
+    "text": "День 8 для Вихрь: Текст свитка номер 8."
+  },
+  {
+    "day_number": 8,
+    "archetype": "ghost",
+    "text": "День 8 для Призрак: Текст свитка номер 8."
+  },
+  {
+    "day_number": 9,
+    "archetype": "head",
+    "text": "День 9 для Голова: Текст свитка номер 9."
+  },
+  {
+    "day_number": 9,
+    "archetype": "shell",
+    "text": "День 9 для Панцирь: Текст свитка номер 9."
+  },
+  {
+    "day_number": 9,
+    "archetype": "whirlwind",
+    "text": "День 9 для Вихрь: Текст свитка номер 9."
+  },
+  {
+    "day_number": 9,
+    "archetype": "ghost",
+    "text": "День 9 для Призрак: Текст свитка номер 9."
+  },
+  {
+    "day_number": 10,
+    "archetype": "head",
+    "text": "День 10 для Голова: Текст свитка номер 10."
+  },
+  {
+    "day_number": 10,
+    "archetype": "shell",
+    "text": "День 10 для Панцирь: Текст свитка номер 10."
+  },
+  {
+    "day_number": 10,
+    "archetype": "whirlwind",
+    "text": "День 10 для Вихрь: Текст свитка номер 10."
+  },
+  {
+    "day_number": 10,
+    "archetype": "ghost",
+    "text": "День 10 для Призрак: Текст свитка номер 10."
+  },
+  {
+    "day_number": 11,
+    "archetype": "head",
+    "text": "День 11 для Голова: Текст свитка номер 11."
+  },
+  {
+    "day_number": 11,
+    "archetype": "shell",
+    "text": "День 11 для Панцирь: Текст свитка номер 11."
+  },
+  {
+    "day_number": 11,
+    "archetype": "whirlwind",
+    "text": "День 11 для Вихрь: Текст свитка номер 11."
+  },
+  {
+    "day_number": 11,
+    "archetype": "ghost",
+    "text": "День 11 для Призрак: Текст свитка номер 11."
+  },
+  {
+    "day_number": 12,
+    "archetype": "head",
+    "text": "День 12 для Голова: Текст свитка номер 12."
+  },
+  {
+    "day_number": 12,
+    "archetype": "shell",
+    "text": "День 12 для Панцирь: Текст свитка номер 12."
+  },
+  {
+    "day_number": 12,
+    "archetype": "whirlwind",
+    "text": "День 12 для Вихрь: Текст свитка номер 12."
+  },
+  {
+    "day_number": 12,
+    "archetype": "ghost",
+    "text": "День 12 для Призрак: Текст свитка номер 12."
+  },
+  {
+    "day_number": 13,
+    "archetype": "head",
+    "text": "День 13 для Голова: Текст свитка номер 13."
+  },
+  {
+    "day_number": 13,
+    "archetype": "shell",
+    "text": "День 13 для Панцирь: Текст свитка номер 13."
+  },
+  {
+    "day_number": 13,
+    "archetype": "whirlwind",
+    "text": "День 13 для Вихрь: Текст свитка номер 13."
+  },
+  {
+    "day_number": 13,
+    "archetype": "ghost",
+    "text": "День 13 для Призрак: Текст свитка номер 13."
+  },
+  {
+    "day_number": 14,
+    "archetype": "head",
+    "text": "День 14 для Голова: Текст свитка номер 14."
+  },
+  {
+    "day_number": 14,
+    "archetype": "shell",
+    "text": "День 14 для Панцирь: Текст свитка номер 14."
+  },
+  {
+    "day_number": 14,
+    "archetype": "whirlwind",
+    "text": "День 14 для Вихрь: Текст свитка номер 14."
+  },
+  {
+    "day_number": 14,
+    "archetype": "ghost",
+    "text": "День 14 для Призрак: Текст свитка номер 14."
+  },
+  {
+    "day_number": 15,
+    "archetype": "head",
+    "text": "День 15 для Голова: Текст свитка номер 15."
+  },
+  {
+    "day_number": 15,
+    "archetype": "shell",
+    "text": "День 15 для Панцирь: Текст свитка номер 15."
+  },
+  {
+    "day_number": 15,
+    "archetype": "whirlwind",
+    "text": "День 15 для Вихрь: Текст свитка номер 15."
+  },
+  {
+    "day_number": 15,
+    "archetype": "ghost",
+    "text": "День 15 для Призрак: Текст свитка номер 15."
+  },
+  {
+    "day_number": 16,
+    "archetype": "head",
+    "text": "День 16 для Голова: Текст свитка номер 16."
+  },
+  {
+    "day_number": 16,
+    "archetype": "shell",
+    "text": "День 16 для Панцирь: Текст свитка номер 16."
+  },
+  {
+    "day_number": 16,
+    "archetype": "whirlwind",
+    "text": "День 16 для Вихрь: Текст свитка номер 16."
+  },
+  {
+    "day_number": 16,
+    "archetype": "ghost",
+    "text": "День 16 для Призрак: Текст свитка номер 16."
+  },
+  {
+    "day_number": 17,
+    "archetype": "head",
+    "text": "День 17 для Голова: Текст свитка номер 17."
+  },
+  {
+    "day_number": 17,
+    "archetype": "shell",
+    "text": "День 17 для Панцирь: Текст свитка номер 17."
+  },
+  {
+    "day_number": 17,
+    "archetype": "whirlwind",
+    "text": "День 17 для Вихрь: Текст свитка номер 17."
+  },
+  {
+    "day_number": 17,
+    "archetype": "ghost",
+    "text": "День 17 для Призрак: Текст свитка номер 17."
+  },
+  {
+    "day_number": 18,
+    "archetype": "head",
+    "text": "День 18 для Голова: Текст свитка номер 18."
+  },
+  {
+    "day_number": 18,
+    "archetype": "shell",
+    "text": "День 18 для Панцирь: Текст свитка номер 18."
+  },
+  {
+    "day_number": 18,
+    "archetype": "whirlwind",
+    "text": "День 18 для Вихрь: Текст свитка номер 18."
+  },
+  {
+    "day_number": 18,
+    "archetype": "ghost",
+    "text": "День 18 для Призрак: Текст свитка номер 18."
+  },
+  {
+    "day_number": 19,
+    "archetype": "head",
+    "text": "День 19 для Голова: Текст свитка номер 19."
+  },
+  {
+    "day_number": 19,
+    "archetype": "shell",
+    "text": "День 19 для Панцирь: Текст свитка номер 19."
+  },
+  {
+    "day_number": 19,
+    "archetype": "whirlwind",
+    "text": "День 19 для Вихрь: Текст свитка номер 19."
+  },
+  {
+    "day_number": 19,
+    "archetype": "ghost",
+    "text": "День 19 для Призрак: Текст свитка номер 19."
+  },
+  {
+    "day_number": 20,
+    "archetype": "head",
+    "text": "День 20 для Голова: Текст свитка номер 20."
+  },
+  {
+    "day_number": 20,
+    "archetype": "shell",
+    "text": "День 20 для Панцирь: Текст свитка номер 20."
+  },
+  {
+    "day_number": 20,
+    "archetype": "whirlwind",
+    "text": "День 20 для Вихрь: Текст свитка номер 20."
+  },
+  {
+    "day_number": 20,
+    "archetype": "ghost",
+    "text": "День 20 для Призрак: Текст свитка номер 20."
+  },
+  {
+    "day_number": 21,
+    "archetype": "head",
+    "text": "День 21 для Голова: Текст свитка номер 21."
+  },
+  {
+    "day_number": 21,
+    "archetype": "shell",
+    "text": "День 21 для Панцирь: Текст свитка номер 21."
+  },
+  {
+    "day_number": 21,
+    "archetype": "whirlwind",
+    "text": "День 21 для Вихрь: Текст свитка номер 21."
+  },
+  {
+    "day_number": 21,
+    "archetype": "ghost",
+    "text": "День 21 для Призрак: Текст свитка номер 21."
+  },
+  {
+    "day_number": 22,
+    "archetype": "head",
+    "text": "День 22 для Голова: Текст свитка номер 22."
+  },
+  {
+    "day_number": 22,
+    "archetype": "shell",
+    "text": "День 22 для Панцирь: Текст свитка номер 22."
+  },
+  {
+    "day_number": 22,
+    "archetype": "whirlwind",
+    "text": "День 22 для Вихрь: Текст свитка номер 22."
+  },
+  {
+    "day_number": 22,
+    "archetype": "ghost",
+    "text": "День 22 для Призрак: Текст свитка номер 22."
+  },
+  {
+    "day_number": 23,
+    "archetype": "head",
+    "text": "День 23 для Голова: Текст свитка номер 23."
+  },
+  {
+    "day_number": 23,
+    "archetype": "shell",
+    "text": "День 23 для Панцирь: Текст свитка номер 23."
+  },
+  {
+    "day_number": 23,
+    "archetype": "whirlwind",
+    "text": "День 23 для Вихрь: Текст свитка номер 23."
+  },
+  {
+    "day_number": 23,
+    "archetype": "ghost",
+    "text": "День 23 для Призрак: Текст свитка номер 23."
+  },
+  {
+    "day_number": 24,
+    "archetype": "head",
+    "text": "День 24 для Голова: Текст свитка номер 24."
+  },
+  {
+    "day_number": 24,
+    "archetype": "shell",
+    "text": "День 24 для Панцирь: Текст свитка номер 24."
+  },
+  {
+    "day_number": 24,
+    "archetype": "whirlwind",
+    "text": "День 24 для Вихрь: Текст свитка номер 24."
+  },
+  {
+    "day_number": 24,
+    "archetype": "ghost",
+    "text": "День 24 для Призрак: Текст свитка номер 24."
+  },
+  {
+    "day_number": 25,
+    "archetype": "head",
+    "text": "День 25 для Голова: Текст свитка номер 25."
+  },
+  {
+    "day_number": 25,
+    "archetype": "shell",
+    "text": "День 25 для Панцирь: Текст свитка номер 25."
+  },
+  {
+    "day_number": 25,
+    "archetype": "whirlwind",
+    "text": "День 25 для Вихрь: Текст свитка номер 25."
+  },
+  {
+    "day_number": 25,
+    "archetype": "ghost",
+    "text": "День 25 для Призрак: Текст свитка номер 25."
+  },
+  {
+    "day_number": 26,
+    "archetype": "head",
+    "text": "День 26 для Голова: Текст свитка номер 26."
+  },
+  {
+    "day_number": 26,
+    "archetype": "shell",
+    "text": "День 26 для Панцирь: Текст свитка номер 26."
+  },
+  {
+    "day_number": 26,
+    "archetype": "whirlwind",
+    "text": "День 26 для Вихрь: Текст свитка номер 26."
+  },
+  {
+    "day_number": 26,
+    "archetype": "ghost",
+    "text": "День 26 для Призрак: Текст свитка номер 26."
+  },
+  {
+    "day_number": 27,
+    "archetype": "head",
+    "text": "День 27 для Голова: Текст свитка номер 27."
+  },
+  {
+    "day_number": 27,
+    "archetype": "shell",
+    "text": "День 27 для Панцирь: Текст свитка номер 27."
+  },
+  {
+    "day_number": 27,
+    "archetype": "whirlwind",
+    "text": "День 27 для Вихрь: Текст свитка номер 27."
+  },
+  {
+    "day_number": 27,
+    "archetype": "ghost",
+    "text": "День 27 для Призрак: Текст свитка номер 27."
+  },
+  {
+    "day_number": 28,
+    "archetype": "head",
+    "text": "День 28 для Голова: Текст свитка номер 28."
+  },
+  {
+    "day_number": 28,
+    "archetype": "shell",
+    "text": "День 28 для Панцирь: Текст свитка номер 28."
+  },
+  {
+    "day_number": 28,
+    "archetype": "whirlwind",
+    "text": "День 28 для Вихрь: Текст свитка номер 28."
+  },
+  {
+    "day_number": 28,
+    "archetype": "ghost",
+    "text": "День 28 для Призрак: Текст свитка номер 28."
+  },
+  {
+    "day_number": 29,
+    "archetype": "head",
+    "text": "День 29 для Голова: Текст свитка номер 29."
+  },
+  {
+    "day_number": 29,
+    "archetype": "shell",
+    "text": "День 29 для Панцирь: Текст свитка номер 29."
+  },
+  {
+    "day_number": 29,
+    "archetype": "whirlwind",
+    "text": "День 29 для Вихрь: Текст свитка номер 29."
+  },
+  {
+    "day_number": 29,
+    "archetype": "ghost",
+    "text": "День 29 для Призрак: Текст свитка номер 29."
+  },
+  {
+    "day_number": 30,
+    "archetype": "head",
+    "text": "День 30 для Голова: Текст свитка номер 30."
+  },
+  {
+    "day_number": 30,
+    "archetype": "shell",
+    "text": "День 30 для Панцирь: Текст свитка номер 30."
+  },
+  {
+    "day_number": 30,
+    "archetype": "whirlwind",
+    "text": "День 30 для Вихрь: Текст свитка номер 30."
+  },
+  {
+    "day_number": 30,
+    "archetype": "ghost",
+    "text": "День 30 для Призрак: Текст свитка номер 30."
+  },
+  {
+    "day_number": 31,
+    "archetype": "head",
+    "text": "День 31 для Голова: Текст свитка номер 31."
+  },
+  {
+    "day_number": 31,
+    "archetype": "shell",
+    "text": "День 31 для Панцирь: Текст свитка номер 31."
+  },
+  {
+    "day_number": 31,
+    "archetype": "whirlwind",
+    "text": "День 31 для Вихрь: Текст свитка номер 31."
+  },
+  {
+    "day_number": 31,
+    "archetype": "ghost",
+    "text": "День 31 для Призрак: Текст свитка номер 31."
+  },
+  {
+    "day_number": 32,
+    "archetype": "head",
+    "text": "День 32 для Голова: Текст свитка номер 32."
+  },
+  {
+    "day_number": 32,
+    "archetype": "shell",
+    "text": "День 32 для Панцирь: Текст свитка номер 32."
+  },
+  {
+    "day_number": 32,
+    "archetype": "whirlwind",
+    "text": "День 32 для Вихрь: Текст свитка номер 32."
+  },
+  {
+    "day_number": 32,
+    "archetype": "ghost",
+    "text": "День 32 для Призрак: Текст свитка номер 32."
+  },
+  {
+    "day_number": 33,
+    "archetype": "head",
+    "text": "День 33 для Голова: Текст свитка номер 33."
+  },
+  {
+    "day_number": 33,
+    "archetype": "shell",
+    "text": "День 33 для Панцирь: Текст свитка номер 33."
+  },
+  {
+    "day_number": 33,
+    "archetype": "whirlwind",
+    "text": "День 33 для Вихрь: Текст свитка номер 33."
+  },
+  {
+    "day_number": 33,
+    "archetype": "ghost",
+    "text": "День 33 для Призрак: Текст свитка номер 33."
+  },
+  {
+    "day_number": 34,
+    "archetype": "head",
+    "text": "День 34 для Голова: Текст свитка номер 34."
+  },
+  {
+    "day_number": 34,
+    "archetype": "shell",
+    "text": "День 34 для Панцирь: Текст свитка номер 34."
+  },
+  {
+    "day_number": 34,
+    "archetype": "whirlwind",
+    "text": "День 34 для Вихрь: Текст свитка номер 34."
+  },
+  {
+    "day_number": 34,
+    "archetype": "ghost",
+    "text": "День 34 для Призрак: Текст свитка номер 34."
+  },
+  {
+    "day_number": 35,
+    "archetype": "head",
+    "text": "День 35 для Голова: Текст свитка номер 35."
+  },
+  {
+    "day_number": 35,
+    "archetype": "shell",
+    "text": "День 35 для Панцирь: Текст свитка номер 35."
+  },
+  {
+    "day_number": 35,
+    "archetype": "whirlwind",
+    "text": "День 35 для Вихрь: Текст свитка номер 35."
+  },
+  {
+    "day_number": 35,
+    "archetype": "ghost",
+    "text": "День 35 для Призрак: Текст свитка номер 35."
+  },
+  {
+    "day_number": 36,
+    "archetype": "head",
+    "text": "День 36 для Голова: Текст свитка номер 36."
+  },
+  {
+    "day_number": 36,
+    "archetype": "shell",
+    "text": "День 36 для Панцирь: Текст свитка номер 36."
+  },
+  {
+    "day_number": 36,
+    "archetype": "whirlwind",
+    "text": "День 36 для Вихрь: Текст свитка номер 36."
+  },
+  {
+    "day_number": 36,
+    "archetype": "ghost",
+    "text": "День 36 для Призрак: Текст свитка номер 36."
+  },
+  {
+    "day_number": 37,
+    "archetype": "head",
+    "text": "День 37 для Голова: Текст свитка номер 37."
+  },
+  {
+    "day_number": 37,
+    "archetype": "shell",
+    "text": "День 37 для Панцирь: Текст свитка номер 37."
+  },
+  {
+    "day_number": 37,
+    "archetype": "whirlwind",
+    "text": "День 37 для Вихрь: Текст свитка номер 37."
+  },
+  {
+    "day_number": 37,
+    "archetype": "ghost",
+    "text": "День 37 для Призрак: Текст свитка номер 37."
+  },
+  {
+    "day_number": 38,
+    "archetype": "head",
+    "text": "День 38 для Голова: Текст свитка номер 38."
+  },
+  {
+    "day_number": 38,
+    "archetype": "shell",
+    "text": "День 38 для Панцирь: Текст свитка номер 38."
+  },
+  {
+    "day_number": 38,
+    "archetype": "whirlwind",
+    "text": "День 38 для Вихрь: Текст свитка номер 38."
+  },
+  {
+    "day_number": 38,
+    "archetype": "ghost",
+    "text": "День 38 для Призрак: Текст свитка номер 38."
+  },
+  {
+    "day_number": 39,
+    "archetype": "head",
+    "text": "День 39 для Голова: Текст свитка номер 39."
+  },
+  {
+    "day_number": 39,
+    "archetype": "shell",
+    "text": "День 39 для Панцирь: Текст свитка номер 39."
+  },
+  {
+    "day_number": 39,
+    "archetype": "whirlwind",
+    "text": "День 39 для Вихрь: Текст свитка номер 39."
+  },
+  {
+    "day_number": 39,
+    "archetype": "ghost",
+    "text": "День 39 для Призрак: Текст свитка номер 39."
+  },
+  {
+    "day_number": 40,
+    "archetype": "head",
+    "text": "День 40 для Голова: Текст свитка номер 40."
+  },
+  {
+    "day_number": 40,
+    "archetype": "shell",
+    "text": "День 40 для Панцирь: Текст свитка номер 40."
+  },
+  {
+    "day_number": 40,
+    "archetype": "whirlwind",
+    "text": "День 40 для Вихрь: Текст свитка номер 40."
+  },
+  {
+    "day_number": 40,
+    "archetype": "ghost",
+    "text": "День 40 для Призрак: Текст свитка номер 40."
+  },
+  {
+    "day_number": 41,
+    "archetype": "head",
+    "text": "День 41 для Голова: Текст свитка номер 41."
+  },
+  {
+    "day_number": 41,
+    "archetype": "shell",
+    "text": "День 41 для Панцирь: Текст свитка номер 41."
+  },
+  {
+    "day_number": 41,
+    "archetype": "whirlwind",
+    "text": "День 41 для Вихрь: Текст свитка номер 41."
+  },
+  {
+    "day_number": 41,
+    "archetype": "ghost",
+    "text": "День 41 для Призрак: Текст свитка номер 41."
+  },
+  {
+    "day_number": 42,
+    "archetype": "head",
+    "text": "День 42 для Голова: Текст свитка номер 42."
+  },
+  {
+    "day_number": 42,
+    "archetype": "shell",
+    "text": "День 42 для Панцирь: Текст свитка номер 42."
+  },
+  {
+    "day_number": 42,
+    "archetype": "whirlwind",
+    "text": "День 42 для Вихрь: Текст свитка номер 42."
+  },
+  {
+    "day_number": 42,
+    "archetype": "ghost",
+    "text": "День 42 для Призрак: Текст свитка номер 42."
+  },
+  {
+    "day_number": 43,
+    "archetype": "head",
+    "text": "День 43 для Голова: Текст свитка номер 43."
+  },
+  {
+    "day_number": 43,
+    "archetype": "shell",
+    "text": "День 43 для Панцирь: Текст свитка номер 43."
+  },
+  {
+    "day_number": 43,
+    "archetype": "whirlwind",
+    "text": "День 43 для Вихрь: Текст свитка номер 43."
+  },
+  {
+    "day_number": 43,
+    "archetype": "ghost",
+    "text": "День 43 для Призрак: Текст свитка номер 43."
+  },
+  {
+    "day_number": 44,
+    "archetype": "head",
+    "text": "День 44 для Голова: Текст свитка номер 44."
+  },
+  {
+    "day_number": 44,
+    "archetype": "shell",
+    "text": "День 44 для Панцирь: Текст свитка номер 44."
+  },
+  {
+    "day_number": 44,
+    "archetype": "whirlwind",
+    "text": "День 44 для Вихрь: Текст свитка номер 44."
+  },
+  {
+    "day_number": 44,
+    "archetype": "ghost",
+    "text": "День 44 для Призрак: Текст свитка номер 44."
+  },
+  {
+    "day_number": 45,
+    "archetype": "head",
+    "text": "День 45 для Голова: Текст свитка номер 45."
+  },
+  {
+    "day_number": 45,
+    "archetype": "shell",
+    "text": "День 45 для Панцирь: Текст свитка номер 45."
+  },
+  {
+    "day_number": 45,
+    "archetype": "whirlwind",
+    "text": "День 45 для Вихрь: Текст свитка номер 45."
+  },
+  {
+    "day_number": 45,
+    "archetype": "ghost",
+    "text": "День 45 для Призрак: Текст свитка номер 45."
+  },
+  {
+    "day_number": 46,
+    "archetype": "head",
+    "text": "День 46 для Голова: Текст свитка номер 46."
+  },
+  {
+    "day_number": 46,
+    "archetype": "shell",
+    "text": "День 46 для Панцирь: Текст свитка номер 46."
+  },
+  {
+    "day_number": 46,
+    "archetype": "whirlwind",
+    "text": "День 46 для Вихрь: Текст свитка номер 46."
+  },
+  {
+    "day_number": 46,
+    "archetype": "ghost",
+    "text": "День 46 для Призрак: Текст свитка номер 46."
+  },
+  {
+    "day_number": 47,
+    "archetype": "head",
+    "text": "День 47 для Голова: Текст свитка номер 47."
+  },
+  {
+    "day_number": 47,
+    "archetype": "shell",
+    "text": "День 47 для Панцирь: Текст свитка номер 47."
+  },
+  {
+    "day_number": 47,
+    "archetype": "whirlwind",
+    "text": "День 47 для Вихрь: Текст свитка номер 47."
+  },
+  {
+    "day_number": 47,
+    "archetype": "ghost",
+    "text": "День 47 для Призрак: Текст свитка номер 47."
+  },
+  {
+    "day_number": 48,
+    "archetype": "head",
+    "text": "День 48 для Голова: Текст свитка номер 48."
+  },
+  {
+    "day_number": 48,
+    "archetype": "shell",
+    "text": "День 48 для Панцирь: Текст свитка номер 48."
+  },
+  {
+    "day_number": 48,
+    "archetype": "whirlwind",
+    "text": "День 48 для Вихрь: Текст свитка номер 48."
+  },
+  {
+    "day_number": 48,
+    "archetype": "ghost",
+    "text": "День 48 для Призрак: Текст свитка номер 48."
+  },
+  {
+    "day_number": 49,
+    "archetype": "head",
+    "text": "День 49 для Голова: Текст свитка номер 49."
+  },
+  {
+    "day_number": 49,
+    "archetype": "shell",
+    "text": "День 49 для Панцирь: Текст свитка номер 49."
+  },
+  {
+    "day_number": 49,
+    "archetype": "whirlwind",
+    "text": "День 49 для Вихрь: Текст свитка номер 49."
+  },
+  {
+    "day_number": 49,
+    "archetype": "ghost",
+    "text": "День 49 для Призрак: Текст свитка номер 49."
+  },
+  {
+    "day_number": 50,
+    "archetype": "head",
+    "text": "День 50 для Голова: Текст свитка номер 50."
+  },
+  {
+    "day_number": 50,
+    "archetype": "shell",
+    "text": "День 50 для Панцирь: Текст свитка номер 50."
+  },
+  {
+    "day_number": 50,
+    "archetype": "whirlwind",
+    "text": "День 50 для Вихрь: Текст свитка номер 50."
+  },
+  {
+    "day_number": 50,
+    "archetype": "ghost",
+    "text": "День 50 для Призрак: Текст свитка номер 50."
+  },
+  {
+    "day_number": 51,
+    "archetype": "head",
+    "text": "День 51 для Голова: Текст свитка номер 51."
+  },
+  {
+    "day_number": 51,
+    "archetype": "shell",
+    "text": "День 51 для Панцирь: Текст свитка номер 51."
+  },
+  {
+    "day_number": 51,
+    "archetype": "whirlwind",
+    "text": "День 51 для Вихрь: Текст свитка номер 51."
+  },
+  {
+    "day_number": 51,
+    "archetype": "ghost",
+    "text": "День 51 для Призрак: Текст свитка номер 51."
+  },
+  {
+    "day_number": 52,
+    "archetype": "head",
+    "text": "День 52 для Голова: Текст свитка номер 52."
+  },
+  {
+    "day_number": 52,
+    "archetype": "shell",
+    "text": "День 52 для Панцирь: Текст свитка номер 52."
+  },
+  {
+    "day_number": 52,
+    "archetype": "whirlwind",
+    "text": "День 52 для Вихрь: Текст свитка номер 52."
+  },
+  {
+    "day_number": 52,
+    "archetype": "ghost",
+    "text": "День 52 для Призрак: Текст свитка номер 52."
+  },
+  {
+    "day_number": 53,
+    "archetype": "head",
+    "text": "День 53 для Голова: Текст свитка номер 53."
+  },
+  {
+    "day_number": 53,
+    "archetype": "shell",
+    "text": "День 53 для Панцирь: Текст свитка номер 53."
+  },
+  {
+    "day_number": 53,
+    "archetype": "whirlwind",
+    "text": "День 53 для Вихрь: Текст свитка номер 53."
+  },
+  {
+    "day_number": 53,
+    "archetype": "ghost",
+    "text": "День 53 для Призрак: Текст свитка номер 53."
+  },
+  {
+    "day_number": 54,
+    "archetype": "head",
+    "text": "День 54 для Голова: Текст свитка номер 54."
+  },
+  {
+    "day_number": 54,
+    "archetype": "shell",
+    "text": "День 54 для Панцирь: Текст свитка номер 54."
+  },
+  {
+    "day_number": 54,
+    "archetype": "whirlwind",
+    "text": "День 54 для Вихрь: Текст свитка номер 54."
+  },
+  {
+    "day_number": 54,
+    "archetype": "ghost",
+    "text": "День 54 для Призрак: Текст свитка номер 54."
+  },
+  {
+    "day_number": 55,
+    "archetype": "head",
+    "text": "День 55 для Голова: Текст свитка номер 55."
+  },
+  {
+    "day_number": 55,
+    "archetype": "shell",
+    "text": "День 55 для Панцирь: Текст свитка номер 55."
+  },
+  {
+    "day_number": 55,
+    "archetype": "whirlwind",
+    "text": "День 55 для Вихрь: Текст свитка номер 55."
+  },
+  {
+    "day_number": 55,
+    "archetype": "ghost",
+    "text": "День 55 для Призрак: Текст свитка номер 55."
+  },
+  {
+    "day_number": 56,
+    "archetype": "head",
+    "text": "День 56 для Голова: Текст свитка номер 56."
+  },
+  {
+    "day_number": 56,
+    "archetype": "shell",
+    "text": "День 56 для Панцирь: Текст свитка номер 56."
+  },
+  {
+    "day_number": 56,
+    "archetype": "whirlwind",
+    "text": "День 56 для Вихрь: Текст свитка номер 56."
+  },
+  {
+    "day_number": 56,
+    "archetype": "ghost",
+    "text": "День 56 для Призрак: Текст свитка номер 56."
+  },
+  {
+    "day_number": 57,
+    "archetype": "head",
+    "text": "День 57 для Голова: Текст свитка номер 57."
+  },
+  {
+    "day_number": 57,
+    "archetype": "shell",
+    "text": "День 57 для Панцирь: Текст свитка номер 57."
+  },
+  {
+    "day_number": 57,
+    "archetype": "whirlwind",
+    "text": "День 57 для Вихрь: Текст свитка номер 57."
+  },
+  {
+    "day_number": 57,
+    "archetype": "ghost",
+    "text": "День 57 для Призрак: Текст свитка номер 57."
+  },
+  {
+    "day_number": 58,
+    "archetype": "head",
+    "text": "День 58 для Голова: Текст свитка номер 58."
+  },
+  {
+    "day_number": 58,
+    "archetype": "shell",
+    "text": "День 58 для Панцирь: Текст свитка номер 58."
+  },
+  {
+    "day_number": 58,
+    "archetype": "whirlwind",
+    "text": "День 58 для Вихрь: Текст свитка номер 58."
+  },
+  {
+    "day_number": 58,
+    "archetype": "ghost",
+    "text": "День 58 для Призрак: Текст свитка номер 58."
+  },
+  {
+    "day_number": 59,
+    "archetype": "head",
+    "text": "День 59 для Голова: Текст свитка номер 59."
+  },
+  {
+    "day_number": 59,
+    "archetype": "shell",
+    "text": "День 59 для Панцирь: Текст свитка номер 59."
+  },
+  {
+    "day_number": 59,
+    "archetype": "whirlwind",
+    "text": "День 59 для Вихрь: Текст свитка номер 59."
+  },
+  {
+    "day_number": 59,
+    "archetype": "ghost",
+    "text": "День 59 для Призрак: Текст свитка номер 59."
+  },
+  {
+    "day_number": 60,
+    "archetype": "head",
+    "text": "День 60 для Голова: Текст свитка номер 60."
+  },
+  {
+    "day_number": 60,
+    "archetype": "shell",
+    "text": "День 60 для Панцирь: Текст свитка номер 60."
+  },
+  {
+    "day_number": 60,
+    "archetype": "whirlwind",
+    "text": "День 60 для Вихрь: Текст свитка номер 60."
+  },
+  {
+    "day_number": 60,
+    "archetype": "ghost",
+    "text": "День 60 для Призрак: Текст свитка номер 60."
+  },
+  {
+    "day_number": 61,
+    "archetype": "head",
+    "text": "День 61 для Голова: Текст свитка номер 61."
+  },
+  {
+    "day_number": 61,
+    "archetype": "shell",
+    "text": "День 61 для Панцирь: Текст свитка номер 61."
+  },
+  {
+    "day_number": 61,
+    "archetype": "whirlwind",
+    "text": "День 61 для Вихрь: Текст свитка номер 61."
+  },
+  {
+    "day_number": 61,
+    "archetype": "ghost",
+    "text": "День 61 для Призрак: Текст свитка номер 61."
+  },
+  {
+    "day_number": 62,
+    "archetype": "head",
+    "text": "День 62 для Голова: Текст свитка номер 62."
+  },
+  {
+    "day_number": 62,
+    "archetype": "shell",
+    "text": "День 62 для Панцирь: Текст свитка номер 62."
+  },
+  {
+    "day_number": 62,
+    "archetype": "whirlwind",
+    "text": "День 62 для Вихрь: Текст свитка номер 62."
+  },
+  {
+    "day_number": 62,
+    "archetype": "ghost",
+    "text": "День 62 для Призрак: Текст свитка номер 62."
+  },
+  {
+    "day_number": 63,
+    "archetype": "head",
+    "text": "День 63 для Голова: Текст свитка номер 63."
+  },
+  {
+    "day_number": 63,
+    "archetype": "shell",
+    "text": "День 63 для Панцирь: Текст свитка номер 63."
+  },
+  {
+    "day_number": 63,
+    "archetype": "whirlwind",
+    "text": "День 63 для Вихрь: Текст свитка номер 63."
+  },
+  {
+    "day_number": 63,
+    "archetype": "ghost",
+    "text": "День 63 для Призрак: Текст свитка номер 63."
+  },
+  {
+    "day_number": 64,
+    "archetype": "head",
+    "text": "День 64 для Голова: Текст свитка номер 64."
+  },
+  {
+    "day_number": 64,
+    "archetype": "shell",
+    "text": "День 64 для Панцирь: Текст свитка номер 64."
+  },
+  {
+    "day_number": 64,
+    "archetype": "whirlwind",
+    "text": "День 64 для Вихрь: Текст свитка номер 64."
+  },
+  {
+    "day_number": 64,
+    "archetype": "ghost",
+    "text": "День 64 для Призрак: Текст свитка номер 64."
+  },
+  {
+    "day_number": 65,
+    "archetype": "head",
+    "text": "День 65 для Голова: Текст свитка номер 65."
+  },
+  {
+    "day_number": 65,
+    "archetype": "shell",
+    "text": "День 65 для Панцирь: Текст свитка номер 65."
+  },
+  {
+    "day_number": 65,
+    "archetype": "whirlwind",
+    "text": "День 65 для Вихрь: Текст свитка номер 65."
+  },
+  {
+    "day_number": 65,
+    "archetype": "ghost",
+    "text": "День 65 для Призрак: Текст свитка номер 65."
+  },
+  {
+    "day_number": 66,
+    "archetype": "head",
+    "text": "День 66 для Голова: Текст свитка номер 66."
+  },
+  {
+    "day_number": 66,
+    "archetype": "shell",
+    "text": "День 66 для Панцирь: Текст свитка номер 66."
+  },
+  {
+    "day_number": 66,
+    "archetype": "whirlwind",
+    "text": "День 66 для Вихрь: Текст свитка номер 66."
+  },
+  {
+    "day_number": 66,
+    "archetype": "ghost",
+    "text": "День 66 для Призрак: Текст свитка номер 66."
+  },
+  {
+    "day_number": 67,
+    "archetype": "head",
+    "text": "День 67 для Голова: Текст свитка номер 67."
+  },
+  {
+    "day_number": 67,
+    "archetype": "shell",
+    "text": "День 67 для Панцирь: Текст свитка номер 67."
+  },
+  {
+    "day_number": 67,
+    "archetype": "whirlwind",
+    "text": "День 67 для Вихрь: Текст свитка номер 67."
+  },
+  {
+    "day_number": 67,
+    "archetype": "ghost",
+    "text": "День 67 для Призрак: Текст свитка номер 67."
+  },
+  {
+    "day_number": 68,
+    "archetype": "head",
+    "text": "День 68 для Голова: Текст свитка номер 68."
+  },
+  {
+    "day_number": 68,
+    "archetype": "shell",
+    "text": "День 68 для Панцирь: Текст свитка номер 68."
+  },
+  {
+    "day_number": 68,
+    "archetype": "whirlwind",
+    "text": "День 68 для Вихрь: Текст свитка номер 68."
+  },
+  {
+    "day_number": 68,
+    "archetype": "ghost",
+    "text": "День 68 для Призрак: Текст свитка номер 68."
+  },
+  {
+    "day_number": 69,
+    "archetype": "head",
+    "text": "День 69 для Голова: Текст свитка номер 69."
+  },
+  {
+    "day_number": 69,
+    "archetype": "shell",
+    "text": "День 69 для Панцирь: Текст свитка номер 69."
+  },
+  {
+    "day_number": 69,
+    "archetype": "whirlwind",
+    "text": "День 69 для Вихрь: Текст свитка номер 69."
+  },
+  {
+    "day_number": 69,
+    "archetype": "ghost",
+    "text": "День 69 для Призрак: Текст свитка номер 69."
+  },
+  {
+    "day_number": 70,
+    "archetype": "head",
+    "text": "День 70 для Голова: Текст свитка номер 70."
+  },
+  {
+    "day_number": 70,
+    "archetype": "shell",
+    "text": "День 70 для Панцирь: Текст свитка номер 70."
+  },
+  {
+    "day_number": 70,
+    "archetype": "whirlwind",
+    "text": "День 70 для Вихрь: Текст свитка номер 70."
+  },
+  {
+    "day_number": 70,
+    "archetype": "ghost",
+    "text": "День 70 для Призрак: Текст свитка номер 70."
+  },
+  {
+    "day_number": 71,
+    "archetype": "head",
+    "text": "День 71 для Голова: Текст свитка номер 71."
+  },
+  {
+    "day_number": 71,
+    "archetype": "shell",
+    "text": "День 71 для Панцирь: Текст свитка номер 71."
+  },
+  {
+    "day_number": 71,
+    "archetype": "whirlwind",
+    "text": "День 71 для Вихрь: Текст свитка номер 71."
+  },
+  {
+    "day_number": 71,
+    "archetype": "ghost",
+    "text": "День 71 для Призрак: Текст свитка номер 71."
+  },
+  {
+    "day_number": 72,
+    "archetype": "head",
+    "text": "День 72 для Голова: Текст свитка номер 72."
+  },
+  {
+    "day_number": 72,
+    "archetype": "shell",
+    "text": "День 72 для Панцирь: Текст свитка номер 72."
+  },
+  {
+    "day_number": 72,
+    "archetype": "whirlwind",
+    "text": "День 72 для Вихрь: Текст свитка номер 72."
+  },
+  {
+    "day_number": 72,
+    "archetype": "ghost",
+    "text": "День 72 для Призрак: Текст свитка номер 72."
+  },
+  {
+    "day_number": 73,
+    "archetype": "head",
+    "text": "День 73 для Голова: Текст свитка номер 73."
+  },
+  {
+    "day_number": 73,
+    "archetype": "shell",
+    "text": "День 73 для Панцирь: Текст свитка номер 73."
+  },
+  {
+    "day_number": 73,
+    "archetype": "whirlwind",
+    "text": "День 73 для Вихрь: Текст свитка номер 73."
+  },
+  {
+    "day_number": 73,
+    "archetype": "ghost",
+    "text": "День 73 для Призрак: Текст свитка номер 73."
+  },
+  {
+    "day_number": 74,
+    "archetype": "head",
+    "text": "День 74 для Голова: Текст свитка номер 74."
+  },
+  {
+    "day_number": 74,
+    "archetype": "shell",
+    "text": "День 74 для Панцирь: Текст свитка номер 74."
+  },
+  {
+    "day_number": 74,
+    "archetype": "whirlwind",
+    "text": "День 74 для Вихрь: Текст свитка номер 74."
+  },
+  {
+    "day_number": 74,
+    "archetype": "ghost",
+    "text": "День 74 для Призрак: Текст свитка номер 74."
+  },
+  {
+    "day_number": 75,
+    "archetype": "head",
+    "text": "День 75 для Голова: Текст свитка номер 75."
+  },
+  {
+    "day_number": 75,
+    "archetype": "shell",
+    "text": "День 75 для Панцирь: Текст свитка номер 75."
+  },
+  {
+    "day_number": 75,
+    "archetype": "whirlwind",
+    "text": "День 75 для Вихрь: Текст свитка номер 75."
+  },
+  {
+    "day_number": 75,
+    "archetype": "ghost",
+    "text": "День 75 для Призрак: Текст свитка номер 75."
+  },
+  {
+    "day_number": 76,
+    "archetype": "head",
+    "text": "День 76 для Голова: Текст свитка номер 76."
+  },
+  {
+    "day_number": 76,
+    "archetype": "shell",
+    "text": "День 76 для Панцирь: Текст свитка номер 76."
+  },
+  {
+    "day_number": 76,
+    "archetype": "whirlwind",
+    "text": "День 76 для Вихрь: Текст свитка номер 76."
+  },
+  {
+    "day_number": 76,
+    "archetype": "ghost",
+    "text": "День 76 для Призрак: Текст свитка номер 76."
+  },
+  {
+    "day_number": 77,
+    "archetype": "head",
+    "text": "День 77 для Голова: Текст свитка номер 77."
+  },
+  {
+    "day_number": 77,
+    "archetype": "shell",
+    "text": "День 77 для Панцирь: Текст свитка номер 77."
+  },
+  {
+    "day_number": 77,
+    "archetype": "whirlwind",
+    "text": "День 77 для Вихрь: Текст свитка номер 77."
+  },
+  {
+    "day_number": 77,
+    "archetype": "ghost",
+    "text": "День 77 для Призрак: Текст свитка номер 77."
+  },
+  {
+    "day_number": 78,
+    "archetype": "head",
+    "text": "День 78 для Голова: Текст свитка номер 78."
+  },
+  {
+    "day_number": 78,
+    "archetype": "shell",
+    "text": "День 78 для Панцирь: Текст свитка номер 78."
+  },
+  {
+    "day_number": 78,
+    "archetype": "whirlwind",
+    "text": "День 78 для Вихрь: Текст свитка номер 78."
+  },
+  {
+    "day_number": 78,
+    "archetype": "ghost",
+    "text": "День 78 для Призрак: Текст свитка номер 78."
+  },
+  {
+    "day_number": 79,
+    "archetype": "head",
+    "text": "День 79 для Голова: Текст свитка номер 79."
+  },
+  {
+    "day_number": 79,
+    "archetype": "shell",
+    "text": "День 79 для Панцирь: Текст свитка номер 79."
+  },
+  {
+    "day_number": 79,
+    "archetype": "whirlwind",
+    "text": "День 79 для Вихрь: Текст свитка номер 79."
+  },
+  {
+    "day_number": 79,
+    "archetype": "ghost",
+    "text": "День 79 для Призрак: Текст свитка номер 79."
+  },
+  {
+    "day_number": 80,
+    "archetype": "head",
+    "text": "День 80 для Голова: Текст свитка номер 80."
+  },
+  {
+    "day_number": 80,
+    "archetype": "shell",
+    "text": "День 80 для Панцирь: Текст свитка номер 80."
+  },
+  {
+    "day_number": 80,
+    "archetype": "whirlwind",
+    "text": "День 80 для Вихрь: Текст свитка номер 80."
+  },
+  {
+    "day_number": 80,
+    "archetype": "ghost",
+    "text": "День 80 для Призрак: Текст свитка номер 80."
+  },
+  {
+    "day_number": 81,
+    "archetype": "head",
+    "text": "День 81 для Голова: Текст свитка номер 81."
+  },
+  {
+    "day_number": 81,
+    "archetype": "shell",
+    "text": "День 81 для Панцирь: Текст свитка номер 81."
+  },
+  {
+    "day_number": 81,
+    "archetype": "whirlwind",
+    "text": "День 81 для Вихрь: Текст свитка номер 81."
+  },
+  {
+    "day_number": 81,
+    "archetype": "ghost",
+    "text": "День 81 для Призрак: Текст свитка номер 81."
+  },
+  {
+    "day_number": 82,
+    "archetype": "head",
+    "text": "День 82 для Голова: Текст свитка номер 82."
+  },
+  {
+    "day_number": 82,
+    "archetype": "shell",
+    "text": "День 82 для Панцирь: Текст свитка номер 82."
+  },
+  {
+    "day_number": 82,
+    "archetype": "whirlwind",
+    "text": "День 82 для Вихрь: Текст свитка номер 82."
+  },
+  {
+    "day_number": 82,
+    "archetype": "ghost",
+    "text": "День 82 для Призрак: Текст свитка номер 82."
+  },
+  {
+    "day_number": 83,
+    "archetype": "head",
+    "text": "День 83 для Голова: Текст свитка номер 83."
+  },
+  {
+    "day_number": 83,
+    "archetype": "shell",
+    "text": "День 83 для Панцирь: Текст свитка номер 83."
+  },
+  {
+    "day_number": 83,
+    "archetype": "whirlwind",
+    "text": "День 83 для Вихрь: Текст свитка номер 83."
+  },
+  {
+    "day_number": 83,
+    "archetype": "ghost",
+    "text": "День 83 для Призрак: Текст свитка номер 83."
+  },
+  {
+    "day_number": 84,
+    "archetype": "head",
+    "text": "День 84 для Голова: Текст свитка номер 84."
+  },
+  {
+    "day_number": 84,
+    "archetype": "shell",
+    "text": "День 84 для Панцирь: Текст свитка номер 84."
+  },
+  {
+    "day_number": 84,
+    "archetype": "whirlwind",
+    "text": "День 84 для Вихрь: Текст свитка номер 84."
+  },
+  {
+    "day_number": 84,
+    "archetype": "ghost",
+    "text": "День 84 для Призрак: Текст свитка номер 84."
+  },
+  {
+    "day_number": 85,
+    "archetype": "head",
+    "text": "День 85 для Голова: Текст свитка номер 85."
+  },
+  {
+    "day_number": 85,
+    "archetype": "shell",
+    "text": "День 85 для Панцирь: Текст свитка номер 85."
+  },
+  {
+    "day_number": 85,
+    "archetype": "whirlwind",
+    "text": "День 85 для Вихрь: Текст свитка номер 85."
+  },
+  {
+    "day_number": 85,
+    "archetype": "ghost",
+    "text": "День 85 для Призрак: Текст свитка номер 85."
+  },
+  {
+    "day_number": 86,
+    "archetype": "head",
+    "text": "День 86 для Голова: Текст свитка номер 86."
+  },
+  {
+    "day_number": 86,
+    "archetype": "shell",
+    "text": "День 86 для Панцирь: Текст свитка номер 86."
+  },
+  {
+    "day_number": 86,
+    "archetype": "whirlwind",
+    "text": "День 86 для Вихрь: Текст свитка номер 86."
+  },
+  {
+    "day_number": 86,
+    "archetype": "ghost",
+    "text": "День 86 для Призрак: Текст свитка номер 86."
+  },
+  {
+    "day_number": 87,
+    "archetype": "head",
+    "text": "День 87 для Голова: Текст свитка номер 87."
+  },
+  {
+    "day_number": 87,
+    "archetype": "shell",
+    "text": "День 87 для Панцирь: Текст свитка номер 87."
+  },
+  {
+    "day_number": 87,
+    "archetype": "whirlwind",
+    "text": "День 87 для Вихрь: Текст свитка номер 87."
+  },
+  {
+    "day_number": 87,
+    "archetype": "ghost",
+    "text": "День 87 для Призрак: Текст свитка номер 87."
+  },
+  {
+    "day_number": 88,
+    "archetype": "head",
+    "text": "День 88 для Голова: Текст свитка номер 88."
+  },
+  {
+    "day_number": 88,
+    "archetype": "shell",
+    "text": "День 88 для Панцирь: Текст свитка номер 88."
+  },
+  {
+    "day_number": 88,
+    "archetype": "whirlwind",
+    "text": "День 88 для Вихрь: Текст свитка номер 88."
+  },
+  {
+    "day_number": 88,
+    "archetype": "ghost",
+    "text": "День 88 для Призрак: Текст свитка номер 88."
+  },
+  {
+    "day_number": 89,
+    "archetype": "head",
+    "text": "День 89 для Голова: Текст свитка номер 89."
+  },
+  {
+    "day_number": 89,
+    "archetype": "shell",
+    "text": "День 89 для Панцирь: Текст свитка номер 89."
+  },
+  {
+    "day_number": 89,
+    "archetype": "whirlwind",
+    "text": "День 89 для Вихрь: Текст свитка номер 89."
+  },
+  {
+    "day_number": 89,
+    "archetype": "ghost",
+    "text": "День 89 для Призрак: Текст свитка номер 89."
+  },
+  {
+    "day_number": 90,
+    "archetype": "head",
+    "text": "День 90 для Голова: Текст свитка номер 90."
+  },
+  {
+    "day_number": 90,
+    "archetype": "shell",
+    "text": "День 90 для Панцирь: Текст свитка номер 90."
+  },
+  {
+    "day_number": 90,
+    "archetype": "whirlwind",
+    "text": "День 90 для Вихрь: Текст свитка номер 90."
+  },
+  {
+    "day_number": 90,
+    "archetype": "ghost",
+    "text": "День 90 для Призрак: Текст свитка номер 90."
+  }
+]
