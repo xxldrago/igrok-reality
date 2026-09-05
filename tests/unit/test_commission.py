@@ -72,9 +72,15 @@ async def test_calculate_commission_succeeded_with_mentor(
         elif call_count == 2:
             # User lookup
             result.scalar_one_or_none.return_value = user
-        else:
+        elif call_count == 3:
+            # Payment count query (first succeeded)
+            result.scalar_one.return_value = 1
+        elif call_count == 4:
             # Mentor lookup
             result.scalar_one_or_none.return_value = mentor
+        else:
+            # Balance lookup — no existing balance
+            result.scalar_one_or_none.return_value = None
         return result
 
     mock_session.execute = AsyncMock(side_effect=side_effect)
