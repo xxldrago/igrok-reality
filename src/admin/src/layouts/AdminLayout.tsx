@@ -12,18 +12,22 @@ import { useAuth } from '../contexts/AuthContext'
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
 
-const menuItems = [
-  { key: '/admin/users', icon: <UserOutlined />, label: 'Пользователи' },
-  { key: '/admin/scrolls', icon: <BookOutlined />, label: 'Свитки' },
-  { key: '/admin/payments', icon: <DollarOutlined />, label: 'Платежи' },
-  { key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' },
-  { key: '/admin/audit', icon: <AuditOutlined />, label: 'Аудит' },
-]
-
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
+
+  const menuItems = [
+    { key: '/admin/users', icon: <UserOutlined />, label: 'Пользователи' },
+    { key: '/admin/scrolls', icon: <BookOutlined />, label: 'Свитки' },
+    { key: '/admin/payments', icon: <DollarOutlined />, label: 'Платежи' },
+    ...(user?.role === 'master'
+      ? [{ key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' }]
+      : []),
+    ...(user?.role === 'master' || user?.role === 'leader'
+      ? [{ key: '/admin/audit', icon: <AuditOutlined />, label: 'Аудит' }]
+      : []),
+  ]
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
