@@ -76,12 +76,12 @@ Plans:
   3. Streak calculation respects user's local timezone
   4. Leaderboard shows ranked users by XP/streak
   5. Leaderboard updates in real-time after completions
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Button callback handler, XP award logic
-- [ ] 04-02: Streak tracking with timezone-aware calculations
-- [ ] 04-03: Leaderboard with real-time updates
+- [ ] 04-01-PLAN.md — Progress service layer, completion callback wiring, XP awards, leaderboard Redis write (Wave 1)
+- [ ] 04-02-PLAN.md — Streak tracking with timezone-aware calculations (Wave 2)
+- [ ] 04-03-PLAN.md — Leaderboard display, /progress and /leaderboard commands (Wave 2)
 
 ### Phase 5: Payments & Access
 **Goal**: Users can purchase channel access via Platega.io
