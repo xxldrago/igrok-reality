@@ -95,6 +95,7 @@ async def test_webhook_invalid_secret(mock_settings: MagicMock) -> None:
 
 
 @pytest.mark.asyncio
+@patch("app.api.webhooks.calculate_commission", new_callable=AsyncMock)
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
 @patch("app.api.webhooks.grant_access", new_callable=AsyncMock)
 @patch("app.api.webhooks.Bot")
@@ -108,6 +109,7 @@ async def test_webhook_confirmed(
     mock_bot_cls: MagicMock,
     mock_grant_access: AsyncMock,
     mock_notify: AsyncMock,
+    mock_calculate_commission: AsyncMock,
 ) -> None:
     """CONFIRMED status updates payment to 'succeeded' and sends success message."""
     mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
@@ -141,6 +143,13 @@ async def test_webhook_confirmed(
 
     mock_session.execute = AsyncMock(side_effect=side_effect)
 
+    # Commission returns no mentor (no commission notification)
+    mock_calculate_commission.return_value = {
+        "amount": 0,
+        "mentor_id": None,
+        "mentor_telegram_id": None,
+    }
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
@@ -161,6 +170,7 @@ async def test_webhook_confirmed(
     mock_notify.assert_awaited_once_with(
         99999, "Оплата прошла успешно! Доступ в канал открыт."
     )
+    mock_calculate_commission.assert_awaited_once_with(payment.id)
 
 
 @pytest.mark.asyncio
