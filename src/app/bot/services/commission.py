@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 
 from app.shared.config import settings
 from app.shared.database import session_factory
+from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
 from app.shared.models.payment import Payment
 from app.shared.models.user import User
@@ -119,4 +120,73 @@ async def calculate_commission(payment_id: UUID) -> dict:
         "amount": commission,
         "mentor_id": str(mentor.id),
         "mentor_telegram_id": mentor.telegram_id,
+    }
+
+
+async def process_payout(user_id: UUID, amount: int, admin_id: UUID | None = None) -> dict:
+    """Process a manual commission payout for a mentor.
+
+    Atomically deducts from pending balance, adds to paid_out, and creates
+    an AuditLog entry.
+
+    Returns:
+        {"success": True, "amount": int, "new_pending": int, "new_paid_out": int}
+        or {"success": False, "error": str, ...}
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(CommissionBalance).where(CommissionBalance.user_id == user_id)
+        )
+        balance = result.scalar_one_or_none()
+
+        if balance is None:
+            return {"success": False, "error": "No commission balance found"}
+
+        if balance.total_pending < amount:
+            return {
+                "success": False,
+                "error": "Insufficient balance",
+                "pending": balance.total_pending,
+            }
+
+        balance.total_pending -= amount
+        balance.total_paid_out += amount
+
+        audit = AuditLog(
+            admin_id=admin_id,
+            action="commission_payout",
+            details=f"user_id={user_id}, amount={amount}",
+        )
+        session.add(audit)
+
+        await session.commit()
+
+    return {
+        "success": True,
+        "amount": amount,
+        "new_pending": balance.total_pending,
+        "new_paid_out": balance.total_paid_out,
+    }
+
+
+async def get_commission_balance(user_id: UUID) -> dict | None:
+    """Query commission balance for a user.
+
+    Returns balance dict with earned/pending/paid_out fields, or None if
+    no balance record exists.
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(CommissionBalance).where(CommissionBalance.user_id == user_id)
+        )
+        b = result.scalar_one_or_none()
+
+    if b is None:
+        return None
+
+    return {
+        "total_earned": b.total_earned,
+        "total_pending": b.total_pending,
+        "total_paid_out": b.total_paid_out,
+        "last_commission_at": b.last_commission_at,
     }
