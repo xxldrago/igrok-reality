@@ -11,12 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.auth import auth_router
+from app.api.auth import auth_router, tma_auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.admin import admin_router
 from app.api.webhooks import router as webhook_router
 
 ADMIN_DIST = Path("src/admin/dist")
+TMA_DIST = Path("src/tma/dist")
 
 
 @asynccontextmanager
@@ -46,7 +47,23 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(webhook_router)
 app.include_router(auth_router)
+app.include_router(tma_auth_router)
 app.include_router(admin_router)
+
+
+# SPA catch-all — serve index.html for all /app/* routes (TMA)
+@app.get("/app/{full_path:path}")
+async def serve_tma(full_path: str) -> FileResponse:
+    """Serve the TMA SPA for any route under /app/."""
+    index = TMA_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return FileResponse(TMA_DIST / "index.html", status_code=404)
+
+
+# Mount TMA static files AFTER the catch-all route
+if TMA_DIST.exists():
+    app.mount("/app/assets", StaticFiles(directory=str(TMA_DIST / "assets")), name="tma-assets")
 
 
 # SPA catch-all — serve index.html for all /admin/* routes
