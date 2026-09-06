@@ -141,6 +141,24 @@ Plans:
 - [x] 07-03-PLAN.md — Scroll CRUD, payment list and details (Wave 2)
 - [x] 07-04-PLAN.md — Settings, audit log, role-based access (Wave 3)
 
+### Phase 8: Telegram Mini App Admin Panel
+**Goal**: Admin can manage the platform from inside Telegram via Mini App
+**Depends on**: Phase 7
+**Requirements**: ADM-01, ADM-02, ADM-03, ADM-04, ADM-05, ADM-06, ADM-07, ADM-08
+**Success Criteria** (what must be TRUE):
+  1. Admin can open admin panel inside Telegram via /admin command
+  2. Telegram initData authentication works (HMAC validation)
+  3. Admin panel renders correctly in Telegram WebView (mobile-optimized)
+  4. Web admin panel at /admin/ still works unchanged
+  5. All admin operations (users, scrolls, payments, settings, audit) work in TMA
+  6. Role-based access control works in TMA (master, leader, curator)
+**Plans**: 3 plans
+
+Plans:
+- [x] 08-01-PLAN.md — Backend: role column, Telegram auth, TMA API, static serving (Wave 1)
+- [x] 08-02-PLAN.md — Frontend: TMA React app with Telegram auth, mobile layout (Wave 2)
+- [x] 08-03-PLAN.md — Bot: /admin command with WebAppInfo button, deep links (Wave 2)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -152,11 +170,14 @@ Plans:
 | 5. Payments & Access | 4/4 | Complete | 2026-09-05 |
 | 6. Referrals & Commission | 3/3 | Complete | 2026-09-05 |
 | 7. Admin Panel | 4/4 | Complete | 2026-09-06 |
+| 8. Telegram Mini App | 3/3 | Complete | 2026-09-06 |
+| 8. Telegram Mini App | 0/3 | Pending | — |
 
 ## Parallel-Safe Opportunities
 
 - **Phase 6 (Referrals) and Phase 5 (Payments)** can be partially parallelized: referral link generation (REF-01, REF-02) can begin while payment integration is in progress, but commission calculation (REF-03 through REF-07) depends on payment completion.
 - **Phase 7 (Admin Panel)** frontend can be started in parallel with Phase 5 backend work — React app scaffolding and auth don't depend on payment logic.
+- **Phase 8 (TMA)** Plans 08-02 (frontend) and 08-03 (bot) can run in parallel in Wave 2 after Plan 08-01 (backend) completes.
 
 ## Coverage
 
@@ -209,5 +230,13 @@ Plans:
 | ADM-06 | Phase 7 | Complete |
 | ADM-07 | Phase 7 | Complete |
 | ADM-08 | Phase 7 | Complete |
+| ADM-01 | Phase 8 | Pending |
+| ADM-02 | Phase 8 | Pending |
+| ADM-03 | Phase 8 | Pending |
+| ADM-04 | Phase 8 | Pending |
+| ADM-05 | Phase 8 | Pending |
+| ADM-06 | Phase 8 | Pending |
+| ADM-07 | Phase 8 | Pending |
+| ADM-08 | Phase 8 | Pending |
 
-**Total:** 47/47 requirements mapped ✓
+**Total:** 55/55 requirements mapped ✓
