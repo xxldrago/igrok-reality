@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
+import urllib.parse
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +17,7 @@ from pydantic import BaseModel
 from app.shared.config import settings
 
 auth_router = APIRouter(prefix="/api/admin/auth", tags=["admin-auth"])
+tma_auth_router = APIRouter(prefix="/api/tma", tags=["tma-auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/auth/login")
 
@@ -105,3 +111,117 @@ async def me(token: str = Depends(oauth2_scheme)) -> UserInfo:
         )
 
     return UserInfo(username=username, role=role)
+
+
+# ---------------------------------------------------------------------------
+# Telegram Mini App (TMA) authentication
+# ---------------------------------------------------------------------------
+
+ADMIN_ROLES = {"master", "leader", "curator"}
+
+
+class TMAAuthRequest(BaseModel):
+    """Request body for TMA login — raw initData string from Telegram WebApp."""
+
+    initData: str
+
+
+def validate_telegram_init_data(init_data: str, bot_token: str) -> Optional[dict]:
+    """Validate Telegram Mini App initData using HMAC-SHA256.
+
+    Returns the parsed user dict if valid, None otherwise.
+
+    Algorithm (per Telegram Bot API docs):
+        1. Parse initData into key=value pairs (URL-decoded).
+        2. Remove 'hash' from the dict.
+        3. Sort remaining keys alphabetically.
+        4. Build data_check_string = '\\n'.join(f'{k}={v}' for k, v in sorted).
+        5. secret_key = HMAC-SHA256(key=b"WebAppData", msg=bot_token).
+        6. computed = HMAC-SHA256(key=secret_key, msg=data_check_string).hexdigest().
+        7. Compare computed == hash.
+    """
+    if not bot_token:
+        return None
+
+    # Parse initData into dict
+    params = dict(urllib.parse.parse_qsl(init_data))
+    if "hash" not in params:
+        return None
+
+    received_hash = params.pop("hash")
+
+    # Build data-check-string
+    data_check_string = "\n".join(
+        f"{k}={v}" for k, v in sorted(params.items())
+    )
+
+    # HMAC-SHA256 validation
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    computed_hash = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
+
+    if computed_hash != received_hash:
+        return None
+
+    # Extract user data
+    user_json = params.get("user")
+    if not user_json:
+        return None
+
+    try:
+        return json.loads(user_json)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+@tma_auth_router.post("/auth")
+async def tma_login(request: TMAAuthRequest) -> TokenResponse:
+    """Authenticate a Telegram Mini App user via initData.
+
+    Validates the initData HMAC, looks up the user in the DB,
+    and returns a JWT if the user has an admin role.
+    """
+    bot_token = settings.effective_tma_token
+    user_data = validate_telegram_init_data(request.initData, bot_token)
+
+    if user_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Telegram initData",
+        )
+
+    telegram_id = user_data.get("id")
+    if telegram_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing user id in initData",
+        )
+
+    # Look up user in DB
+    from sqlalchemy import select
+    from app.shared.database import session_factory
+    from app.shared.models.user import User
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+        user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User not found",
+        )
+
+    if user.role not in ADMIN_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{user.role}' is not authorized for admin access",
+        )
+
+    access_token = create_access_token(
+        data={"sub": str(user.id), "role": user.role}
+    )
+    return TokenResponse(access_token=access_token)

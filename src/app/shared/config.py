@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     QUEST_CHANNEL_ID: int = 0
     PAYMENT_CHANNEL_ID: int = 0
 
+    # TMA (Telegram Mini App)
+    TMA_BOT_TOKEN: str = ""  # Falls back to BOT_TOKEN if empty
+
+    @property
+    def effective_tma_token(self) -> str:
+        """Return TMA_BOT_TOKEN or fall back to BOT_TOKEN."""
+        return self.TMA_BOT_TOKEN or self.BOT_TOKEN
+
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://igrok:igrok@postgres:5432/igrok"
 
