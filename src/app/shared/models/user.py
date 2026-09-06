@@ -34,6 +34,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("users.id"), nullable=True
     )
     timezone: Mapped[str] = mapped_column(String(50), default="Europe/Moscow")
+    role: Mapped[str] = mapped_column(String(50), default="player")
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
