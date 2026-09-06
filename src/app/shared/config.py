@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     # TMA (Telegram Mini App)
     TMA_BOT_TOKEN: str = ""  # Falls back to BOT_TOKEN if empty
+    TMA_WEBAPP_URL: str = "https://localhost:8000"
 
     @property
     def effective_tma_token(self) -> str:

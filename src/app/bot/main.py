@@ -8,6 +8,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 
+from app.bot.handlers.admin import admin_handler_router
 from app.bot.handlers.leaderboard import leaderboard_router
 from app.bot.handlers.payment import payment_router
 from app.bot.handlers.progress import progress_router
@@ -32,6 +33,7 @@ async def main() -> None:
     dp = Dispatcher(storage=storage)
 
     dp.include_router(registration_router)
+    dp.include_router(admin_handler_router)
     dp.include_router(scroll_router)
     dp.include_router(progress_router)
     dp.include_router(leaderboard_router)
