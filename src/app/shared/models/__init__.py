@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.shared.models.base import Base
 from app.shared.models.user import User, Referral
 from app.shared.models.scroll import Scroll
+from app.shared.models.archetype import Archetype
 from app.shared.models.payment import Payment
 from app.shared.models.completion import UserCompletion
 from app.shared.models.settings import Setting
@@ -16,6 +17,7 @@ __all__ = [
     "User",
     "Referral",
     "Scroll",
+    "Archetype",
     "Payment",
     "UserCompletion",
     "Setting",
