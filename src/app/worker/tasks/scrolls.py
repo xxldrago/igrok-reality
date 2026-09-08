@@ -9,7 +9,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 
 from app.bot.keyboards.scroll import completion_keyboard
-from app.bot.services.scroll_service import get_active_users, get_scroll_for_user
+from app.bot.services.scroll_service import get_active_users, get_scroll_content
 from app.shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 async def deliver_daily_scrolls(ctx: dict) -> None:
     """Deliver daily scrolls to all active users.
 
-    Fetches active users, retrieves each user's scroll, and sends it
-    with a completion keyboard. Handles Telegram rate limits gracefully.
+    Fetches active users, retrieves each user's composed 5-section scroll content,
+    and sends it with a completion keyboard. Handles Telegram rate limits gracefully.
 
     Args:
         ctx: ARQ worker context (unused but required by ARQ signature).
@@ -33,17 +33,18 @@ async def deliver_daily_scrolls(ctx: dict) -> None:
         logger.info("Delivering scrolls to %d active users", len(active_users))
 
         for user in active_users:
-            scroll = await get_scroll_for_user(user)
-            if scroll is None:
+            content = await get_scroll_content(user)
+            if content is None:
                 logger.debug("No scroll for user %s (day out of range)", user.id)
                 continue
 
-            kb = completion_keyboard(str(scroll.id))
+            kb = completion_keyboard(str(content.scroll.id))
+            message_text = content.text
 
             try:
                 await bot.send_message(
                     user.telegram_id,
-                    scroll.text,
+                    message_text,
                     reply_markup=kb,
                 )
                 sent += 1
@@ -57,7 +58,7 @@ async def deliver_daily_scrolls(ctx: dict) -> None:
                 try:
                     await bot.send_message(
                         user.telegram_id,
-                        scroll.text,
+                        message_text,
                         reply_markup=kb,
                     )
                     sent += 1

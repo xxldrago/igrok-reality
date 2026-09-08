@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -102,16 +102,23 @@ class ScrollCreateRequest(BaseModel):
     """Request body for creating a scroll."""
 
     day_number: int = Field(ge=1, le=90, description="Day number 1-90")
-    archetype: Literal["head", "shell", "whirlwind", "ghost"]
-    text: str = Field(min_length=1, description="Scroll content text")
+    common_task: str = Field(min_length=1, description="Common (physical) task")
+    ritual: str = Field(min_length=1, description="Morning ritual")
+    habits: str = Field(min_length=1, description="Simple habits")
+    micromovements: str = Field(min_length=1, description="Micro-movements")
     media_file_id: Optional[str] = None
+    published_at: Optional[datetime] = None
 
 
 class ScrollUpdateRequest(BaseModel):
-    """Request body for updating a scroll (day_number + archetype immutable)."""
+    """Request body for updating a scroll (day_number immutable)."""
 
-    text: str = Field(min_length=1, description="Scroll content text")
+    common_task: str = Field(min_length=1, description="Common (physical) task")
+    ritual: str = Field(min_length=1, description="Morning ritual")
+    habits: str = Field(min_length=1, description="Simple habits")
+    micromovements: str = Field(min_length=1, description="Micro-movements")
     media_file_id: Optional[str] = None
+    published_at: Optional[datetime] = None
 
 
 class ScrollResponse(BaseModel):
@@ -119,9 +126,12 @@ class ScrollResponse(BaseModel):
 
     id: UUID
     day_number: int
-    archetype: str
-    text: str
+    common_task: str
+    ritual: str
+    habits: str
+    micromovements: str
     media_file_id: Optional[str] = None
+    published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -222,7 +232,6 @@ class AuditListResponse(BaseModel):
     dependencies=[Depends(require_role("master", "leader"))],
 )
 async def list_scrolls(
-    archetype: Optional[str] = Query(None, description="Filter by archetype"),
     day_number: Optional[int] = Query(None, ge=1, le=90, description="Filter by day number"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -232,10 +241,6 @@ async def list_scrolls(
         query = select(Scroll)
         count_query = select(func.count(Scroll.id))
 
-        if archetype:
-            query = query.where(Scroll.archetype == archetype)
-            count_query = count_query.where(Scroll.archetype == archetype)
-
         if day_number is not None:
             query = query.where(Scroll.day_number == day_number)
             count_query = count_query.where(Scroll.day_number == day_number)
@@ -243,7 +248,7 @@ async def list_scrolls(
         total_result = await session.execute(count_query)
         total = total_result.scalar() or 0
 
-        query = query.order_by(Scroll.day_number.asc(), Scroll.archetype.asc())
+        query = query.order_by(Scroll.day_number.asc())
         query = query.offset((page - 1) * page_size).limit(page_size)
         result = await session.execute(query)
         scrolls = result.scalars().all()
@@ -281,13 +286,16 @@ async def get_scroll(scroll_id: UUID) -> ScrollResponse:
     dependencies=[Depends(require_role("master", "leader"))],
 )
 async def create_scroll(request: ScrollCreateRequest) -> ScrollResponse:
-    """Create a new scroll. Enforces unique (day_number, archetype)."""
+    """Create a new scroll. Enforces unique (day_number)."""
     async with session_factory() as session:
         scroll = Scroll(
             day_number=request.day_number,
-            archetype=request.archetype,
-            text=request.text,
+            common_task=request.common_task,
+            ritual=request.ritual,
+            habits=request.habits,
+            micromovements=request.micromovements,
             media_file_id=request.media_file_id,
+            published_at=request.published_at,
         )
         session.add(scroll)
         try:
@@ -296,13 +304,13 @@ async def create_scroll(request: ScrollCreateRequest) -> ScrollResponse:
             await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Scroll for day {request.day_number} archetype '{request.archetype}' already exists",
+                detail=f"Scroll for day {request.day_number} already exists",
             )
 
         # Audit log
         audit_entry = AuditLog(
             action="scroll_created",
-            details=f"day={request.day_number} archetype={request.archetype}",
+            details=f"day={request.day_number}",
         )
         session.add(audit_entry)
         await session.commit()
@@ -319,7 +327,7 @@ async def create_scroll(request: ScrollCreateRequest) -> ScrollResponse:
 async def update_scroll(
     scroll_id: UUID, request: ScrollUpdateRequest
 ) -> ScrollResponse:
-    """Update scroll text and media (day_number + archetype immutable)."""
+    """Update scroll sections and media (day_number immutable)."""
     async with session_factory() as session:
         result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
         scroll = result.scalar_one_or_none()
@@ -329,8 +337,12 @@ async def update_scroll(
                 detail="Scroll not found",
             )
 
-        scroll.text = request.text
+        scroll.common_task = request.common_task
+        scroll.ritual = request.ritual
+        scroll.habits = request.habits
+        scroll.micromovements = request.micromovements
         scroll.media_file_id = request.media_file_id
+        scroll.published_at = request.published_at
 
         audit_entry = AuditLog(
             action="scroll_updated",
