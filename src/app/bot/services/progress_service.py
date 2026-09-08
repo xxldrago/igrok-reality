@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import redis.asyncio as aioredis
 from sqlalchemy import select
 
+from app.bot.services.archetype import ARCHETYPE_NAMES
 from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.completion import UserCompletion
@@ -106,6 +107,51 @@ async def get_user_stats(user_id: UUID) -> dict:
         completions = count_result.scalar()
 
         return {"xp": user.xp, "streak": user.streak, "completions": completions}
+
+
+async def get_full_profile(user_id: UUID) -> dict:
+    """Get full profile data for /profile command.
+
+    Returns:
+        dict with keys: archetype_name, quest_day, xp, streak, completions,
+        role, payment_status, referral_code
+    """
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one()
+
+        from sqlalchemy import func
+
+        count_result = await session.execute(
+            select(func.count(UserCompletion.id)).where(UserCompletion.user_id == user_id)
+        )
+        completions = count_result.scalar()
+
+    archetype_name = ARCHETYPE_NAMES.get(user.archetype, user.archetype or "—")
+
+    quest_day = "—"
+    if user.started_at is not None:
+        tz = ZoneInfo(user.timezone)
+        today = datetime.now(tz).date()
+        day_number = (today - user.started_at.date()).days + 1
+        if 1 <= day_number <= 90:
+            quest_day = f"День {day_number} из 90"
+
+    if user.is_active and user.paid_at is not None:
+        payment_status = "Оплачен"
+    else:
+        payment_status = "Не оплачен"
+
+    return {
+        "archetype_name": archetype_name,
+        "quest_day": quest_day,
+        "xp": user.xp,
+        "streak": user.streak,
+        "completions": completions,
+        "role": user.role,
+        "payment_status": payment_status,
+        "referral_code": user.referral_code or "",
+    }
 
 
 async def get_leaderboard(top_n: int = 10) -> list[dict]:
