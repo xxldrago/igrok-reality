@@ -25,12 +25,14 @@ def _make_user(
     *,
     archetype: str | None = "head",
     started_at: datetime | None = None,
+    timezone: str = "Europe/Moscow",
 ) -> MagicMock:
     """Create a mock User with the given archetype and started_at."""
     user = MagicMock(spec=User)
     user.id = MagicMock()
     user.archetype = archetype
     user.started_at = started_at
+    user.timezone = timezone
     return user
 
 

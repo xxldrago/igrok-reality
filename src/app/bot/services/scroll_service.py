@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
@@ -114,17 +115,29 @@ async def get_scroll_content(user: User) -> ScrollContent | None:
 async def get_scroll_for_user(user: User) -> Scroll | None:
     """Return the per-day scroll for the user's current quest day.
 
-    Calculates the day number as (today - started_at).days + 1.
+    Calculates the day number as (today in user's timezone - started_at in user's timezone).days + 1.
     Returns None if started_at is not set or day_number is outside 1-90.
     """
     if user.started_at is None:
         return None
 
-    day_number = (date.today() - user.started_at.date()).days + 1
+    tz = ZoneInfo(user.timezone)
+    today = datetime.now(tz).date()
+    started_at_local = user.started_at.astimezone(tz).date()
+    day_number = (today - started_at_local).days + 1
 
     if day_number < 1 or day_number > 90:
         return None
 
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Scroll).where(Scroll.day_number == day_number)
+        )
+        return result.scalar_one_or_none()
+
+
+async def get_scroll_by_day(day_number: int) -> Scroll | None:
+    """Return the per-day scroll for the given day number."""
     async with session_factory() as session:
         result = await session.execute(
             select(Scroll).where(Scroll.day_number == day_number)

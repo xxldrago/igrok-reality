@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.models.base import Base, UUIDPrimaryKeyMixin
@@ -22,5 +22,8 @@ class UserCompletion(Base, UUIDPrimaryKeyMixin):
         DateTime(timezone=True), server_default=func.now()
     )
     xp_awarded: Mapped[int] = mapped_column(Integer, default=10)
+    report_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_media_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    report_media_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     __table_args__ = (UniqueConstraint("user_id", "scroll_id"),)

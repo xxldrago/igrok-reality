@@ -24,6 +24,7 @@ def _make_user(
     user_id: str | None = None,
     archetype: str = "head",
     started_at: datetime | None = None,
+    timezone: str = "Europe/Moscow",
 ) -> MagicMock:
     """Create a mock User with the given parameters."""
     user = MagicMock(spec=User)
@@ -31,6 +32,7 @@ def _make_user(
     user.archetype = archetype
     user.started_at = started_at
     user.telegram_id = 123456789
+    user.timezone = timezone
     return user
 
 

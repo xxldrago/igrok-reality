@@ -154,6 +154,39 @@ async def get_full_profile(user_id: UUID) -> dict:
     }
 
 
+async def update_completion_report(
+    user_id: UUID,
+    scroll_id: UUID,
+    report_text: str | None = None,
+    report_media_url: str | None = None,
+    report_media_type: str | None = None,
+) -> None:
+    """Update the completion record with report data (text, media file_id, media type).
+
+    Does not award XP or create a new completion — only updates the report fields
+    on the existing completion record.
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(UserCompletion).where(
+                UserCompletion.user_id == user_id,
+                UserCompletion.scroll_id == scroll_id,
+            )
+        )
+        completion = result.scalar_one_or_none()
+        if completion is None:
+            return
+
+        if report_text is not None:
+            completion.report_text = report_text
+        if report_media_url is not None:
+            completion.report_media_url = report_media_url
+        if report_media_type is not None:
+            completion.report_media_type = report_media_type
+
+        await session.commit()
+
+
 async def get_leaderboard(top_n: int = 10) -> list[dict]:
     """Get top N users from Redis leaderboard sorted set.
 
