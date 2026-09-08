@@ -62,11 +62,14 @@ def _make_balance(
     return balance
 
 
+@patch("app.bot.services.commission.reserve_prize_fund_share")
 @patch("app.bot.services.commission.session_factory")
 async def test_one_time_commission_first_payment(
     mock_session_factory: MagicMock,
+    mock_reserve: AsyncMock,
 ) -> None:
     """calculate_commission returns amount > 0 for first succeeded payment with mentor."""
+    mock_reserve.return_value = 245
     mentor = _make_user(telegram_id=99999)
     user = _make_user(referred_by_id=mentor.id, telegram_id=11111)
     payment = _make_payment(user_id=user.id, status="succeeded", amount=4900)
@@ -180,9 +183,11 @@ async def test_commission_no_mentor(mock_session_factory: MagicMock) -> None:
     assert result["mentor_id"] is None
 
 
+@patch("app.bot.services.commission.reserve_prize_fund_share")
 @patch("app.bot.services.commission.session_factory")
 async def test_balance_created_on_first_commission(
     mock_session_factory: MagicMock,
+    mock_reserve: AsyncMock,
 ) -> None:
     """CommissionBalance record is created on first commission with correct total_pending."""
     mentor = _make_user(telegram_id=99999)
@@ -230,9 +235,11 @@ async def test_balance_created_on_first_commission(
     assert added_obj.last_commission_at is not None
 
 
+@patch("app.bot.services.commission.reserve_prize_fund_share")
 @patch("app.bot.services.commission.session_factory")
 async def test_balance_increments_on_subsequent_commission(
     mock_session_factory: MagicMock,
+    mock_reserve: AsyncMock,
 ) -> None:
     """CommissionBalance.total_pending increments on each commission."""
     mentor = _make_user(telegram_id=99999)

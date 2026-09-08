@@ -1,6 +1,7 @@
 """Commission calculation — configurable rate for mentor (referrer).
 
 One-time commission: only the first succeeded payment per referee triggers commission.
+Prize fund reservation: a configurable % of each succeeded payment goes to the prize fund.
 Results are persisted to CommissionBalance for tracking.
 """
 
@@ -12,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 
+from app.bot.services.prize_fund_service import reserve_prize_fund_share
 from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.audit import AuditLog
@@ -43,12 +45,14 @@ async def _get_or_create_balance(
 
 
 async def calculate_commission(payment_id: UUID) -> dict:
-    """Calculate mentor commission for a payment.
+    """Calculate mentor commission for a payment and reserve prize fund share.
 
     Returns:
-        {"amount": int, "mentor_id": str | None, "mentor_telegram_id": int | None}
+        {"amount": int, "mentor_id": str | None, "mentor_telegram_id": int | None,
+         "prize_fund_amount": int}
         - amount is 0 when payment is not succeeded, user has no mentor,
           or this is not the user's first succeeded payment (one-time commission).
+        - prize_fund_amount is the amount reserved into the prize fund (0 if no fund).
     """
     async with session_factory() as session:
         result = await session.execute(
@@ -58,10 +62,10 @@ async def calculate_commission(payment_id: UUID) -> dict:
 
     if payment is None:
         logger.warning("calculate_commission: payment %s not found", payment_id)
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     if payment.status != "succeeded":
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     # Load the paying user
     async with session_factory() as session:
@@ -72,10 +76,10 @@ async def calculate_commission(payment_id: UUID) -> dict:
 
     if user is None:
         logger.error("calculate_commission: user %s not found", payment.user_id)
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     if user.referred_by_id is None:
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     # One-time commission: check if this is the FIRST succeeded payment for this user
     async with session_factory() as session:
@@ -94,7 +98,7 @@ async def calculate_commission(payment_id: UUID) -> dict:
             user.id,
             succeeded_count,
         )
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     # Load the mentor (referrer)
     async with session_factory() as session:
@@ -105,7 +109,7 @@ async def calculate_commission(payment_id: UUID) -> dict:
 
     if mentor is None:
         logger.error("calculate_commission: mentor %s not found", user.referred_by_id)
-        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None}
+        return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
     commission = int(payment.amount * settings.COMMISSION_RATE)
 
@@ -116,10 +120,14 @@ async def calculate_commission(payment_id: UUID) -> dict:
         balance.last_commission_at = datetime.now(timezone.utc)
         await session.commit()
 
+    # Reserve prize fund share (always, regardless of mentor)
+    prize_fund_amount = await reserve_prize_fund_share(payment)
+
     return {
         "amount": commission,
         "mentor_id": str(mentor.id),
         "mentor_telegram_id": mentor.telegram_id,
+        "prize_fund_amount": prize_fund_amount,
     }
 
 

@@ -76,13 +76,16 @@ async def test_referral_before_registration(
 # --- Configurable COMMISSION_RATE tests ---
 
 
+@patch("app.bot.services.commission.reserve_prize_fund_share")
 @patch("app.bot.services.commission.session_factory")
 async def test_commission_rate_configurable(
     mock_session_factory: MagicMock,
+    mock_reserve: AsyncMock,
 ) -> None:
     """Test that COMMISSION_RATE from settings is used in calculation."""
     from app.bot.services.commission import calculate_commission
 
+    mock_reserve.return_value = 500
     mentor = User(telegram_id=99999, first_name="Mentor", archetype="head", referral_code="m1")
     mentor.id = uuid4()
     user = User(telegram_id=11111, first_name="Test", archetype="head", referral_code="t1")

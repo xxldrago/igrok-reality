@@ -30,12 +30,19 @@ def scroll_id() -> UUID:
 
 
 @patch("app.bot.services.progress_service.session_factory")
+@patch("app.bot.services.progress_service.get_xp_weights")
 async def test_create_completion_new(
-    mock_session_factory: MagicMock, user_id: UUID, scroll_id: UUID
+    mock_get_xp_weights: MagicMock,
+    mock_session_factory: MagicMock,
+    user_id: UUID,
+    scroll_id: UUID
 ) -> None:
     """create_completion returns UserCompletion when none exists."""
+    mock_get_xp_weights.return_value = MagicMock(
+        common=10, individual=10, ritual=5, habits=5
+    )
     mock_session = AsyncMock()
-    mock_session.add = MagicMock()  # session.add is synchronous
+    mock_session.add = MagicMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -48,18 +55,28 @@ async def test_create_completion_new(
 
     assert completion is not None
     assert isinstance(completion, UserCompletion)
-    assert completion.xp_awarded == 10
+    assert completion.user_id == user_id
+    assert completion.scroll_id == scroll_id
+    assert completion.xp_awarded == 30  # 10+10+5+5
     mock_session.add.assert_called_once()
     mock_session.commit.assert_awaited_once()
+    mock_session.refresh.assert_awaited_once()
 
 
 @patch("app.bot.services.progress_service.session_factory")
+@patch("app.bot.services.progress_service.get_xp_weights")
 async def test_create_completion_idempotent(
-    mock_session_factory: MagicMock, user_id: UUID, scroll_id: UUID
+    mock_get_xp_weights: MagicMock,
+    mock_session_factory: MagicMock,
+    user_id: UUID,
+    scroll_id: UUID
 ) -> None:
     """create_completion returns None when completion already exists."""
+    mock_get_xp_weights.return_value = MagicMock(
+        common=10, individual=10, ritual=5, habits=5
+    )
     mock_session = AsyncMock()
-    mock_session.add = MagicMock()  # session.add is synchronous
+    mock_session.add = MagicMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 

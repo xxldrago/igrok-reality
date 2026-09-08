@@ -15,6 +15,7 @@ from app.shared.models.commission import CommissionBalance
 from app.shared.models.group import Group
 from app.shared.models.role_history import RoleHistory
 from app.shared.models.clan import Clan, ClanMember
+from app.shared.models.prize_fund import PrizeFund, PrizeFundPayout
 
 __all__ = [
     "Base",
@@ -32,4 +33,6 @@ __all__ = [
     "RoleHistory",
     "Clan",
     "ClanMember",
+    "PrizeFund",
+    "PrizeFundPayout",
 ]

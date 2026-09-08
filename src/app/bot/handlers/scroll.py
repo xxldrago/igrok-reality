@@ -17,6 +17,7 @@ from app.bot.services.progress_service import (
     update_leaderboard,
     update_streak,
 )
+from app.bot.services.settings_service import get_streak_bonus_config
 from app.bot.states.completion import CompletionReportState
 
 scroll_router = Router(name="scroll")
@@ -42,17 +43,25 @@ async def handle_scroll_completion(callback: CallbackQuery, state: FSMContext) -
         return
 
     new_xp = await add_xp(user_id=user_id, xp=completion.xp_awarded)
-    await update_streak(user_id=user_id)
+    new_streak = await update_streak(user_id=user_id)
     await update_leaderboard(user_id=user_id, xp=new_xp)
 
-    await callback.answer(f"+{completion.xp_awarded} XP! \u26a1")
+    # Check for streak bonus notification
+    bonus_msg = ""
+    bonus_config = await get_streak_bonus_config()
+    bonus_thresholds = dict(zip(bonus_config.days, bonus_config.xp))
+    if new_streak in bonus_thresholds:
+        bonus_msg = f"\n\n🎉 Поздравляем! Серия {new_streak} дней — бонус +{bonus_thresholds[new_streak]} XP!"
+
+    await callback.answer(f"+{completion.xp_awarded} XP! \u26a1{bonus_msg}")
 
     # Ask if user wants to attach a report
     await state.set_state(CompletionReportState.asking_for_report)
     await state.update_data(scroll_id=str(parsed_scroll_id), user_id=str(user_id))
 
     await callback.message.edit_text(
-        "\u0421\u0432\u0438\u0442\u043e\u043a \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d! \u041e\u0442\u043b\u0438\u0447\u043d\u0430\u044f \u0440\u0430\u0431\u043e\u0442\u0430! \U0001f389\n\n"
+        "\u0421\u0432\u0438\u0442\u043e\u043a \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d! \u041e\u0442\u043b\u0438\u0447\u043d\u0430\u044f \u0440\u0430\u0431\u043e\u0442\u0430! \U0001f389"
+        f"{bonus_msg}\n\n"
         "Хотите добавить отчёт? Отправьте текст, фото или видео. "
         "Или нажмите /skip чтобы пропустить."
     )

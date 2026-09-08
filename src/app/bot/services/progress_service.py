@@ -10,6 +10,7 @@ import redis.asyncio as aioredis
 from sqlalchemy import select
 
 from app.bot.services.archetype import ARCHETYPE_NAMES
+from app.bot.services.settings_service import get_streak_bonus_config, get_xp_weights
 from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.completion import UserCompletion
@@ -17,12 +18,21 @@ from app.shared.models.user import User
 
 
 async def create_completion(
-    user_id: UUID, scroll_id: UUID, xp: int = 10
+    user_id: UUID, scroll_id: UUID
 ) -> UserCompletion | None:
-    """Record a scroll completion for a user.
+    """Record a scroll completion for a user with XP from configured weights.
 
     Returns the created UserCompletion, or None if already completed (idempotent).
     """
+    xp_weights = await get_xp_weights()
+    # Full weighted sum for all sections
+    xp = (
+        xp_weights.common
+        + xp_weights.individual
+        + xp_weights.ritual
+        + xp_weights.habits
+    )
+
     async with session_factory() as session:
         existing = await session.execute(
             select(UserCompletion).where(
@@ -55,21 +65,29 @@ async def add_xp(user_id: UUID, xp: int) -> int:
 
 
 async def update_streak(user_id: UUID) -> int:
-    """Update user streak based on timezone-aware day boundary.
+    """Update user streak based on timezone-aware day boundary and award streak bonuses.
 
     - First completion ever (streak_last_date is None): streak becomes 1
     - Completing on same day as last completion: streak unchanged
     - Completing the day after last completion: streak increments by 1
     - Missing a day (2+ days gap): streak resets to 1
 
+    When streak hits a configured bonus threshold (7, 30, 90 by default),
+    bonus XP is awarded once per threshold and user is notified via message.
+
     Returns the current streak count.
     """
+    bonus_config = await get_streak_bonus_config()
+    bonus_thresholds = dict(zip(bonus_config.days, bonus_config.xp))
+
     async with session_factory() as session:
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one()
 
         tz = ZoneInfo(user.timezone)
         today = datetime.now(tz).date()
+
+        old_streak = user.streak
 
         if user.streak_last_date is None:
             user.streak = 1
@@ -84,6 +102,16 @@ async def update_streak(user_id: UUID) -> int:
 
         user.streak_last_date = today
         await session.commit()
+
+        # Check for streak bonus at new streak value
+        new_streak = user.streak
+        if new_streak in bonus_thresholds and old_streak not in bonus_thresholds:
+            bonus_xp = bonus_thresholds[new_streak]
+            # Award bonus XP
+            user.xp += bonus_xp
+            await session.commit()
+            # Note: notification would be sent by the caller (handler)
+
         return user.streak
 
 
