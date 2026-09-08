@@ -12,6 +12,9 @@ from app.shared.models.completion import UserCompletion
 from app.shared.models.settings import Setting
 from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
+from app.shared.models.group import Group
+from app.shared.models.role_history import RoleHistory
+from app.shared.models.clan import Clan, ClanMember
 
 __all__ = [
     "Base",
@@ -25,4 +28,8 @@ __all__ = [
     "Setting",
     "AuditLog",
     "CommissionBalance",
+    "Group",
+    "RoleHistory",
+    "Clan",
+    "ClanMember",
 ]

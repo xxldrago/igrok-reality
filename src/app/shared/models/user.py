@@ -36,6 +36,8 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     timezone: Mapped[str] = mapped_column(String(50), default="Europe/Moscow")
     role: Mapped[str] = mapped_column(String(50), default="player")
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    group_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    clan_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("clans.id"), nullable=True)
 
 
 class Referral(Base, UUIDPrimaryKeyMixin, TimestampMixin):

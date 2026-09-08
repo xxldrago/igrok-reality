@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 
 from app.bot.handlers.admin import admin_handler_router
+from app.bot.handlers.clan import clan_router
 from app.bot.handlers.leaderboard import leaderboard_router
 from app.bot.handlers.payment import payment_router
 from app.bot.handlers.progress import progress_router
@@ -41,6 +42,7 @@ async def main() -> None:
     dp.include_router(payment_router)
     dp.include_router(referral_router)
     dp.include_router(team_router)
+    dp.include_router(clan_router)
 
     logger.info("Dispatcher configured — polling started")
     await dp.start_polling(bot)
