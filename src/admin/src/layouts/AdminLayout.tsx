@@ -8,6 +8,7 @@ import {
   SafetyOutlined,
   SettingOutlined,
   AuditOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -29,6 +30,7 @@ export default function AdminLayout() {
       ? [
           { key: '/admin/finance', icon: <FundOutlined />, label: 'Финансы' },
           { key: '/admin/moderation', icon: <SafetyOutlined />, label: 'Модерация' },
+          { key: '/admin/broadcast', icon: <NotificationOutlined />, label: 'Рассылка' },
         ]
       : []),
     ...(user?.role === 'master'

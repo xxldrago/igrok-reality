@@ -424,4 +424,31 @@ export function getUserCommands(userId: string, params?: { quest_day?: number })
   return api.get<UserCommandListResponse>(`/admin/users/${userId}/commands`, { params })
 }
 
+// --- Broadcast interfaces ---
+
+export interface BroadcastRequest {
+  text: string
+  archetype?: string | null
+  parse_mode?: string
+}
+
+export interface BroadcastResponse {
+  sent: number
+  failed: number
+  total: number
+}
+
+export function sendBroadcast(data: BroadcastRequest) {
+  return api.post<BroadcastResponse>('/admin/broadcast', data)
+}
+
+export interface ArchetypeStatsResponse {
+  total: number
+  by_archetype: Record<string, number>
+}
+
+export function getArchetypeStats() {
+  return api.get<ArchetypeStatsResponse>('/admin/users/archetype-stats')
+}
+
 export default api

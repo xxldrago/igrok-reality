@@ -1647,3 +1647,80 @@ async def update_archetype_scores(req: ArchetypeScoresRequest) -> dict:
             scores_setting.value = scores_json
         await session.commit()
         return {"updated": True}
+
+
+# --- Broadcast endpoints ---
+
+
+class BroadcastRequest(BaseModel):
+    """Request body for broadcast message."""
+
+    text: str = Field(min_length=1, max_length=4000, description="Message text")
+    archetype: Optional[str] = Field(None, description="Filter by archetype: head, shell, whirlwind, ghost. Null = all.")
+    parse_mode: Optional[str] = Field(None, description="Telegram parse_mode: Markdown, HTML")
+
+
+class BroadcastResponse(BaseModel):
+    """Broadcast response."""
+
+    sent: int
+    failed: int
+    total: int
+
+
+@admin_router.post(
+    "/broadcast",
+    response_model=BroadcastResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
+    """Send a broadcast message to users, optionally filtered by archetype."""
+    from app.bot.services.notification_service import send_system_notification_to_all
+    from sqlalchemy import select
+
+    async with session_factory() as session:
+        query = select(User).where(User.archetype.isnot(None), User.started_at.isnot(None))
+        if req.archetype:
+            query = query.where(User.archetype == req.archetype)
+        result = await session.execute(query)
+        users = list(result.scalars().all())
+
+    if not users:
+        return BroadcastResponse(sent=0, failed=0, total=0)
+
+    # Create notifications
+    notifications = []
+    async with session_factory() as session:
+        for user in users:
+            notification = Notification(
+                user_id=user.id,
+                type="broadcast",
+                payload=req.text,
+            )
+            session.add(notification)
+            notifications.append(notification)
+        await session.commit()
+
+    # Send via ARQ worker (async, non-blocking)
+    # Notifications are queued and will be sent by send_pending_notifications worker
+    return BroadcastResponse(sent=len(notifications), failed=0, total=len(notifications))
+
+
+@admin_router.get(
+    "/users/archetype-stats",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_archetype_stats() -> dict:
+    """Get user count per archetype for broadcast targeting."""
+    from sqlalchemy import func
+    from app.shared.models.user import User as UserModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(UserModel.archetype, func.count(UserModel.id))
+            .where(UserModel.archetype.isnot(None), UserModel.started_at.isnot(None))
+            .group_by(UserModel.archetype)
+        )
+        stats = {row[0]: row[1] for row in result.all()}
+        total = sum(stats.values())
+        return {"total": total, "by_archetype": stats}

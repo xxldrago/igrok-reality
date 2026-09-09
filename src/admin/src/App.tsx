@@ -11,6 +11,7 @@ import Finance from './pages/Finance'
 import Moderation from './pages/Moderation'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
+import Broadcast from './pages/Broadcast'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="moderation" element={<Moderation />} />
           <Route path="settings" element={<Settings />} />
           <Route path="audit" element={<AuditLog />} />
+          <Route path="broadcast" element={<Broadcast />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

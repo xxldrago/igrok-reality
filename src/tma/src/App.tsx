@@ -11,6 +11,7 @@ import Finance from './pages/Finance'
 import Moderation from './pages/Moderation'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
+import Broadcast from './pages/Broadcast'
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, error } = useTmaAuth()
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="moderation" element={<Moderation />} />
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditLog />} />
+              <Route path="broadcast" element={<Broadcast />} />
             </Route>
           </Routes>
         </BrowserRouter>

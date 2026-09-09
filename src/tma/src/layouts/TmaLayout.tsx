@@ -9,6 +9,7 @@ import {
   SafetyOutlined,
   SettingOutlined,
   AuditOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons'
 import { useTmaAuth } from '../contexts/TmaAuthContext'
 
@@ -30,6 +31,12 @@ const roleNavItems = [
     key: '/app/moderation',
     icon: <SafetyOutlined />,
     label: 'Модерация',
+    roles: ['master', 'leader'],
+  },
+  {
+    key: '/app/broadcast',
+    icon: <NotificationOutlined />,
+    label: 'Рассылка',
     roles: ['master', 'leader'],
   },
   {
