@@ -1,5 +1,6 @@
 """Bot handler routers."""
 
+from app.bot.handlers.daily import daily_router
 from app.bot.handlers.help import help_router
 from app.bot.handlers.leaderboard import leaderboard_router
 from app.bot.handlers.payment import payment_router
@@ -9,6 +10,7 @@ from app.bot.handlers.registration import registration_router
 from app.bot.handlers.scroll import scroll_router
 
 __all__ = [
+    "daily_router",
     "help_router",
     "leaderboard_router",
     "payment_router",

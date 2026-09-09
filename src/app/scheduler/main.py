@@ -19,23 +19,15 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-
-async def get_publish_time() -> tuple[int, int]:
-    """Get configured publish hour and minute from Settings table."""
-    async with session_factory() as session:
-        hour_result = await session.execute(
-            select(Setting).where(Setting.key == "scroll_publish_hour")
-        )
-        hour_setting = hour_result.scalar_one_or_none()
-
-        minute_result = await session.execute(
-            select(Setting).where(Setting.key == "scroll_publish_minute")
-        )
-        minute_setting = minute_result.scalar_one_or_none()
-
-    hour = int(hour_setting.value) if hour_setting and hour_setting.value else 8
-    minute = int(minute_setting.value) if minute_setting and minute_setting.value else 0
-    return hour, minute
+# Time slots for scroll delivery (Moscow time)
+# Each slot delivers scrolls that are scheduled for that hour
+DELIVERY_SLOTS = [
+    (5, 0),   # 05:00 — Rassvet, Ogne, Korni (meditation days)
+    (8, 0),   # 08:00 — Vetr
+    (12, 0),  # 12:00 — Sledy
+    (16, 0),  # 16:00 — Zrya, Pitaniye
+    (21, 0),  # 21:00 — Integratsiya
+]
 
 
 async def get_reminder_time() -> tuple[int, int]:
@@ -56,22 +48,18 @@ async def get_reminder_time() -> tuple[int, int]:
     return hour, minute
 
 
-async def enqueue_daily_scrolls(ctx: None = None) -> None:
-    """Enqueue the daily scroll delivery task via ARQ.
-
-    Called by APScheduler at the configured time (default 08:00 Moscow).
-    Creates a short-lived ARQ pool to enqueue the deliver_daily_scrolls task,
-    then closes the connection.
+async def enqueue_scroll_slot(hour: int, ctx: None = None) -> None:
+    """Enqueue scroll delivery for a specific time slot via ARQ.
 
     Args:
-        ctx: Unused — APScheduler passes no context, but the signature
-             must accept an optional argument.
+        hour: The hour (Moscow time) to deliver scrolls for.
+        ctx: Unused — APScheduler passes no context.
     """
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     pool = await create_pool(redis_settings)
     try:
-        await pool.enqueue_job("deliver_daily_scrolls")
-        logger.info("Enqueued deliver_daily_scrolls via ARQ")
+        await pool.enqueue_job("deliver_scroll_slot", hour)
+        logger.info("Enqueued deliver_scroll_slot(hour=%d) via ARQ", hour)
     finally:
         await pool.close()
 
@@ -111,17 +99,19 @@ async def enqueue_new_stream(ctx: None = None) -> None:
 
 async def schedule_jobs() -> None:
     """Configure and add all scheduled jobs."""
-    # Daily scroll delivery
-    hour, minute = await get_publish_time()
-    if scheduler.get_job("daily_scroll_delivery"):
-        scheduler.remove_job("daily_scroll_delivery")
-    scheduler.add_job(
-        enqueue_daily_scrolls,
-        CronTrigger(hour=hour, minute=minute, timezone="Europe/Moscow"),
-        id="daily_scroll_delivery",
-        replace_existing=True,
-    )
-    logger.info("Scheduled daily scroll delivery at %02d:%02d Moscow time", hour, minute)
+    # Scroll delivery slots (5:00, 8:00, 12:00, 16:00, 21:00 Moscow)
+    for hour, minute in DELIVERY_SLOTS:
+        job_id = f"scroll_slot_{hour:02d}"
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+        scheduler.add_job(
+            enqueue_scroll_slot,
+            CronTrigger(hour=hour, minute=minute, timezone="Europe/Moscow"),
+            args=[hour],
+            id=job_id,
+            replace_existing=True,
+        )
+        logger.info("Scheduled scroll slot at %02d:%02d Moscow time", hour, minute)
 
     # Evening reminder
     r_hour, r_minute = await get_reminder_time()
@@ -135,7 +125,7 @@ async def schedule_jobs() -> None:
     )
     logger.info("Scheduled evening reminder at %02d:%02d Moscow time", r_hour, r_minute)
 
-    # Streak loss warning (runs at 23:00 by default, can be configurable)
+    # Streak loss warning (runs at 23:00 by default)
     if scheduler.get_job("streak_warning"):
         scheduler.remove_job("streak_warning")
     scheduler.add_job(

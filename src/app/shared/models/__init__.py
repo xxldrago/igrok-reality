@@ -18,6 +18,9 @@ from app.shared.models.clan import Clan, ClanMember
 from app.shared.models.prize_fund import PrizeFund, PrizeFundPayout
 from app.shared.models.notification import Notification
 from app.shared.models.moderation_report import ModerationReport
+from app.shared.models.scroll_type import ScrollType
+from app.shared.models.daily_scroll import DailyScroll
+from app.shared.models.user_daily_command import UserDailyCommand
 
 __all__ = [
     "Base",
@@ -39,4 +42,7 @@ __all__ = [
     "PrizeFundPayout",
     "Notification",
     "ModerationReport",
+    "ScrollType",
+    "DailyScroll",
+    "UserDailyCommand",
 ]
