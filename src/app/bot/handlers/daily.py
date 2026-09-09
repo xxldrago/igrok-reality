@@ -38,19 +38,30 @@ class ReportState(StatesGroup):
     waiting_for_report = State()
 
 
-def _get_quest_day(user, tz_name: str) -> int:
-    """Calculate the current quest day for a user based on their timezone."""
+def _get_quest_day(user, tz_name: str, now: datetime | None = None) -> int:
+    """Calculate the current quest day for a user based on their timezone.
+
+    Applies the grace period: if it's between 00:00 and 05:00 local time,
+    the command counts for the PREVIOUS day (night-shift workers).
+    """
     if user.started_at is None:
         return 0
     tz = ZoneInfo(tz_name)
-    now = datetime.now(tz)
+    now = now or datetime.now(tz)
     started = user.started_at.replace(tzinfo=timezone.utc).astimezone(tz)
-    delta = (now.date() - started.date()).days
+
+    # Determine which day this command belongs to
+    # Commands between 00:00-05:00 belong to the previous day (grace period)
+    effective_date = now.date()
+    if now.hour < GRACE_PERIOD_HOURS:
+        effective_date = now.date() - timedelta(days=1)
+
+    delta = (effective_date - started.date()).days
     return min(delta + 1, 90)  # Clamp to 90
 
 
 async def _is_command_allowed(
-    user_id, quest_day: int, command: str, scroll_code: str
+    user_id, quest_day: int, command: str, scroll_code: str, now: datetime | None = None
 ) -> tuple[bool, str]:
     """Check if a command is allowed for this user on this day.
 
@@ -151,9 +162,16 @@ async def _update_xp(user_id, xp: int) -> None:
 
 
 async def _handle_scroll_command(
-    message: Message, command: str, scroll_code: str
+    message: Message, command: str, scroll_code: str, xp_override: int | None = None
 ) -> None:
-    """Generic handler for scroll commands."""
+    """Generic handler for scroll commands.
+
+    Args:
+        message: Telegram message
+        command: The slash command (e.g. /wakeup)
+        scroll_code: The scroll type code (e.g. rassvet)
+        xp_override: Optional XP override (e.g. /scan gives +0)
+    """
     user = await get_user_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
@@ -177,7 +195,7 @@ async def _handle_scroll_command(
             select(ScrollType).where(ScrollType.code == scroll_code)
         )
         scroll_type = result.scalar_one_or_none()
-        xp = scroll_type.xp_reward if scroll_type else 0
+        xp = xp_override if xp_override is not None else (scroll_type.xp_reward if scroll_type else 0)
 
     # Get scroll content
     daily_scroll = None
@@ -224,8 +242,8 @@ async def handle_cold(message: Message, state: FSMContext) -> None:
 
 @daily_router.message(Command("scan"))
 async def handle_scan(message: Message, state: FSMContext) -> None:
-    """Handle /scan — Корни (медитация, получить)."""
-    await _handle_scroll_command(message, "/scan", "korni")
+    """Handle /scan — Корни (медитация, получить, +0 XP)."""
+    await _handle_scroll_command(message, "/scan", "korni", xp_override=0)
 
 
 @daily_router.message(Command("scanreport"))
