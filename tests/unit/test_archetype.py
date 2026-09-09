@@ -1,6 +1,8 @@
 """Tests for archetype scoring logic."""
 
 import sys
+import pytest
+from unittest.mock import AsyncMock, patch
 from pathlib import Path
 
 # Ensure src is on path for local imports
@@ -17,31 +19,71 @@ def _make_answers(*letters: str) -> dict:
 class TestCalculateArchetype:
     """Tests for calculate_archetype scoring function."""
 
-    def test_all_head_answers(self) -> None:
+    @pytest.mark.asyncio
+    async def test_all_head_answers(self) -> None:
         """All 'a' answers should produce 'head' archetype."""
         data = _make_answers("a", "a", "a", "a")
-        assert calculate_archetype(data) == "head"
+        with patch("app.bot.services.archetype.load_archetype_scores", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = {
+                1: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                2: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                3: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                4: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+            }
+            assert await calculate_archetype(data) == "head"
 
-    def test_all_whirlwind_answers(self) -> None:
+    @pytest.mark.asyncio
+    async def test_all_whirlwind_answers(self) -> None:
         """All 'b' answers should produce 'whirlwind' archetype."""
         data = _make_answers("b", "b", "b", "b")
-        assert calculate_archetype(data) == "whirlwind"
+        with patch("app.bot.services.archetype.load_archetype_scores", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = {
+                1: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                2: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                3: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                4: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+            }
+            assert await calculate_archetype(data) == "whirlwind"
 
-    def test_all_shell_answers(self) -> None:
+    @pytest.mark.asyncio
+    async def test_all_shell_answers(self) -> None:
         """All 'c' answers should produce 'shell' archetype."""
         data = _make_answers("c", "c", "c", "c")
-        assert calculate_archetype(data) == "shell"
+        with patch("app.bot.services.archetype.load_archetype_scores", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = {
+                1: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                2: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                3: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                4: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+            }
+            assert await calculate_archetype(data) == "shell"
 
-    def test_all_ghost_answers(self) -> None:
+    @pytest.mark.asyncio
+    async def test_all_ghost_answers(self) -> None:
         """All 'd' answers should produce 'ghost' archetype."""
         data = _make_answers("d", "d", "d", "d")
-        assert calculate_archetype(data) == "ghost"
+        with patch("app.bot.services.archetype.load_archetype_scores", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = {
+                1: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                2: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                3: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                4: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+            }
+            assert await calculate_archetype(data) == "ghost"
 
-    def test_mixed_answers(self) -> None:
+    @pytest.mark.asyncio
+    async def test_mixed_answers(self) -> None:
         """Mixed answers should pick the highest-scoring archetype."""
         # 3x head (a) + 1x ghost (d) → head wins 6-2
         data = _make_answers("a", "a", "a", "d")
-        assert calculate_archetype(data) == "head"
+        with patch("app.bot.services.archetype.load_archetype_scores", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = {
+                1: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                2: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                3: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+                4: {"a": {"head": 2}, "b": {"whirlwind": 2}, "c": {"shell": 2}, "d": {"ghost": 2}},
+            }
+            assert await calculate_archetype(data) == "head"
 
     def test_archetype_names(self) -> None:
         """ARCHETYPE_NAMES maps all 4 internal names to Russian display names."""

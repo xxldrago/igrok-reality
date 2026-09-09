@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.callbacks.registration import ArchetypeAnswer, ConsentCallback
 
+# Legacy constant for backward compatibility
 ARCHETYPE_QUESTIONS = {
     1: {
         "text": "Вопрос 1/4: Как вы обычно подходите к новой задаче?",
@@ -60,21 +61,26 @@ def consent_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def archetype_keyboard(question: int) -> InlineKeyboardMarkup:
+def archetype_keyboard(question: int, options: list[dict[str, str]] | None = None) -> InlineKeyboardMarkup:
     """Build an inline keyboard with answer options for the archetype quiz.
 
     Args:
         question: Question number (1-4).
+        options: List of option dicts [{"text": "...", "key": "a"}, ...].
+                 If None, falls back to hardcoded ARCHETYPE_QUESTIONS (legacy).
 
     Returns:
-        InlineKeyboardMarkup with 4 answer buttons (a/b/c/d).
+        InlineKeyboardMarkup with 4 answer buttons.
     """
-    q = ARCHETYPE_QUESTIONS[question]
+    if options is None:
+        q = ARCHETYPE_QUESTIONS[question]
+        options = [{"text": v, "key": k} for k, v in q["options"].items()]
+
     builder = InlineKeyboardBuilder()
-    for letter, text in q["options"].items():
+    for opt in options:
         builder.button(
-            text=text,
-            callback_data=ArchetypeAnswer(question=question, answer=letter),
+            text=opt["text"],
+            callback_data=ArchetypeAnswer(question=question, answer=opt["key"]),
         )
     builder.adjust(1)
     return builder.as_markup()

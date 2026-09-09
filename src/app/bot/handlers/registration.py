@@ -12,11 +12,10 @@ from aiogram.utils.deep_linking import create_start_link
 
 from app.bot.callbacks.registration import ArchetypeAnswer, ConsentCallback
 from app.bot.keyboards.registration import (
-    ARCHETYPE_QUESTIONS,
     archetype_keyboard,
     consent_keyboard,
 )
-from app.bot.services.archetype import ARCHETYPE_NAMES, calculate_archetype
+from app.bot.services.archetype import ARCHETYPE_NAMES, calculate_archetype, load_quiz_config
 from app.bot.services.settings_service import get_welcome_message
 from app.bot.services.user_service import (
     create_referral,
@@ -82,7 +81,11 @@ async def handle_consent_agree(
     """Process consent agreement — store consent flag and move to quiz."""
     await state.update_data(consent=True)
     await state.set_state(RegistrationState.test_q1)
-    await callback.message.edit_text("Отлично! Давайте определим ваш архетип.")
+    
+    # Load quiz config and show intro + question 1
+    quiz = await load_quiz_config()
+    q1_text = f"{quiz.intro}\n\n{quiz.questions[0].text}"
+    await callback.message.edit_text(q1_text, reply_markup=archetype_keyboard(1, quiz.questions[0].options))
     await callback.answer("Согласие записано")
 
 
@@ -111,17 +114,20 @@ async def _handle_quiz_answer(
     Stores the answer, edits the message to the next question, and transitions state.
     Returns (archetype, archetype_name) when question == 4, else None.
     """
-    await state.update_data(**{f"q{question}_answer": callback.data.split(":")[-1]})
+    answer = callback.data.split(":")[-1]
+    await state.update_data(**{f"q{question}_answer": answer})
 
     if question < 4:
-        next_q = question + 1
-        q_text = ARCHETYPE_QUESTIONS[next_q]["text"]
-        await callback.message.edit_text(q_text, reply_markup=archetype_keyboard(next_q))
+        await state.set_state(next_state)
+        quiz = await load_quiz_config()
+        q_data = quiz.questions[question]  # 0-indexed
+        q_text = q_data.text
+        await callback.message.edit_text(q_text, reply_markup=archetype_keyboard(question + 1, q_data.options))
         await callback.answer()
         return None
     else:
         data = await state.get_data()
-        archetype = calculate_archetype(data)
+        archetype = await calculate_archetype(data)
         archetype_name = ARCHETYPE_NAMES[archetype]
         await state.update_data(archetype=archetype)
         await state.set_state(RegistrationState.complete)
@@ -138,7 +144,6 @@ async def handle_q1(
     state: FSMContext,
 ) -> None:
     """Process question 1 answer — store and show question 2."""
-    await state.set_state(RegistrationState.test_q2)
     await _handle_quiz_answer(callback, state, question=1, next_state=RegistrationState.test_q2)
 
 
@@ -151,7 +156,6 @@ async def handle_q2(
     state: FSMContext,
 ) -> None:
     """Process question 2 answer — store and show question 3."""
-    await state.set_state(RegistrationState.test_q3)
     await _handle_quiz_answer(callback, state, question=2, next_state=RegistrationState.test_q3)
 
 
@@ -164,7 +168,6 @@ async def handle_q3(
     state: FSMContext,
 ) -> None:
     """Process question 3 answer — store and show question 4."""
-    await state.set_state(RegistrationState.test_q4)
     await _handle_quiz_answer(callback, state, question=3, next_state=RegistrationState.test_q4)
 
 

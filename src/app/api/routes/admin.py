@@ -1444,3 +1444,206 @@ async def list_user_commands(
             ],
             total=total,
         )
+
+
+# --- Quiz management endpoints ---
+
+
+class QuizOptionRequest(BaseModel):
+    """Single quiz option."""
+
+    text: str = Field(min_length=1)
+    key: str = Field(min_length=1, max_length=1)
+
+
+class QuizQuestionRequest(BaseModel):
+    """Quiz question with options."""
+
+    text: str = Field(min_length=1)
+    options: list[QuizOptionRequest]
+
+
+class QuizConfigRequest(BaseModel):
+    """Full quiz configuration."""
+
+    intro: str
+    questions: list[QuizQuestionRequest]
+
+
+class QuizQuestionResponse(BaseModel):
+    """Quiz question response."""
+
+    text: str
+    options: list[dict[str, str]]
+
+
+class QuizConfigResponse(BaseModel):
+    """Quiz configuration response."""
+
+    intro: str
+    questions: list[QuizQuestionResponse]
+    results: dict[str, str]
+
+
+class ArchetypeScoresRequest(BaseModel):
+    """Archetype scoring configuration."""
+
+    scores: dict[str, dict[str, int]]  # e.g. {"1": {"a": {"head": 2}, ...}}
+
+
+@admin_router.get(
+    "/quiz",
+    response_model=QuizConfigResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_quiz_config() -> QuizConfigResponse:
+    """Get current quiz configuration."""
+    import json
+    async with session_factory() as session:
+        intro = await session.execute(select(Setting).where(Setting.key == "quiz_intro"))
+        intro = intro.scalar_one_or_none()
+        
+        questions_json = await session.execute(select(Setting).where(Setting.key == "quiz_questions"))
+        questions_json = questions_json.scalar_one_or_none()
+        
+        results_json = await session.execute(select(Setting).where(Setting.key == "quiz_results"))
+        results_json = results_json.scalar_one_or_none()
+    
+    questions = []
+    if questions_json and questions_json.value:
+        try:
+            questions_data = json.loads(questions_json.value)
+            for q in questions_data:
+                questions.append(QuizQuestionResponse(
+                    text=q["text"],
+                    options=q["options"]
+                ))
+        except Exception:
+            pass
+    
+    results = {}
+    if results_json and results_json.value:
+        try:
+            results = json.loads(results_json.value)
+        except Exception:
+            pass
+    
+    return QuizConfigResponse(
+        intro=intro.value if intro else "",
+        questions=questions,
+        results=results,
+    )
+
+
+@admin_router.put(
+    "/quiz",
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_quiz_config(req: QuizConfigRequest) -> dict:
+    """Update quiz configuration (intro, questions)."""
+    import json
+    async with session_factory() as session:
+        # Update intro
+        intro_setting = await session.execute(select(Setting).where(Setting.key == "quiz_intro"))
+        intro_setting = intro_setting.scalar_one_or_none()
+        if intro_setting is None:
+            intro_setting = Setting(key="quiz_intro", value=req.intro)
+            session.add(intro_setting)
+        else:
+            intro_setting.value = req.intro
+        
+        # Update questions
+        questions_setting = await session.execute(select(Setting).where(Setting.key == "quiz_questions"))
+        questions_setting = questions_setting.scalar_one_or_none()
+        questions_json = json.dumps([
+            {"text": q.text, "options": [opt.model_dump() for opt in q.options]}
+            for q in req.questions
+        ])
+        if questions_setting is None:
+            questions_setting = Setting(key="quiz_questions", value=questions_json)
+            session.add(questions_setting)
+        else:
+            questions_setting.value = questions_json
+        
+        await session.commit()
+        return {"updated": True}
+
+
+@admin_router.get(
+    "/quiz/results",
+    response_model=dict[str, str],
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_quiz_results() -> dict[str, str]:
+    """Get quiz results for all archetypes."""
+    import json
+    async with session_factory() as session:
+        results_json = await session.execute(select(Setting).where(Setting.key == "quiz_results"))
+        results_json = results_json.scalar_one_or_none()
+    
+    if results_json and results_json.value:
+        try:
+            return json.loads(results_json.value)
+        except Exception:
+            pass
+    return {}
+
+
+@admin_router.put(
+    "/quiz/results",
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_quiz_results(req: dict[str, str]) -> dict:
+    """Update quiz results for archetypes."""
+    import json
+    async with session_factory() as session:
+        results_setting = await session.execute(select(Setting).where(Setting.key == "quiz_results"))
+        results_setting = results_setting.scalar_one_or_none()
+        results_json = json.dumps(req)
+        if results_setting is None:
+            results_setting = Setting(key="quiz_results", value=results_json)
+            session.add(results_setting)
+        else:
+            results_setting.value = results_json
+        await session.commit()
+        return {"updated": True}
+
+
+@admin_router.get(
+    "/quiz/scores",
+    response_model=dict,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_archetype_scores() -> dict:
+    """Get archetype scoring configuration."""
+    import json
+    async with session_factory() as session:
+        scores_json = await session.execute(select(Setting).where(Setting.key == "archetype_scores"))
+        scores_json = scores_json.scalar_one_or_none()
+    
+    if scores_json and scores_json.value:
+        try:
+            return json.loads(scores_json.value)
+        except Exception:
+            pass
+    return {}
+
+
+@admin_router.put(
+    "/quiz/scores",
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_archetype_scores(req: ArchetypeScoresRequest) -> dict:
+    """Update archetype scoring configuration."""
+    import json
+    async with session_factory() as session:
+        scores_setting = await session.execute(select(Setting).where(Setting.key == "archetype_scores"))
+        scores_setting = scores_setting.scalar_one_or_none()
+        scores_json = json.dumps(req.scores)
+        if scores_setting is None:
+            scores_setting = Setting(key="archetype_scores", value=scores_json)
+            session.add(scores_setting)
+        else:
+            scores_setting.value = scores_json
+        await session.commit()
+        return {"updated": True}
