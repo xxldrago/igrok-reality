@@ -1,11 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Spin } from 'antd'
 import { TmaAuthProvider, useTmaAuth } from './contexts/TmaAuthContext'
 import TmaLayout from './layouts/TmaLayout'
+import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import UserDetail from './pages/UserDetail'
 import Scrolls from './pages/Scrolls'
 import Payments from './pages/Payments'
+import Finance from './pages/Finance'
+import Moderation from './pages/Moderation'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 
@@ -48,11 +51,13 @@ export default function App() {
         <BrowserRouter basename="/app">
           <Routes>
             <Route element={<TmaLayout />}>
-              <Route index element={<Navigate to="/users" replace />} />
+              <Route index element={<Dashboard />} />
               <Route path="users" element={<Users />} />
               <Route path="users/:id" element={<UserDetail />} />
               <Route path="scrolls" element={<Scrolls />} />
               <Route path="payments" element={<Payments />} />
+              <Route path="finance" element={<Finance />} />
+              <Route path="moderation" element={<Moderation />} />
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditLog />} />
             </Route>

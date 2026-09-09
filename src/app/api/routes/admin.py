@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.dependencies import get_current_user, require_role
 from app.bot.services.commission import get_commission_balance, process_payout
+from app.bot.services.dashboard_service import compute_dashboard
 from app.shared.database import session_factory
 from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
@@ -221,6 +222,117 @@ class AuditListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# --- Dashboard Pydantic models ---
+
+
+class DashboardResponse(BaseModel):
+    """Admin dashboard KPIs."""
+
+    active_players: int
+    paid_players: int
+    conversion_rate: float
+    total_income: int
+    prize_fund_total: int
+    retention_by_day: dict[int, int]
+    recent_activity: list[dict]
+
+
+# --- Finance Pydantic models ---
+
+
+class CommissionBalanceResponse(BaseModel):
+    """Mentor commission balance."""
+
+    user_id: UUID
+    username: Optional[str] = None
+    pending: int
+    paid_out: int
+    last_commission_at: Optional[datetime] = None
+
+
+class CommissionListResponse(BaseModel):
+    """List of mentor commission balances."""
+
+    balances: list[CommissionBalanceResponse]
+
+
+class PrizeFundResponse(BaseModel):
+    """Prize fund status."""
+
+    id: UUID
+    name: str
+    total_amount: int
+    percent_rule: int
+    status: str
+    distributed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class PrizeFundListResponse(BaseModel):
+    """List of prize funds."""
+
+    funds: list[PrizeFundResponse]
+
+
+class PrizeFundCreateRequest(BaseModel):
+    """Request body for creating a prize fund."""
+
+    name: str = Field(min_length=1, description="Fund name")
+    percent_rule: int = Field(ge=1, le=100, description="Percent of payments")
+
+
+class PrizeFundDistributeRequest(BaseModel):
+    """Request body for distributing a prize fund."""
+
+    fund_id: UUID
+    top_n: int = Field(ge=1, le=100, default=10, description="Top N users by XP")
+
+
+# --- Moderation Pydantic models ---
+
+
+class ModerationReportResponse(BaseModel):
+    """Moderation report entry."""
+
+    id: UUID
+    user_id: UUID
+    username: Optional[str] = None
+    reason: str
+    status: str
+    created_at: datetime
+
+
+class ModerationListResponse(BaseModel):
+    """List of moderation reports."""
+
+    reports: list[ModerationReportResponse]
+    total: int
+
+
+class ModerationResolveRequest(BaseModel):
+    """Request body for resolving a moderation report."""
+
+    decision: str = Field(description="warn, ban, or exclude")
+
+
+# --- Role change Pydantic models ---
+
+
+class RoleChangeRequest(BaseModel):
+    """Request body for changing a user's role."""
+
+    role: str = Field(description="New role: master, leader, curator, specialist, player")
+
+
+class RoleChangeResponse(BaseModel):
+    """Response after role change."""
+
+    user_id: UUID
+    old_role: Optional[str] = None
+    new_role: str
+    changed_at: datetime
 
 
 # --- Scroll management endpoints ---
@@ -841,3 +953,245 @@ async def get_audit_entry(entry_id: UUID) -> AuditEntryResponse:
             details=audit_log.details,
             created_at=audit_log.created_at,
         )
+
+
+# --- Dashboard endpoint ---
+
+
+@admin_router.get(
+    "/dashboard",
+    response_model=DashboardResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_dashboard() -> DashboardResponse:
+    """Return admin dashboard KPIs."""
+    data = await compute_dashboard()
+    return DashboardResponse(**data)
+
+
+# --- Finance endpoints ---
+
+
+@admin_router.get(
+    "/commissions",
+    response_model=CommissionListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_commissions() -> CommissionListResponse:
+    """List all mentor commission balances."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(CommissionBalance, User.username)
+            .outerjoin(User, CommissionBalance.user_id == User.id)
+            .order_by(CommissionBalance.pending.desc())
+        )
+        rows = result.all()
+        balances = []
+        for balance, username in rows:
+            balances.append(
+                CommissionBalanceResponse(
+                    user_id=balance.user_id,
+                    username=username,
+                    pending=balance.pending,
+                    paid_out=balance.paid_out,
+                    last_commission_at=balance.last_commission_at,
+                )
+            )
+        return CommissionListResponse(balances=balances)
+
+
+@admin_router.get(
+    "/prize-funds",
+    response_model=PrizeFundListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_prize_funds() -> PrizeFundListResponse:
+    """List all prize funds."""
+    from app.shared.models.prize_fund import PrizeFund as PrizeFundModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(PrizeFundModel).order_by(PrizeFundModel.created_at.desc())
+        )
+        funds = result.scalars().all()
+        return PrizeFundListResponse(
+            funds=[
+                PrizeFundResponse(
+                    id=f.id,
+                    name=f.name,
+                    total_amount=f.total_amount,
+                    percent_rule=f.percent_rule,
+                    status=f.status,
+                    distributed_at=f.distributed_at,
+                    created_at=f.created_at,
+                )
+                for f in funds
+            ]
+        )
+
+
+@admin_router.post(
+    "/prize-funds",
+    response_model=PrizeFundResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def create_prize_fund(req: PrizeFundCreateRequest) -> PrizeFundResponse:
+    """Create a new prize fund."""
+    from app.bot.services.prize_fund_service import create_fund
+
+    fund = await create_fund(req.name, req.percent_rule)
+    return PrizeFundResponse(
+        id=fund.id,
+        name=fund.name,
+        total_amount=fund.total_amount,
+        percent_rule=fund.percent_rule,
+        status=fund.status,
+        distributed_at=fund.distributed_at,
+        created_at=fund.created_at,
+    )
+
+
+@admin_router.post(
+    "/prize-funds/distribute",
+    dependencies=[Depends(require_role("master"))],
+)
+async def distribute_prize_fund(req: PrizeFundDistributeRequest) -> dict:
+    """Distribute a prize fund among top users."""
+    from app.bot.services.prize_fund_service import distribute_fund
+
+    payouts = await distribute_fund(req.fund_id, req.top_n)
+    return {"distributed": len(payouts), "fund_id": str(req.fund_id)}
+
+
+@admin_router.get(
+    "/payments/export",
+    dependencies=[Depends(require_role("master"))],
+)
+async def export_payments_csv() -> dict:
+    """Export confirmed payments as CSV data for accounting."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment, User.username, User.first_name)
+            .outerjoin(User, Payment.user_id == User.id)
+            .where(Payment.status == "confirmed")
+            .order_by(Payment.created_at.desc())
+        )
+        rows = result.all()
+        csv_lines = ["id,user_name,amount,currency,method,created_at"]
+        for payment, username, first_name in rows:
+            name = username or first_name or "—"
+            csv_lines.append(
+                f"{payment.id},{name},{payment.amount},{payment.currency},"
+                f"{payment.payment_method or '—'},{payment.created_at.isoformat()}"
+            )
+        return {"csv": "\n".join(csv_lines), "count": len(rows)}
+
+
+# --- Moderation endpoints ---
+
+
+@admin_router.get(
+    "/moderation",
+    response_model=ModerationListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_moderation_reports(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status"),
+) -> ModerationListResponse:
+    """List moderation reports."""
+    from app.shared.models.moderation_report import ModerationReport
+
+    async with session_factory() as session:
+        query = select(ModerationReport, User.username).outerjoin(
+            User, ModerationReport.user_id == User.id
+        )
+        count_query = select(func.count(ModerationReport.id))
+
+        if status_filter:
+            query = query.where(ModerationReport.status == status_filter)
+            count_query = count_query.where(ModerationReport.status == status_filter)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(ModerationReport.created_at.desc())
+        result = await session.execute(query)
+        rows = result.all()
+
+        reports = []
+        for report, username in rows:
+            reports.append(
+                ModerationReportResponse(
+                    id=report.id,
+                    user_id=report.user_id,
+                    username=username,
+                    reason=report.reason,
+                    status=report.status,
+                    created_at=report.created_at,
+                )
+            )
+        return ModerationListResponse(reports=reports, total=total)
+
+
+@admin_router.post(
+    "/moderation/{report_id}/resolve",
+    dependencies=[Depends(require_role("master"))],
+)
+async def resolve_moderation_report(
+    report_id: UUID, req: ModerationResolveRequest
+) -> dict:
+    """Resolve a moderation report with a decision (warn/ban/exclude)."""
+    from app.shared.models.moderation_report import ModerationReport
+
+    if req.decision not in ("warn", "ban", "exclude"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Decision must be warn, ban, or exclude",
+        )
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ModerationReport).where(ModerationReport.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+        if report is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Report not found",
+            )
+
+        report.status = req.decision
+        await session.commit()
+
+        # Log the action
+        audit = AuditLog(
+            admin_id=None,  # Will be set by middleware if available
+            action="moderation_resolve",
+            details=f"Report {report_id} resolved: {req.decision}",
+        )
+        session.add(audit)
+        await session.commit()
+
+        return {"report_id": str(report_id), "decision": req.decision}
+
+
+# --- Role change endpoint ---
+
+
+@admin_router.post(
+    "/users/{user_id}/role",
+    response_model=RoleChangeResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def change_user_role(user_id: UUID, req: RoleChangeRequest) -> RoleChangeResponse:
+    """Change a user's role (master-only, records history + audit)."""
+    from app.bot.services.role_service import change_role
+    from datetime import datetime, timezone
+
+    old_role, new_role = await change_role(user_id, req.role, admin_id=None)
+    return RoleChangeResponse(
+        user_id=user_id,
+        old_role=old_role,
+        new_role=new_role,
+        changed_at=datetime.now(timezone.utc),
+    )

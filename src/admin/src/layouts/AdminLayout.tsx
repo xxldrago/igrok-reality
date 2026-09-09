@@ -1,8 +1,11 @@
 import { Layout, Menu, Typography } from 'antd'
 import {
+  DashboardOutlined,
   UserOutlined,
   BookOutlined,
   DollarOutlined,
+  FundOutlined,
+  SafetyOutlined,
   SettingOutlined,
   AuditOutlined,
 } from '@ant-design/icons'
@@ -18,9 +21,16 @@ export default function AdminLayout() {
   const { user, logout } = useAuth()
 
   const menuItems = [
+    { key: '/admin', icon: <DashboardOutlined />, label: 'Дашборд' },
     { key: '/admin/users', icon: <UserOutlined />, label: 'Пользователи' },
     { key: '/admin/scrolls', icon: <BookOutlined />, label: 'Свитки' },
     { key: '/admin/payments', icon: <DollarOutlined />, label: 'Платежи' },
+    ...(user?.role === 'master' || user?.role === 'leader'
+      ? [
+          { key: '/admin/finance', icon: <FundOutlined />, label: 'Финансы' },
+          { key: '/admin/moderation', icon: <SafetyOutlined />, label: 'Модерация' },
+        ]
+      : []),
     ...(user?.role === 'master'
       ? [{ key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' }]
       : []),

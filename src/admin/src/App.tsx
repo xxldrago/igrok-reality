@@ -3,9 +3,12 @@ import { Spin } from 'antd'
 import { useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import AdminLayout from './layouts/AdminLayout'
+import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Scrolls from './pages/Scrolls'
 import Payments from './pages/Payments'
+import Finance from './pages/Finance'
+import Moderation from './pages/Moderation'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 
@@ -36,10 +39,13 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<div>Добро пожаловать в админ-панель</div>} />
+          <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
+          <Route path="users/:id" element={<Users />} />
           <Route path="scrolls" element={<Scrolls />} />
           <Route path="payments" element={<Payments />} />
+          <Route path="finance" element={<Finance />} />
+          <Route path="moderation" element={<Moderation />} />
           <Route path="settings" element={<Settings />} />
           <Route path="audit" element={<AuditLog />} />
         </Route>

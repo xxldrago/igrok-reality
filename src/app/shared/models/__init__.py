@@ -17,6 +17,7 @@ from app.shared.models.role_history import RoleHistory
 from app.shared.models.clan import Clan, ClanMember
 from app.shared.models.prize_fund import PrizeFund, PrizeFundPayout
 from app.shared.models.notification import Notification
+from app.shared.models.moderation_report import ModerationReport
 
 __all__ = [
     "Base",
@@ -37,4 +38,5 @@ __all__ = [
     "PrizeFund",
     "PrizeFundPayout",
     "Notification",
+    "ModerationReport",
 ]

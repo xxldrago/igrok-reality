@@ -1,21 +1,37 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
+  DashboardOutlined,
   UserOutlined,
   BookOutlined,
   DollarOutlined,
+  FundOutlined,
+  SafetyOutlined,
   SettingOutlined,
   AuditOutlined,
 } from '@ant-design/icons'
 import { useTmaAuth } from '../contexts/TmaAuthContext'
 
 const navItems = [
+  { key: '/app', icon: <DashboardOutlined />, label: 'Дашборд' },
   { key: '/app/users', icon: <UserOutlined />, label: 'Юзеры' },
   { key: '/app/scrolls', icon: <BookOutlined />, label: 'Свитки' },
-  { key: '/app/payments', icon: <DollarOutlined />, label: 'Финансы' },
+  { key: '/app/payments', icon: <DollarOutlined />, label: 'Платежи' },
 ]
 
 const roleNavItems = [
+  {
+    key: '/app/finance',
+    icon: <FundOutlined />,
+    label: 'Финансы',
+    roles: ['master', 'leader'],
+  },
+  {
+    key: '/app/moderation',
+    icon: <SafetyOutlined />,
+    label: 'Модерация',
+    roles: ['master', 'leader'],
+  },
   {
     key: '/app/settings',
     icon: <SettingOutlined />,

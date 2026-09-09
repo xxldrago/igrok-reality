@@ -243,4 +243,103 @@ export function getAuditLog(params: GetAuditParams = {}) {
   return api.get<AuditListResponse>('/admin/audit', { params })
 }
 
+// --- Dashboard interfaces ---
+
+export interface DashboardResponse {
+  active_players: number
+  paid_players: number
+  conversion_rate: number
+  total_income: number
+  prize_fund_total: number
+  retention_by_day: Record<number, number>
+  recent_activity: {
+    user_name: string
+    day_number: number
+    xp_awarded: number
+    created_at: string
+  }[]
+}
+
+export function getDashboard() {
+  return api.get<DashboardResponse>('/admin/dashboard')
+}
+
+// --- Finance interfaces ---
+
+export interface CommissionBalanceItem {
+  user_id: string
+  username: string | null
+  pending: number
+  paid_out: number
+  last_commission_at: string | null
+}
+
+export interface CommissionListResponse {
+  balances: CommissionBalanceItem[]
+}
+
+export function getCommissions() {
+  return api.get<CommissionListResponse>('/admin/commissions')
+}
+
+export interface PrizeFundItem {
+  id: string
+  name: string
+  total_amount: number
+  percent_rule: number
+  status: string
+  distributed_at: string | null
+  created_at: string
+}
+
+export interface PrizeFundListResponse {
+  funds: PrizeFundItem[]
+}
+
+export function getPrizeFunds() {
+  return api.get<PrizeFundListResponse>('/admin/prize-funds')
+}
+
+export function createPrizeFund(data: { name: string; percent_rule: number }) {
+  return api.post<PrizeFundItem>('/admin/prize-funds', data)
+}
+
+export function distributePrizeFund(data: { fund_id: string; top_n?: number }) {
+  return api.post('/admin/prize-funds/distribute', data)
+}
+
+export function exportPaymentsCsv() {
+  return api.get<{ csv: string; count: number }>('/admin/payments/export')
+}
+
+// --- Moderation interfaces ---
+
+export interface ModerationReportItem {
+  id: string
+  user_id: string
+  username: string | null
+  reason: string
+  status: string
+  created_at: string
+}
+
+export interface ModerationListResponse {
+  reports: ModerationReportItem[]
+  total: number
+}
+
+export function getModerationReports(params?: { status?: string }) {
+  return api.get<ModerationListResponse>('/admin/moderation', { params })
+}
+
+export function resolveModerationReport(id: string, decision: string) {
+  return api.post(`/admin/moderation/${id}/resolve`, { decision })
+}
+
+// --- Role change ---
+
+export function changeUserRole(userId: string, role: string) {
+  return api.post(`/admin/users/${userId}/role`, { role })
+}
+
 export default api
