@@ -13,6 +13,8 @@ A Telegram quest platform delivering 90-day challenges with gamification, paymen
 - [ ] **Phase 5: Payments & Access** - Platega.io integration, webhooks, channel access management
 - [ ] **Phase 6: Referrals & Commission** - Referral links, tracking, commission calculation
 - [ ] **Phase 7: Admin Panel** - React dashboard for users, scrolls, payments, settings
+- [ ] **Phase 8: Telegram Mini App Admin Panel** - Admin panel inside Telegram via /admin command
+- [x] **Phase 9: TZ Gap Closure** - Close gaps between implementation and original technical specification
 
 ## Phase Details
 
@@ -159,6 +161,31 @@ Plans:
 - [x] 08-02-PLAN.md — Frontend: TMA React app with Telegram auth, mobile layout (Wave 2)
 - [x] 08-03-PLAN.md — Bot: /admin command with WebAppInfo button, deep links (Wave 2)
 
+### Phase 9: TZ Gap Closure
+**Goal**: Close the gaps between the implemented platform and the original technical specification (ТЗ v1.0, 21.08.2026), excluding payment-provider integration differences. Restructure content model, add player-facing commands and reports, roles/groups/clans, economy tuning, master-chat integration, and admin extensions.
+**Depends on**: Phase 8
+**Requirements**: GAP-01, GAP-02, GAP-03, GAP-04, GAP-05, GAP-06, GAP-07, GAP-08, GAP-09, GAP-10, GAP-11, GAP-12, GAP-13, GAP-14
+**Success Criteria** (what must be TRUE):
+  1. Scroll content is structured into 5 sections (common task, individual archetype task, morning ritual, habits, micromovements), stored per-archetype, editable via admin
+  2. Daily scroll is published to the closed channel AND delivered privately at the configurable 08:00 time
+  3. Player can attach a report (text/photo/video) when completing a scroll; report duplicates to Master's private chat
+  4. `/profile` shows archetype, quest day, XP, streak, role, payment status, and referral link
+  5. `/myteam` lets a curator view their group (up to 10 players) with streak and payment status
+  6. Groups, Specialist role, role transitions with history, and Clans are implemented per access matrix
+  7. XP weights are configurable and streak bonuses exist at days 7/30/90
+  8. Prize fund reserves a configurable % of stream income and supports distribution rules
+  9. Admin panel gains dashboard, finance, moderation, and structured settings modules; role transitions via admin
+  10. Reminders/notifications fire (scroll not done, streak-loss warning)
+**Plans**: 6 plans
+
+Plans:
+- [x] 09-01-PLAN.md — Content model restructure: 5-section scroll, archetypes table, scroll_archetype_tasks, migration, seed (Wave 1)
+- [x] 09-02-PLAN.md — Player bot: /profile, /myteam, report attachment, channel publishing flow (Wave 1)
+- [x] 09-03-PLAN.md — Roles & groups: groups model, Specialist role, role transitions + history, Clans (Wave 2)
+- [x] 09-04-PLAN.md — Economy: configurable XP weights, streak bonuses 7/30/90, Prize Fund (Wave 2)
+- [x] 09-05-PLAN.md — Lichnaya Trope & notifications: master-chat duplication, reminders, system notifications (Wave 3)
+- [x] 09-06-PLAN.md — Admin extensions: dashboard, finance, moderation, structured settings, supplementary-quest editor (Wave 3)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -171,7 +198,7 @@ Plans:
 | 6. Referrals & Commission | 3/3 | Complete | 2026-09-05 |
 | 7. Admin Panel | 4/4 | Complete | 2026-09-06 |
 | 8. Telegram Mini App | 3/3 | Complete | 2026-09-06 |
-| 8. Telegram Mini App | 0/3 | Pending | — |
+| 9. TZ Gap Closure | 6/6 | Complete | 2026-09-09 |
 
 ## Parallel-Safe Opportunities
 
@@ -230,13 +257,27 @@ Plans:
 | ADM-06 | Phase 7 | Complete |
 | ADM-07 | Phase 7 | Complete |
 | ADM-08 | Phase 7 | Complete |
-| ADM-01 | Phase 8 | Pending |
-| ADM-02 | Phase 8 | Pending |
-| ADM-03 | Phase 8 | Pending |
-| ADM-04 | Phase 8 | Pending |
-| ADM-05 | Phase 8 | Pending |
-| ADM-06 | Phase 8 | Pending |
-| ADM-07 | Phase 8 | Pending |
-| ADM-08 | Phase 8 | Pending |
+| ADM-01 | Phase 8 | Complete |
+| ADM-02 | Phase 8 | Complete |
+| ADM-03 | Phase 8 | Complete |
+| ADM-04 | Phase 8 | Complete |
+| ADM-05 | Phase 8 | Complete |
+| ADM-06 | Phase 8 | Complete |
+| ADM-07 | Phase 8 | Complete |
+| ADM-08 | Phase 8 | Complete |
+| GAP-01 | Phase 9 | Complete |
+| GAP-02 | Phase 9 | Complete |
+| GAP-03 | Phase 9 | Complete |
+| GAP-04 | Phase 9 | Complete |
+| GAP-05 | Phase 9 | Complete |
+| GAP-06 | Phase 9 | Complete |
+| GAP-07 | Phase 9 | Complete |
+| GAP-08 | Phase 9 | Complete |
+| GAP-09 | Phase 9 | Complete |
+| GAP-10 | Phase 9 | Complete |
+| GAP-11 | Phase 9 | Complete |
+| GAP-12 | Phase 9 | Complete |
+| GAP-13 | Phase 9 | Complete |
+| GAP-14 | Phase 9 | Complete |
 
-**Total:** 55/55 requirements mapped ✓
+**Total:** 70/70 requirements mapped ✓
