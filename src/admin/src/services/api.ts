@@ -341,4 +341,86 @@ export function changeUserRole(userId: string, role: string) {
   return api.post(`/admin/users/${userId}/role`, { role })
 }
 
+// --- Scroll Types interfaces ---
+
+export interface ScrollTypeItem {
+  id: string
+  code: string
+  name: string
+  command: string
+  hour: number
+  minute: number
+  xp_reward: number
+  description: string
+  requires_meditation: boolean
+  is_breathing_day_only: boolean
+  is_awareness_day_only: boolean
+  sort_order: number
+}
+
+export interface ScrollTypeListResponse {
+  scroll_types: ScrollTypeItem[]
+}
+
+export function getScrollTypes() {
+  return api.get<ScrollTypeListResponse>('/admin/scroll-types')
+}
+
+// --- Daily Scrolls interfaces ---
+
+export interface DailyScrollItem {
+  id: string
+  day_number: number
+  scroll_type_id: string
+  scroll_type_code: string | null
+  title: string
+  content: string
+  media_file_id: string | null
+  published_at: string | null
+  created_at: string
+}
+
+export interface DailyScrollListResponse {
+  scrolls: DailyScrollItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface GetDailyScrollsParams {
+  day_number?: number
+  scroll_type_id?: string
+  page?: number
+  page_size?: number
+}
+
+export function getDailyScrolls(params: GetDailyScrollsParams = {}) {
+  return api.get<DailyScrollListResponse>('/admin/daily-scrolls', { params })
+}
+
+export function updateDailyScroll(id: string, data: { title?: string; content?: string; media_file_id?: string }) {
+  return api.put(`/admin/daily-scrolls/${id}`, data)
+}
+
+// --- User Commands interfaces ---
+
+export interface UserCommandItem {
+  id: string
+  user_id: string
+  quest_day: number
+  command: string
+  xp_awarded: number
+  completed_at: string
+  report_text: string | null
+}
+
+export interface UserCommandListResponse {
+  commands: UserCommandItem[]
+  total: number
+}
+
+export function getUserCommands(userId: string, params?: { quest_day?: number }) {
+  return api.get<UserCommandListResponse>(`/admin/users/${userId}/commands`, { params })
+}
+
 export default api

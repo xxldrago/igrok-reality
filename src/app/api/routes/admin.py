@@ -1195,3 +1195,252 @@ async def change_user_role(user_id: UUID, req: RoleChangeRequest) -> RoleChangeR
         new_role=new_role,
         changed_at=datetime.now(timezone.utc),
     )
+
+
+# --- Scroll Types endpoints ---
+
+
+class ScrollTypeResponse(BaseModel):
+    """Scroll type info."""
+
+    id: UUID
+    code: str
+    name: str
+    command: str
+    hour: int
+    minute: int
+    xp_reward: int
+    description: str
+    requires_meditation: bool
+    is_breathing_day_only: bool
+    is_awareness_day_only: bool
+    sort_order: int
+
+
+class ScrollTypeListResponse(BaseModel):
+    """List of scroll types."""
+
+    scroll_types: list[ScrollTypeResponse]
+
+
+@admin_router.get(
+    "/scroll-types",
+    response_model=ScrollTypeListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_scroll_types() -> ScrollTypeListResponse:
+    """List all scroll types."""
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ScrollTypeModel).order_by(ScrollTypeModel.sort_order)
+        )
+        types = result.scalars().all()
+        return ScrollTypeListResponse(
+            scroll_types=[
+                ScrollTypeResponse(
+                    id=st.id,
+                    code=st.code,
+                    name=st.name,
+                    command=st.command,
+                    hour=st.hour,
+                    minute=st.minute,
+                    xp_reward=st.xp_reward,
+                    description=st.description,
+                    requires_meditation=st.requires_meditation,
+                    is_breathing_day_only=st.is_breathing_day_only,
+                    is_awareness_day_only=st.is_awareness_day_only,
+                    sort_order=st.sort_order,
+                )
+                for st in types
+            ]
+        )
+
+
+# --- Daily Scrolls endpoints ---
+
+
+class DailyScrollResponse(BaseModel):
+    """Daily scroll content."""
+
+    id: UUID
+    day_number: int
+    scroll_type_id: UUID
+    scroll_type_code: Optional[str] = None
+    title: str
+    content: str
+    media_file_id: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class DailyScrollListResponse(BaseModel):
+    """Paginated daily scrolls response."""
+
+    scrolls: list[DailyScrollResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class DailyScrollUpdateRequest(BaseModel):
+    """Request body for updating daily scroll content."""
+
+    title: Optional[str] = None
+    content: Optional[str] = None
+    media_file_id: Optional[str] = None
+
+
+@admin_router.get(
+    "/daily-scrolls",
+    response_model=DailyScrollListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_daily_scrolls(
+    day_number: Optional[int] = Query(None, description="Filter by day number"),
+    scroll_type_id: Optional[UUID] = Query(None, description="Filter by scroll type"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> DailyScrollListResponse:
+    """List daily scrolls with optional filters."""
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        query = select(DailyScrollModel, ScrollTypeModel.code).outerjoin(
+            ScrollTypeModel, DailyScrollModel.scroll_type_id == ScrollTypeModel.id
+        )
+        count_query = select(func.count(DailyScrollModel.id))
+
+        if day_number is not None:
+            query = query.where(DailyScrollModel.day_number == day_number)
+            count_query = count_query.where(DailyScrollModel.day_number == day_number)
+        if scroll_type_id is not None:
+            query = query.where(DailyScrollModel.scroll_type_id == scroll_type_id)
+            count_query = count_query.where(DailyScrollModel.scroll_type_id == scroll_type_id)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(DailyScrollModel.day_number, DailyScrollModel.scroll_type_id)
+        query = query.offset((page - 1) * page_size).limit(page_size)
+        result = await session.execute(query)
+        rows = result.all()
+
+        scrolls = []
+        for ds, type_code in rows:
+            scrolls.append(
+                DailyScrollResponse(
+                    id=ds.id,
+                    day_number=ds.day_number,
+                    scroll_type_id=ds.scroll_type_id,
+                    scroll_type_code=type_code,
+                    title=ds.title,
+                    content=ds.content,
+                    media_file_id=ds.media_file_id,
+                    published_at=ds.published_at,
+                    created_at=ds.created_at,
+                )
+            )
+
+        return DailyScrollListResponse(
+            scrolls=scrolls, total=total, page=page, page_size=page_size
+        )
+
+
+@admin_router.put(
+    "/daily-scrolls/{scroll_id}",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def update_daily_scroll(
+    scroll_id: UUID, req: DailyScrollUpdateRequest
+) -> dict:
+    """Update daily scroll content."""
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(DailyScrollModel).where(DailyScrollModel.id == scroll_id)
+        )
+        ds = result.scalar_one_or_none()
+        if ds is None:
+            raise HTTPException(status_code=404, detail="Daily scroll not found")
+
+        if req.title is not None:
+            ds.title = req.title
+        if req.content is not None:
+            ds.content = req.content
+        if req.media_file_id is not None:
+            ds.media_file_id = req.media_file_id
+
+        await session.commit()
+        return {"id": str(scroll_id), "updated": True}
+
+
+# --- User Daily Commands endpoint ---
+
+
+class UserCommandResponse(BaseModel):
+    """User daily command record."""
+
+    id: UUID
+    user_id: UUID
+    quest_day: int
+    command: str
+    xp_awarded: int
+    completed_at: datetime
+    report_text: Optional[str] = None
+
+
+class UserCommandListResponse(BaseModel):
+    """List of user commands."""
+
+    commands: list[UserCommandResponse]
+    total: int
+
+
+@admin_router.get(
+    "/users/{user_id}/commands",
+    response_model=UserCommandListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_user_commands(
+    user_id: UUID,
+    quest_day: Optional[int] = Query(None, description="Filter by quest day"),
+) -> UserCommandListResponse:
+    """List a user's daily command completions."""
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    async with session_factory() as session:
+        query = select(UserDailyCommand).where(UserDailyCommand.user_id == user_id)
+        count_query = select(func.count(UserDailyCommand.id)).where(
+            UserDailyCommand.user_id == user_id
+        )
+
+        if quest_day is not None:
+            query = query.where(UserDailyCommand.quest_day == quest_day)
+            count_query = count_query.where(UserDailyCommand.quest_day == quest_day)
+
+        total_result = await session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = query.order_by(UserDailyCommand.completed_at.desc())
+        result = await session.execute(query)
+        commands = result.scalars().all()
+
+        return UserCommandListResponse(
+            commands=[
+                UserCommandResponse(
+                    id=c.id,
+                    user_id=c.user_id,
+                    quest_day=c.quest_day,
+                    command=c.command,
+                    xp_awarded=c.xp_awarded,
+                    completed_at=c.completed_at,
+                    report_text=c.report_text,
+                )
+                for c in commands
+            ],
+            total=total,
+        )

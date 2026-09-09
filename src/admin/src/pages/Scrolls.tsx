@@ -3,322 +3,239 @@ import {
   Table,
   Button,
   Space,
-  Tag,
-  Spin,
   Typography,
   Modal,
   Form,
   Input,
   InputNumber,
   Select,
-  Popconfirm,
+  Tag,
   message,
 } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FileOutlined } from '@ant-design/icons'
+import { EditOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import {
-  getScrolls,
-  createScroll,
-  updateScroll,
-  deleteScroll,
-  ScrollItem,
-  ScrollListResponse,
+  getScrollTypes,
+  getDailyScrolls,
+  updateDailyScroll,
+  ScrollTypeItem,
+  DailyScrollItem,
+  DailyScrollListResponse,
 } from '../services/api'
 
 const { Title } = Typography
 const { TextArea } = Input
 
-const archetypeColors: Record<string, string> = {
-  head: 'blue',
-  shell: 'green',
-  whirlwind: 'orange',
-  ghost: 'purple',
+const timeSlotColors: Record<number, string> = {
+  5: 'blue',
+  8: 'green',
+  12: 'orange',
+  16: 'purple',
+  21: 'cyan',
+  '-1': 'default',
 }
 
-const archetypeLabels: Record<string, string> = {
-  head: 'Голова',
-  shell: 'Панцирь',
-  whirlwind: 'Вихрь',
-  ghost: 'Призрак',
+const timeSlotLabels: Record<number, string> = {
+  5: '05:00 Утро',
+  8: '08:00 День',
+  12: '12:00 Полдень',
+  16: '16:00 Вечер',
+  21: '21:00 Ночь',
+  '-1': 'Любое время',
 }
 
 export default function Scrolls() {
-  const [data, setData] = useState<ScrollListResponse | null>(null)
+  const [scrollTypes, setScrollTypes] = useState<ScrollTypeItem[]>([])
+  const [dailyData, setDailyData] = useState<DailyScrollListResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [archetypeFilter, setArchetypeFilter] = useState<string | undefined>(undefined)
   const [dayFilter, setDayFilter] = useState<number | undefined>(undefined)
+  const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined)
   const [pagination, setPagination] = useState<TablePaginationConfig>({
     current: 1,
     pageSize: 20,
-    showSizeChanger: true,
-    pageSizeOptions: ['10', '20', '50'],
   })
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingScroll, setEditingScroll] = useState<ScrollItem | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingScroll, setEditingScroll] = useState<DailyScrollItem | null>(null)
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    getScrollTypes()
+      .then((res) => setScrollTypes(res.data.scroll_types))
+      .catch(console.error)
+  }, [])
+
+  const fetchDailyScrolls = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await getScrolls({
-        archetype: archetypeFilter,
-        day_number: dayFilter,
+      const params: Record<string, any> = {
         page: pagination.current || 1,
         page_size: pagination.pageSize || 20,
-      })
-      setData(response.data)
+      }
+      if (dayFilter) params.day_number = dayFilter
+      if (typeFilter) {
+        const st = scrollTypes.find((s) => s.code === typeFilter)
+        if (st) params.scroll_type_id = st.id
+      }
+      const res = await getDailyScrolls(params)
+      setDailyData(res.data)
     } catch (error) {
-      console.error('Failed to fetch scrolls:', error)
+      console.error('Failed to fetch daily scrolls:', error)
     } finally {
       setLoading(false)
     }
-  }, [archetypeFilter, dayFilter, pagination.current, pagination.pageSize])
+  }, [dayFilter, typeFilter, pagination.current, pagination.pageSize, scrollTypes])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchDailyScrolls()
+  }, [fetchDailyScrolls])
 
-  const handleCreate = () => {
-    setEditingScroll(null)
-    form.resetFields()
-    setModalOpen(true)
-  }
-
-  const handleEdit = (record: ScrollItem, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleEdit = (record: DailyScrollItem) => {
     setEditingScroll(record)
-    form.setFieldsValue({
-      day_number: record.day_number,
-      archetype: record.archetype,
-      text: record.text,
-      media_file_id: record.media_file_id,
-    })
-    setModalOpen(true)
+    form.setFieldsValue({ title: record.title, content: record.content })
+    setEditModalOpen(true)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleSave = async (values: { title: string; content: string }) => {
+    if (!editingScroll) return
+    setSubmitting(true)
     try {
-      await deleteScroll(id)
-      message.success('Свиток удалён')
-      fetchData()
+      await updateDailyScroll(editingScroll.id, values)
+      setEditModalOpen(false)
+      fetchDailyScrolls()
+      message.success('Свиток обновлён')
     } catch {
-      message.error('Не удалось удалить свиток')
-    }
-  }
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields()
-      setSubmitting(true)
-
-      if (editingScroll) {
-        await updateScroll(editingScroll.id, {
-          text: values.text,
-          media_file_id: values.media_file_id || null,
-        })
-        message.success('Свиток обновлён')
-      } else {
-        await createScroll({
-          day_number: values.day_number,
-          archetype: values.archetype,
-          text: values.text,
-          media_file_id: values.media_file_id || null,
-        })
-        message.success('Свиток создан')
-      }
-
-      setModalOpen(false)
-      fetchData()
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'errorFields' in err) {
-        // Form validation error — do nothing, form shows errors
-        return
-      }
-      message.error('Не удалось сохранить свиток')
+      message.error('Ошибка сохранения')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleTableChange = (pag: TablePaginationConfig) => {
-    setPagination((prev) => ({
-      ...prev,
-      current: pag.current,
-      pageSize: pag.pageSize,
-    }))
-  }
-
-  const columns: ColumnsType<ScrollItem> = [
+  const columns: ColumnsType<DailyScrollItem> = [
     {
       title: 'День',
       dataIndex: 'day_number',
       key: 'day_number',
-      width: 80,
-      sorter: (a, b) => a.day_number - b.day_number,
+      width: 70,
     },
     {
-      title: 'Архетип',
-      dataIndex: 'archetype',
-      key: 'archetype',
+      title: 'Тип',
+      dataIndex: 'scroll_type_code',
+      key: 'scroll_type_code',
       width: 120,
-      render: (archetype: string) => (
-        <Tag color={archetypeColors[archetype] || 'default'}>
-          {archetypeLabels[archetype] || archetype}
-        </Tag>
-      ),
+      render: (code: string | null) => {
+        const st = scrollTypes.find((s) => s.code === code)
+        return st ? (
+          <Tag color={timeSlotColors[st.hour] || 'default'}>
+            {st.name}
+          </Tag>
+        ) : (
+          code
+        )
+      },
     },
     {
-      title: 'Текст',
-      dataIndex: 'text',
-      key: 'text',
+      title: 'Команда',
+      key: 'command',
+      width: 100,
+      render: (_, record) => {
+        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        return st?.command || '—'
+      },
+    },
+    {
+      title: 'Время',
+      key: 'time',
+      width: 120,
+      render: (_, record) => {
+        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        return st ? (
+          <Tag color={timeSlotColors[st.hour] || 'default'}>
+            {timeSlotLabels[st.hour] || `${st.hour}:${String(st.minute).padStart(2, '0')}`}
+          </Tag>
+        ) : '—'
+      },
+    },
+    {
+      title: 'XP',
+      key: 'xp',
+      width: 60,
+      render: (_, record) => {
+        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        return st ? `+${st.xp_reward}` : '—'
+      },
+    },
+    {
+      title: 'Заголовок',
+      dataIndex: 'title',
+      key: 'title',
       ellipsis: true,
-      render: (text: string) => text.length > 80 ? text.slice(0, 80) + '...' : text,
-    },
-    {
-      title: 'Медиа',
-      dataIndex: 'media_file_id',
-      key: 'media_file_id',
-      width: 80,
-      align: 'center',
-      render: (val: string | null) =>
-        val ? <FileOutlined style={{ color: '#1890ff' }} /> : '—',
-    },
-    {
-      title: 'Дата создания',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 140,
-      render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
     },
     {
       title: 'Действия',
       key: 'actions',
-      width: 100,
+      width: 60,
       render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={(e) => handleEdit(record, e)}
-          />
-          <Popconfirm
-            title="Удалить свиток?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Да"
-            cancelText="Нет"
-          >
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </Popconfirm>
-        </Space>
+        <Button
+          type="link"
+          icon={<EditOutlined />}
+          onClick={() => handleEdit(record)}
+        />
       ),
     },
   ]
 
   return (
     <div>
-      <Title level={4}>Свитки</Title>
+      <Title level={3}>Свитки</Title>
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Добавить свиток
-        </Button>
-        <Select
-          placeholder="Архетип"
-          value={archetypeFilter}
-          onChange={(val) => {
-            setArchetypeFilter(val)
-            setPagination((prev) => ({ ...prev, current: 1 }))
-          }}
-          allowClear
-          style={{ width: 150 }}
-          options={[
-            { value: 'head', label: 'Голова' },
-            { value: 'shell', label: 'Панцирь' },
-            { value: 'whirlwind', label: 'Вихрь' },
-            { value: 'ghost', label: 'Призрак' },
-          ]}
-        />
+      <Space style={{ marginBottom: 16 }}>
         <InputNumber
           placeholder="День"
           min={1}
           max={90}
-          value={dayFilter}
-          onChange={(val) => {
-            setDayFilter(val ?? undefined)
-            setPagination((prev) => ({ ...prev, current: 1 }))
-          }}
           style={{ width: 100 }}
+          value={dayFilter}
+          onChange={(v) => setDayFilter(v ?? undefined)}
+        />
+        <Select
+          placeholder="Тип свитка"
+          allowClear
+          style={{ width: 180 }}
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={scrollTypes.map((st) => ({
+            value: st.code,
+            label: `${st.name} (${st.command})`,
+          }))}
         />
       </Space>
 
-      <Spin spinning={loading}>
-        <Table
-          columns={columns}
-          dataSource={data?.scrolls || []}
-          rowKey="id"
-          pagination={{
-            ...pagination,
-            total: data?.total || 0,
-          }}
-          onChange={handleTableChange}
-          locale={{ emptyText: 'Свитки не найдены' }}
-        />
-      </Spin>
+      <Table
+        dataSource={dailyData?.scrolls || []}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          ...pagination,
+          total: dailyData?.total || 0,
+          onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
+        }}
+      />
 
       <Modal
-        title={editingScroll ? 'Редактировать свиток' : 'Новый свиток'}
-        open={modalOpen}
-        onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
+        title="Редактировать свиток"
+        open={editModalOpen}
+        onCancel={() => setEditModalOpen(false)}
+        onOk={() => form.submit()}
         confirmLoading={submitting}
-        okText={editingScroll ? 'Сохранить' : 'Создать'}
-        cancelText="Отмена"
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="day_number"
-            label="День"
-            rules={[{ required: true, message: 'Укажите номер дня' }]}
-          >
-            <InputNumber
-              min={1}
-              max={90}
-              disabled={!!editingScroll}
-              style={{ width: '100%' }}
-            />
+        <Form form={form} onFinish={handleSave} layout="vertical">
+          <Form.Item name="title" label="Заголовок">
+            <Input />
           </Form.Item>
-          <Form.Item
-            name="archetype"
-            label="Архетип"
-            rules={[{ required: true, message: 'Выберите архетип' }]}
-          >
-            <Select
-              disabled={!!editingScroll}
-              options={[
-                { value: 'head', label: 'Голова' },
-                { value: 'shell', label: 'Панцирь' },
-                { value: 'whirlwind', label: 'Вихрь' },
-                { value: 'ghost', label: 'Призрак' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item
-            name="text"
-            label="Текст"
-            rules={[{ required: true, message: 'Введите текст свитка' }]}
-          >
-            <TextArea rows={6} />
-          </Form.Item>
-          <Form.Item name="media_file_id" label="Media File ID">
-            <Input placeholder="Telegram file_id (необязательно)" />
+          <Form.Item name="content" label="Контент">
+            <TextArea rows={8} />
           </Form.Item>
         </Form>
       </Modal>
