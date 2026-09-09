@@ -77,6 +77,25 @@
 | ADM-07 | Audit log | v1 |
 | ADM-08 | Admin authentication | v1 |
 
+## TZ Gap Closure
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| GAP-01 | Structured scroll content (5 sections: common, individual, ritual, habits, micromovements) | v1 |
+| GAP-02 | Per-archetype individual task storage (scroll_archetype_tasks) | v1 |
+| GAP-03 | Archetypes reference table | v1 |
+| GAP-04 | Configured daily publish time (08:00, editable in admin) | v1 |
+| GAP-05 | Channel publishing of daily scroll (in addition to private delivery) | v1 |
+| GAP-06 | Player report attachment (text/photo/video) on completion | v1 |
+| GAP-07 | Full /profile command (archetype, day, XP, streak, role, payment status, referral link) | v1 |
+| GAP-08 | /myteam command for curators (group up to 10, streak + payment status) | v1 |
+| GAP-09 | Groups model and role transitions with history | v1 |
+| GAP-10 | Specialist role and supplementary quests | v1 |
+| GAP-11 | Clans (create, aggregate progress, clan leaderboard) | v1 |
+| GAP-12 | Configurable XP weights and streak bonuses at 7/30/90 days | v1 |
+| GAP-13 | Prize fund (reserve % of stream income, distribution rules) | v1 |
+| GAP-14 | Lichnaya Trope (master-chat report duplication) and notifications/reminders | v1 |
+
 ## Traceability
 
 | Requirement | Phase | Status |
@@ -118,15 +137,29 @@
 | REF-03 | Phase 6 | Pending |
 | REF-04 | Phase 6 | Pending |
 | REF-05 | Phase 6 | Pending |
-| REF-06 | Phase 6 | Pending |
-| REF-07 | Phase 6 | Pending |
-| ADM-01 | Phase 7 | Pending |
-| ADM-02 | Phase 7 | Pending |
-| ADM-03 | Phase 7 | Pending |
-| ADM-04 | Phase 7 | Pending |
-| ADM-05 | Phase 7 | Pending |
-| ADM-06 | Phase 7 | Pending |
-| ADM-07 | Phase 7 | Pending |
-| ADM-08 | Phase 7 | Pending |
+| REF-06 | Phase 6 | Complete |
+| REF-07 | Phase 6 | Complete |
+| ADM-01 | Phase 7 | Complete |
+| ADM-02 | Phase 7 | Complete |
+| ADM-03 | Phase 7 | Complete |
+| ADM-04 | Phase 7 | Complete |
+| ADM-05 | Phase 7 | Complete |
+| ADM-06 | Phase 7 | Complete |
+| ADM-07 | Phase 7 | Complete |
+| ADM-08 | Phase 7 | Complete |
+| GAP-01 | Phase 9 | Complete |
+| GAP-02 | Phase 9 | Complete |
+| GAP-03 | Phase 9 | Complete |
+| GAP-04 | Phase 9 | Complete |
+| GAP-05 | Phase 9 | Complete |
+| GAP-06 | Phase 9 | Complete |
+| GAP-07 | Phase 9 | Complete |
+| GAP-08 | Phase 9 | Complete |
+| GAP-09 | Phase 9 | Complete |
+| GAP-10 | Phase 9 | Complete |
+| GAP-11 | Phase 9 | Complete |
+| GAP-12 | Phase 9 | Complete |
+| GAP-13 | Phase 9 | Complete |
+| GAP-14 | Phase 9 | Complete |
 
-**Coverage:** 47/47 v1 requirements mapped ✓
+**Coverage:** 61/61 v1 requirements mapped ✓

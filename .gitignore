@@ -40,3 +40,4 @@ node_modules/
 .coverage
 htmlcov/
 .pytest_cache/
+src/admin/tsconfig.tsbuildinfo

@@ -665,20 +665,19 @@ dev = [
 
 ## Open Questions
 
-1. **Platega.io API integration details**
+1. **Platega.io API integration details** (DEFERRED to Phase 5)
    - What we know: Payment provider supports СБП, cards, crypto
    - What's unclear: API authentication method, webhook payload format, idempotency support
    - Recommendation: Research Platega.io docs in Phase 5, not blocking for Phase 1
 
-2. **Telegram channel invite link mechanics**
+2. **Telegram channel invite link mechanics** (DEFERRED to Phase 5)
    - What we know: Need one-time invite links for paid users
    - What's unclear: Link expiration time, regeneration strategy
    - Recommendation: Research in Phase 5 when payment flow is implemented
 
-3. **Redis connection pooling for ARQ**
+3. **Redis connection pooling for ARQ** (RESOLVED)
    - What we know: ARQ creates its own connection pool
-   - What's unclear: How to share Redis connection between ARQ and application
-   - Recommendation: Use separate Redis databases (0 for app, 1 for ARQ)
+   - Resolution: Use separate Redis databases (0 for app, 1 for ARQ) — standard pattern for separating application cache from job queue broker
 
 ## Environment Availability
 
