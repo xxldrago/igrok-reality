@@ -10,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, ContentType, Message
 
 from app.bot.callbacks.scroll import ScrollCompletion
+from app.bot.services.master_feed_service import forward_report_to_master
 from app.bot.services.progress_service import (
     add_xp,
     create_completion,
@@ -17,6 +18,8 @@ from app.bot.services.progress_service import (
     update_leaderboard,
     update_streak,
 )
+from app.bot.services.scroll_service import get_scroll_content
+from app.shared.models.scroll import Scroll
 from app.bot.services.settings_service import get_streak_bonus_config
 from app.bot.states.completion import CompletionReportState
 
@@ -74,6 +77,36 @@ async def skip_report(message: Message, state: FSMContext) -> None:
     await message.answer("Отчёт не добавлен. Продолжайте в том же духе!")
 
 
+async def _finalize_report_and_forward(
+    user_id: UUID,
+    scroll_id: UUID,
+    message: Message,
+) -> None:
+    """Helper: forward the completed report to Master's chat."""
+    from app.shared.database import session_factory
+    from app.shared.models.completion import UserCompletion
+    from app.shared.models.user import User
+    from sqlalchemy import select
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(UserCompletion)
+            .where(UserCompletion.user_id == user_id, UserCompletion.scroll_id == scroll_id)
+        )
+        completion = result.scalar_one_or_none()
+
+        user_result = await session.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+
+        scroll_result = await session.execute(
+            select(Scroll).where(Scroll.id == scroll_id)
+        )
+        scroll = scroll_result.scalar_one_or_none()
+
+        if completion and user and scroll:
+            await forward_report_to_master(completion, user, scroll.day_number)
+
+
 @scroll_router.message(CompletionReportState.asking_for_report)
 async def handle_report_text(message: Message, state: FSMContext) -> None:
     """Handle text report."""
@@ -89,6 +122,9 @@ async def handle_report_text(message: Message, state: FSMContext) -> None:
 
     await state.clear()
     await message.answer("Отчёт сохранён. Спасибо!")
+
+    # Forward to Master
+    await _finalize_report_and_forward(user_id, scroll_id, message)
 
 
 @scroll_router.message(
@@ -125,3 +161,6 @@ async def handle_report_media(message: Message, state: FSMContext) -> None:
 
     await state.clear()
     await message.answer("Отчёт сохранён. Спасибо!")
+
+    # Forward to Master
+    await _finalize_report_and_forward(user_id, scroll_id, message)
