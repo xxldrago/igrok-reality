@@ -78,3 +78,8 @@ async def get_prize_fund_percent() -> int:
         return int(val)
     except ValueError:
         return 500  # default 5%
+
+
+async def get_welcome_message() -> str:
+    """Get the welcome message shown after /start."""
+    return await get_setting("welcome_message", "Добро пожаловать в Игрок.Реальность!")

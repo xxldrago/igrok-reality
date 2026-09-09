@@ -17,6 +17,7 @@ from app.bot.keyboards.registration import (
     consent_keyboard,
 )
 from app.bot.services.archetype import ARCHETYPE_NAMES, calculate_archetype
+from app.bot.services.settings_service import get_welcome_message
 from app.bot.services.user_service import (
     create_referral,
     create_user,
@@ -53,9 +54,6 @@ async def handle_start(message: Message, state: FSMContext) -> None:
     Stores Telegram profile data and, if a deep-link referral code is present,
     saves it for later binding.
     """
-    # TODO: check if user already exists via get_user_by_telegram_id()
-    #       For now, always treat as new user (Plan 02-01 scope).
-
     # Parse referral deep-link
     referral_code = None
     if message.text and " " in message.text:
@@ -71,7 +69,9 @@ async def handle_start(message: Message, state: FSMContext) -> None:
     )
 
     await state.set_state(RegistrationState.consent)
-    await message.answer(CONSENT_TEXT, reply_markup=consent_keyboard())
+
+    welcome_text = await get_welcome_message()
+    await message.answer(welcome_text, reply_markup=consent_keyboard())
 
 
 @registration_router.callback_query(ConsentCallback.filter(F.action == "agree"), RegistrationState.consent)
