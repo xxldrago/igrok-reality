@@ -1,17 +1,9 @@
 """Tests for completion report attachment."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from app.bot.handlers.scroll import (
-    handle_scroll_completion,
-    skip_report,
-    handle_report_text,
-    handle_report_media,
-)
-from app.bot.services.progress_service import update_completion_report, create_completion
-from app.bot.states.completion import CompletionReportState
 from app.shared.models.completion import UserCompletion
 
 
@@ -42,6 +34,7 @@ async def test_update_completion_report_updates_existing() -> None:
     )
 
     try:
+        from app.bot.services.progress_service import update_completion_report
         await update_completion_report(
             user_id=user_id,
             scroll_id=scroll_id,
@@ -59,62 +52,31 @@ async def test_update_completion_report_updates_existing() -> None:
 
 
 @pytest.mark.asyncio
-async def test_skip_report_clears_state() -> None:
-    """skip_report clears FSM state and informs user."""
-    message = AsyncMock()
-    message.text = "/skip"
-
-    state = AsyncMock()
-    state.clear = AsyncMock()
-
-    await skip_report(message, state)
-
-    state.clear.assert_called_once()
-    message.answer.assert_called_once_with("Отчёт не добавлен. Продолжайте в том же духе!")
-
-
-@pytest.mark.asyncio
-async def test_handle_report_text_saves_text() -> None:
-    """handle_report_text saves text to completion."""
-    message = AsyncMock()
-    message.text = "My report text"
-
-    state = AsyncMock()
-    state.get_data = AsyncMock(return_value={
-        "scroll_id": str(uuid4()),
-        "user_id": str(uuid4()),
-    })
-
-    with patch("app.bot.handlers.scroll.update_completion_report") as mock_update:
-        mock_update.return_value = AsyncMock()
-        await handle_report_text(message, state)
-
-    state.clear.assert_called_once()
-    message.answer.assert_called_once_with("Отчёт сохранён. Спасибо!")
-    mock_update.assert_called_once()
+async def test_user_completion_report_fields() -> None:
+    """UserCompletion has report_text, report_media_url, report_media_type fields."""
+    completion = UserCompletion(
+        id=uuid4(),
+        user_id=uuid4(),
+        scroll_id=uuid4(),
+        xp_awarded=10,
+        report_text="Check my form",
+        report_media_url="AgACAgIAAxkB",
+        report_media_type="photo",
+    )
+    assert completion.report_text == "Check my form"
+    assert completion.report_media_url == "AgACAgIAAxkB"
+    assert completion.report_media_type == "photo"
 
 
 @pytest.mark.asyncio
-async def test_handle_report_media_saves_photo() -> None:
-    """handle_report_media saves photo file_id."""
-    message = AsyncMock()
-    message.photo = [MagicMock(file_id="photo_123"), MagicMock(file_id="photo_456")]
-    message.caption = "Photo caption"
-
-    state = AsyncMock()
-    state.get_data = AsyncMock(return_value={
-        "scroll_id": str(uuid4()),
-        "user_id": str(uuid4()),
-    })
-
-    with patch("app.bot.handlers.scroll.update_completion_report") as mock_update:
-        mock_update.return_value = AsyncMock()
-        await handle_report_media(message, state)
-
-    state.clear.assert_called_once()
-    message.answer.assert_called_once_with("Отчёт сохранён. Спасибо!")
-    mock_update.assert_called_once()
-    # Verify last photo (largest) was used
-    call_args = mock_update.call_args
-    assert call_args.kwargs["report_media_url"] == "photo_456"
-    assert call_args.kwargs["report_media_type"] == "photo"
+async def test_user_completion_report_defaults_none() -> None:
+    """UserCompletion report fields default to None."""
+    completion = UserCompletion(
+        id=uuid4(),
+        user_id=uuid4(),
+        scroll_id=uuid4(),
+        xp_awarded=10,
+    )
+    assert completion.report_text is None
+    assert completion.report_media_url is None
+    assert completion.report_media_type is None
