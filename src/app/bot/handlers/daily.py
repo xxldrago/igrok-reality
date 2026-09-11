@@ -13,6 +13,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ContentType, Message
 from sqlalchemy import select
 
+from app.shared.config import settings
 from app.bot.services.day_type import (
     COMMAND_TO_SCROLL_CODE,
     GRACE_PERIOD_HOURS,
@@ -177,7 +178,7 @@ async def _handle_scroll_command(
         await message.answer("Сначала зарегистрируйтесь через /start.")
         return
 
-    tz_name = user.timezone or "Europe/Moscow"
+    tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name)
 
     if quest_day == 0:
@@ -290,7 +291,7 @@ async def handle_report(message: Message, state: FSMContext) -> None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
         return
 
-    tz_name = user.timezone or "Europe/Moscow"
+    tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name)
 
     if quest_day == 0:
@@ -357,7 +358,7 @@ async def handle_today(message: Message, state: FSMContext) -> None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
         return
 
-    tz_name = user.timezone or "Europe/Moscow"
+    tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name)
 
     if quest_day == 0:

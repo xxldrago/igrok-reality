@@ -161,7 +161,7 @@ TMA_WEBAPP_URL=https://api.оръ.рф
 # === Application ===
 ENVIRONMENT=production
 LOG_LEVEL=INFO
-TZ=Europe/Moscow
+TZ=Asia/Krasnoyarsk
 ```
 
 **Важно:** Замените все значения на реальные. Особенно:

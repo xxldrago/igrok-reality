@@ -61,7 +61,7 @@ async def deliver_scroll_slot(hour: int, ctx: dict | None = None) -> None:
         users = await get_active_users()
 
         for user in users:
-            tz_name = user.timezone or "Europe/Moscow"
+            tz_name = user.timezone or settings.TZ
             quest_day = _get_quest_day(user, tz_name)
             if quest_day == 0:
                 continue

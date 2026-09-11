@@ -99,19 +99,19 @@ async def enqueue_new_stream(ctx: None = None) -> None:
 
 async def schedule_jobs() -> None:
     """Configure and add all scheduled jobs."""
-    # Scroll delivery slots (5:00, 8:00, 12:00, 16:00, 21:00 Moscow)
+    # Scroll delivery slots (5:00, 8:00, 12:00, 16:00, 21:00)
     for hour, minute in DELIVERY_SLOTS:
         job_id = f"scroll_slot_{hour:02d}"
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
         scheduler.add_job(
             enqueue_scroll_slot,
-            CronTrigger(hour=hour, minute=minute, timezone="Europe/Moscow"),
+            CronTrigger(hour=hour, minute=minute, timezone=settings.TZ),
             args=[hour],
             id=job_id,
             replace_existing=True,
         )
-        logger.info("Scheduled scroll slot at %02d:%02d Moscow time", hour, minute)
+        logger.info("Scheduled scroll slot at %02d:%02d %s time", hour, minute, settings.TZ)
 
     # Evening reminder
     r_hour, r_minute = await get_reminder_time()
@@ -119,22 +119,22 @@ async def schedule_jobs() -> None:
         scheduler.remove_job("evening_reminder")
     scheduler.add_job(
         enqueue_evening_reminder,
-        CronTrigger(hour=r_hour, minute=r_minute, timezone="Europe/Moscow"),
+        CronTrigger(hour=r_hour, minute=r_minute, timezone=settings.TZ),
         id="evening_reminder",
         replace_existing=True,
     )
-    logger.info("Scheduled evening reminder at %02d:%02d Moscow time", r_hour, r_minute)
+    logger.info("Scheduled evening reminder at %02d:%02d %s time", r_hour, r_minute, settings.TZ)
 
     # Streak loss warning (runs at 23:00 by default)
     if scheduler.get_job("streak_warning"):
         scheduler.remove_job("streak_warning")
     scheduler.add_job(
         enqueue_streak_warning,
-        CronTrigger(hour=23, minute=0, timezone="Europe/Moscow"),
+        CronTrigger(hour=23, minute=0, timezone=settings.TZ),
         id="streak_warning",
         replace_existing=True,
     )
-    logger.info("Scheduled streak warning at 23:00 Moscow time")
+    logger.info("Scheduled streak warning at 23:00 %s time", settings.TZ)
 
 
 async def main() -> None:

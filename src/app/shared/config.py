@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # Application
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
-    TZ: str = "Europe/Moscow"
+    TZ: str = "Asia/Krasnoyarsk"
 
 
 settings = Settings()
