@@ -19,7 +19,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "users"
 
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
-    first_name: Mapped[str] = mapped_column(String(255))
+    first_name: Mapped[str] = mapped_column(String(255), default="")
     last_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     archetype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # head/shell/whirlwind/ghost
