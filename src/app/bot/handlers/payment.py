@@ -13,7 +13,7 @@ from app.bot.services.payment_service import call_platega_api, create_payment
 
 payment_router = Router(name="payment")
 
-PAYMENT_AMOUNT = 4900  # 49 rubles in kopecks
+PAYMENT_AMOUNT = 490000  # 4900 rubles in kopecks
 
 
 @payment_router.message(Command("pay"))
