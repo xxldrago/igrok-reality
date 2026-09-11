@@ -27,7 +27,7 @@ async def init_db() -> None:
 
         # Stamp alembic version as head
         await conn.execute(
-            text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL)")
+            text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(128) NOT NULL)")
         )
         # Get the head revision from migration files
         result = await conn.execute(text("SELECT version_num FROM alembic_version"))
