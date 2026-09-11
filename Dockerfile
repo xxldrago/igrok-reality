@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -e .
 
 # Copy application source
 COPY src/ src/
+COPY scripts/ scripts/
 
 # Make app module importable
 ENV PYTHONPATH="/app/src:/app:$PYTHONPATH"
