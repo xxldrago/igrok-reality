@@ -9,6 +9,7 @@ import asyncio
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))  # project root (scripts package)
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sqlalchemy import select
@@ -17,6 +18,7 @@ from app.shared.database import session_factory
 from app.shared.models.daily_scroll import DailyScroll
 from app.shared.models.scroll_type import ScrollType
 from app.bot.services.day_type import get_available_scroll_codes, get_day_type, MEDITATION_DAYS, BREATHING_DAYS, AWARENESS_DAYS
+from scripts.seed_scroll_types import SCROLL_TYPES
 
 
 # Template content for each scroll type
@@ -163,7 +165,7 @@ AWARENESS_CONTENT = {
         "🔮 День осознания — вопросы для самоанализа:\n\n"
         "1. Какие привычки мне мешают?\n"
         "2. Что я делаю на автопилоте?\n"
-        "3. Когда я чувствую себя 가장 живым(ой)?\n"
+        "3. Когда я чувствую себя наиболее живым(ой)?\n"
         "4. Чего я избегаю и почему?\n\n"
         "Запишите ответы — это начало трансформации."
     ),
@@ -179,8 +181,43 @@ AWARENESS_CONTENT = {
 }
 
 
+async def upsert_scroll_types(session) -> dict[str, ScrollType]:
+    """Ensure all 9 scroll types exist and match the canonical definition.
+
+    Inserts missing types and updates fields of existing ones (hour, xp,
+    description, ...), so the DB can never drift from the code.
+    Returns {code: ScrollType}.
+    """
+    result = await session.execute(select(ScrollType))
+    existing = {st.code: st for st in result.scalars().all()}
+
+    for data in SCROLL_TYPES:
+        st = existing.get(data["code"])
+        if st is None:
+            st = ScrollType(**data)
+            session.add(st)
+            print(f"  + type {data['code']}: {data['name']}")
+        else:
+            changed = [k for k, v in data.items() if getattr(st, k) != v]
+            if changed:
+                for k in changed:
+                    setattr(st, k, data[k])
+                print(f"  ~ type {data['code']}: updated {changed}")
+            else:
+                print(f"  = type {data['code']}: ok")
+        existing[data["code"]] = st
+
+    await session.flush()
+    result = await session.execute(select(ScrollType))
+    return {st.code: st for st in result.scalars().all()}
+
+
 async def seed_daily_scrolls(rebuild: bool = False) -> None:
     """Generate and insert daily scrolls for 90 days.
+
+    Always upserts scroll types first, then fills missing daily scrolls.
+    With rebuild=True deletes ALL daily_scrolls and regenerates from scratch.
+    Ends with a strict coverage check — exits non-zero on any gap.
 
     Args:
         rebuild: when True, delete ALL existing daily_scrolls first so
@@ -189,18 +226,21 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
     from sqlalchemy import delete
 
     async with session_factory() as session:
+        # 1. Scroll types first — never silently skip codes again
+        print("Upserting scroll types...")
+        scroll_types = await upsert_scroll_types(session)
+        await session.commit()
+
+        missing_types = set(TEMPLATES) - set(scroll_types)
+        if missing_types:
+            print(f"ERROR: scroll types still missing after upsert: {sorted(missing_types)}")
+            raise SystemExit(1)
+
+        # 2. Daily scrolls
         if rebuild:
             await session.execute(delete(DailyScroll))
             await session.commit()
             print("Rebuild mode: deleted all existing daily_scrolls")
-
-        # Get all scroll types
-        result = await session.execute(select(ScrollType))
-        scroll_types = {st.code: st for st in result.scalars().all()}
-
-        if not scroll_types:
-            print("ERROR: No scroll types found. Run seed_scroll_types.py first!")
-            return
 
         created = 0
         skipped = 0
@@ -255,15 +295,18 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
         await session.commit()
         print(f"Created {created} daily scrolls, skipped {skipped} existing")
 
-        # Coverage report: days 1-90 vs expected scroll codes
+        # Strict coverage check: days 1-90 vs expected scroll codes
         result = await session.execute(select(ScrollType))
         type_ids = {st.id: st.code for st in result.scalars().all()}
         result = await session.execute(
             select(DailyScroll.day_number, DailyScroll.scroll_type_id)
         )
         present: dict[int, set[str]] = {}
+        per_type: dict[str, int] = {}
         for day_number, type_id in result.all():
-            present.setdefault(day_number, set()).add(type_ids.get(type_id, "?"))
+            code = type_ids.get(type_id, "?")
+            present.setdefault(day_number, set()).add(code)
+            per_type[code] = per_type.get(code, 0) + 1
 
         gap_days: list[str] = []
         for day in range(1, 91):
@@ -271,12 +314,31 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
             missing = expected - present.get(day, set())
             if missing:
                 gap_days.append(f"day {day}: missing {sorted(missing)}")
+
+        # Per-type totals vs expected
+        expected_per_type: dict[str, int] = {}
+        for day in range(1, 91):
+            for code in get_available_scroll_codes(day):
+                expected_per_type[code] = expected_per_type.get(code, 0) + 1
+        type_gaps = {
+            code: (expected_per_type.get(code, 0), per_type.get(code, 0))
+            for code in expected_per_type
+            if per_type.get(code, 0) != expected_per_type.get(code, 0)
+        }
+
+        total = sum(per_type.values())
+        print(f"Total daily scrolls: {total}")
         if gap_days:
             print(f"GAPS ({len(gap_days)} days incomplete):")
             for line in gap_days:
                 print(f"  {line}")
-        else:
-            print("Coverage OK: all 90 days have every expected scroll")
+        if type_gaps:
+            print("TYPE GAPS (expected vs actual):")
+            for code, (exp, act) in sorted(type_gaps.items()):
+                print(f"  {code}: expected {exp}, got {act}")
+        if gap_days or type_gaps:
+            raise SystemExit(1)
+        print("Coverage OK: all 90 days have every expected scroll")
 
 
 if __name__ == "__main__":
