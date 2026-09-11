@@ -46,6 +46,8 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - media_data:/app/media
     env_file:
       - .env
 
@@ -73,3 +75,4 @@ services:
 
 volumes:
   postgres_data:
+  media_data:

@@ -7,6 +7,7 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from arq import create_pool
 from arq.connections import RedisSettings
 from sqlalchemy import select
@@ -97,6 +98,19 @@ async def enqueue_new_stream(ctx: None = None) -> None:
         await pool.close()
 
 
+async def enqueue_pending_notifications(ctx: None = None) -> None:
+    """Enqueue the notification queue pump via ARQ (every minute).
+
+    Picks up queued broadcasts (immediate + due scheduled ones).
+    """
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    pool = await create_pool(redis_settings)
+    try:
+        await pool.enqueue_job("send_pending_notifications")
+    finally:
+        await pool.close()
+
+
 async def schedule_jobs() -> None:
     """Configure and add all scheduled jobs."""
     # Scroll delivery slots (5:00, 8:00, 12:00, 16:00, 21:00)
@@ -135,6 +149,17 @@ async def schedule_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Scheduled streak warning at 23:00 %s time", settings.TZ)
+
+    # Notification queue pump (every minute — broadcasts + scheduled)
+    if scheduler.get_job("pending_notifications"):
+        scheduler.remove_job("pending_notifications")
+    scheduler.add_job(
+        enqueue_pending_notifications,
+        IntervalTrigger(minutes=1),
+        id="pending_notifications",
+        replace_existing=True,
+    )
+    logger.info("Scheduled notification pump every minute")
 
 
 async def main() -> None:

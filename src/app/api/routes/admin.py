@@ -18,6 +18,7 @@ from app.shared.database import session_factory
 from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
 from app.shared.models.completion import UserCompletion
+from app.shared.models.notification import Notification
 from app.shared.models.payment import Payment
 from app.shared.models.scroll import Scroll
 from app.shared.models.settings import Setting
@@ -1665,6 +1666,11 @@ class BroadcastRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000, description="Message text")
     archetype: Optional[str] = Field(None, description="Filter by archetype: head, shell, whirlwind, ghost. Null = all.")
     parse_mode: Optional[str] = Field(None, description="Telegram parse_mode: Markdown, HTML")
+    media_url: Optional[str] = Field(None, description="Attachment URL (photo/video/document)")
+    media_type: Optional[str] = Field(None, description="photo, video or document")
+    scheduled_at: Optional[datetime] = Field(
+        None, description="Send after this time (ISO with timezone). Null = immediately."
+    )
 
 
 class BroadcastResponse(BaseModel):
@@ -1673,6 +1679,30 @@ class BroadcastResponse(BaseModel):
     sent: int
     failed: int
     total: int
+    scheduled: bool = False
+
+
+class ScheduledBroadcastItem(BaseModel):
+    """One scheduled (not yet sent) broadcast batch."""
+
+    scheduled_at: datetime
+    audience: str
+    text_preview: str
+    total: int
+    media_type: Optional[str] = None
+
+
+class ScheduledBroadcastListResponse(BaseModel):
+    """Pending scheduled broadcasts."""
+
+    items: list[ScheduledBroadcastItem]
+
+
+class CancelScheduledBroadcastRequest(BaseModel):
+    """Cancel unsent notifications of one scheduled batch."""
+
+    scheduled_at: datetime
+    audience: str
 
 
 @admin_router.post(
@@ -1681,36 +1711,106 @@ class BroadcastResponse(BaseModel):
     dependencies=[Depends(require_role("master"))],
 )
 async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
-    """Send a broadcast message to users, optionally filtered by archetype."""
+    """Queue a broadcast message, optionally with media and/or scheduled time."""
     from app.bot.services.notification_service import send_system_notification_to_all
-    from sqlalchemy import select
 
+    if req.archetype and req.archetype not in VALID_ARCHETYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"archetype must be one of {VALID_ARCHETYPES}",
+        )
+    if req.media_type and req.media_type not in ("photo", "video", "document"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="media_type must be photo, video or document",
+        )
+    if req.media_url and not req.media_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="media_type is required when media_url is set",
+        )
+
+    # Create notifications (queued; the worker sends due ones every minute)
+    notifications = await send_system_notification_to_all(
+        "broadcast",
+        req.text,
+        media_url=req.media_url,
+        media_type=req.media_type,
+        scheduled_at=req.scheduled_at,
+        audience=req.archetype or "all",
+        archetype=req.archetype,
+    )
+
+    return BroadcastResponse(
+        sent=len(notifications),
+        failed=0,
+        total=len(notifications),
+        scheduled=req.scheduled_at is not None,
+    )
+
+
+@admin_router.get(
+    "/broadcasts/scheduled",
+    response_model=ScheduledBroadcastListResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def list_scheduled_broadcasts() -> ScheduledBroadcastListResponse:
+    """List scheduled broadcasts that have not been sent yet."""
     async with session_factory() as session:
-        query = select(User).where(User.archetype.isnot(None), User.started_at.isnot(None))
-        if req.archetype:
-            query = query.where(User.archetype == req.archetype)
-        result = await session.execute(query)
-        users = list(result.scalars().all())
-
-    if not users:
-        return BroadcastResponse(sent=0, failed=0, total=0)
-
-    # Create notifications
-    notifications = []
-    async with session_factory() as session:
-        for user in users:
-            notification = Notification(
-                user_id=user.id,
-                type="broadcast",
-                payload=req.text,
+        result = await session.execute(
+            select(Notification).where(
+                Notification.type == "broadcast",
+                Notification.sent_at.is_(None),
+                Notification.scheduled_at.isnot(None),
             )
-            session.add(notification)
-            notifications.append(notification)
-        await session.commit()
+        )
+        rows = list(result.scalars().all())
 
-    # Send via ARQ worker (async, non-blocking)
-    # Notifications are queued and will be sent by send_pending_notifications worker
-    return BroadcastResponse(sent=len(notifications), failed=0, total=len(notifications))
+    batches: dict[tuple, dict] = {}
+    for n in rows:
+        key = (n.scheduled_at.isoformat() if n.scheduled_at else "", n.audience or "all", n.payload)
+        entry = batches.setdefault(
+            key,
+            {
+                "scheduled_at": n.scheduled_at,
+                "audience": n.audience or "all",
+                "text_preview": (n.payload or "")[:120],
+                "total": 0,
+                "media_type": n.media_type,
+            },
+        )
+        entry["total"] += 1
+
+    items = sorted(batches.values(), key=lambda e: e["scheduled_at"] or "")
+    return ScheduledBroadcastListResponse(items=[ScheduledBroadcastItem(**e) for e in items])
+
+
+@admin_router.delete(
+    "/broadcasts/scheduled",
+    dependencies=[Depends(require_role("master"))],
+)
+async def cancel_scheduled_broadcast(req: CancelScheduledBroadcastRequest) -> dict:
+    """Cancel all unsent notifications of one scheduled batch."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Notification).where(
+                Notification.type == "broadcast",
+                Notification.sent_at.is_(None),
+                Notification.scheduled_at == req.scheduled_at,
+                Notification.audience == req.audience,
+            )
+        )
+        rows = list(result.scalars().all())
+        for n in rows:
+            await session.delete(n)
+        session.add(
+            AuditLog(
+                action="broadcast_cancelled",
+                details=f"scheduled_at={req.scheduled_at.isoformat()} audience={req.audience} count={len(rows)}",
+            )
+        )
+        await session.commit()
+    return {"cancelled": len(rows)}
 
 
 # --- User create / update endpoints ---

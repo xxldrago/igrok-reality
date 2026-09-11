@@ -18,6 +18,11 @@ class Notification(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "notifications"
 
     user_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
-    type: Mapped[str] = mapped_column(String(50), nullable=False)  # scroll_reminder|streak_warning|system
+    type: Mapped[str] = mapped_column(String(50), nullable=False)  # scroll_reminder|streak_warning|system|broadcast
     payload: Mapped[str] = mapped_column(Text, nullable=False, default="")
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Broadcast attachments + scheduling (nullable for other notification types)
+    media_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    media_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # photo|video|document
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    audience: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # archetype or 'all'

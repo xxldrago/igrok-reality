@@ -126,7 +126,7 @@ class TestSettingsSchema:
         with _patch_get_setting(""):
             groups = await get_settings_schema()
             names = [g["group"] for g in groups]
-            assert names == ["telegram", "platega", "payments", "quest", "content"]
+            assert names == ["telegram", "platega", "payments", "quest", "media", "content"]
             payments = next(g for g in groups if g["group"] == "payments")
             price = next(f for f in payments["fields"] if f["key"] == "payment_amount")
             assert price["type"] == "price_rub"

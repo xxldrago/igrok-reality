@@ -94,20 +94,43 @@ async def deliver_scroll_slot(hour: int, ctx: dict | None = None) -> None:
 
                 text += f"\n\n⏱ Выполни: {st.command} (+{st.xp_reward} XP)"
 
+                # Attachment (admin panel → scroll media URL or Telegram file_id)
+                media = daily_scroll.media_file_id if daily_scroll else None
+
+                async def _send() -> None:
+                    if media:
+                        if len(text) <= 1024:
+                            await bot.send_photo(user.telegram_id, media, caption=text)
+                        else:
+                            await bot.send_photo(user.telegram_id, media)
+                            await bot.send_message(user.telegram_id, text)
+                    else:
+                        await bot.send_message(user.telegram_id, text)
+
                 # Send to user
                 try:
-                    await bot.send_message(user.telegram_id, text)
+                    await _send()
                     sent += 1
                 except TelegramRetryAfter as e:
                     logger.warning("Rate limited, sleeping %ds", e.retry_after)
                     await asyncio.sleep(e.retry_after)
                     try:
+                        await _send()
+                        sent += 1
+                    except TelegramAPIError:
+                        # Media failed (bad URL/file_id) — fall back to text
+                        try:
+                            await bot.send_message(user.telegram_id, text)
+                            sent += 1
+                        except TelegramAPIError:
+                            failed += 1
+                except TelegramAPIError:
+                    # Media failed (bad URL/file_id) — fall back to text
+                    try:
                         await bot.send_message(user.telegram_id, text)
                         sent += 1
                     except TelegramAPIError:
                         failed += 1
-                except TelegramAPIError:
-                    failed += 1
 
                 # Small delay between messages
                 await asyncio.sleep(0.05)

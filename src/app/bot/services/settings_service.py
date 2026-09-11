@@ -294,6 +294,14 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
         ],
     ),
     SettingsGroup(
+        group="media",
+        title="Файлы и медиа",
+        fields=[
+            SettingsField("media_base_url", "Базовый URL для медиафайлов", "text", "",
+                          "Например https://api.ваш-домен. Пусто = текущий адрес API"),
+        ],
+    ),
+    SettingsGroup(
         group="content",
         title="Контент — первое приветствие",
         fields=[

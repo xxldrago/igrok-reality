@@ -22,6 +22,14 @@ import {
   DailyScrollItem,
   DailyScrollListResponse,
 } from '../services/api'
+import MediaUpload from '../components/MediaUpload'
+
+function guessMediaType(url: string): string | null {
+  const clean = url.split('?')[0].toLowerCase()
+  if (/\.(jpg|jpeg|png|gif|webp)$/.test(clean)) return 'photo'
+  if (/\.(mp4|mov|m4v|avi|mkv)$/.test(clean)) return 'video'
+  return 'document'
+}
 
 const { Title } = Typography
 const { TextArea } = Input
@@ -58,6 +66,8 @@ export default function Scrolls() {
   const [editingScroll, setEditingScroll] = useState<DailyScrollItem | null>(null)
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
+  const [mediaType, setMediaType] = useState<string | null>(null)
 
   useEffect(() => {
     getScrollTypes()
@@ -93,6 +103,12 @@ export default function Scrolls() {
   const handleEdit = (record: DailyScrollItem) => {
     setEditingScroll(record)
     form.setFieldsValue({ title: record.title, content: record.content })
+    setMediaUrl(record.media_file_id || null)
+    setMediaType(
+      record.media_file_id && record.media_file_id.startsWith('http')
+        ? guessMediaType(record.media_file_id)
+        : null,
+    )
     setEditModalOpen(true)
   }
 
@@ -100,7 +116,7 @@ export default function Scrolls() {
     if (!editingScroll) return
     setSubmitting(true)
     try {
-      await updateDailyScroll(editingScroll.id, values)
+      await updateDailyScroll(editingScroll.id, { ...values, media_file_id: mediaUrl || '' })
       setEditModalOpen(false)
       fetchDailyScrolls()
       message.success('Свиток обновлён')
@@ -172,6 +188,13 @@ export default function Scrolls() {
       ellipsis: true,
     },
     {
+      title: '📎',
+      dataIndex: 'media_file_id',
+      key: 'media_file_id',
+      width: 50,
+      render: (media: string | null) => (media ? <Tag color="blue">есть</Tag> : '—'),
+    },
+    {
       title: 'Действия',
       key: 'actions',
       width: 60,
@@ -236,6 +259,38 @@ export default function Scrolls() {
           </Form.Item>
           <Form.Item name="content" label="Контент">
             <TextArea rows={8} />
+          </Form.Item>
+          <Form.Item label="Вложение (фото / видео / файл)">
+            {mediaUrl && !mediaUrl.startsWith('http') ? (
+              <Space direction="vertical">
+                <span>
+                  Telegram file_id: <code>{mediaUrl}</code>
+                </span>
+                <Button size="small" danger onClick={() => setMediaUrl(null)}>
+                  Убрать вложение
+                </Button>
+              </Space>
+            ) : (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <MediaUpload
+                  value={mediaUrl}
+                  mediaType={mediaType}
+                  onChange={(url, type) => {
+                    setMediaUrl(url)
+                    setMediaType(type)
+                  }}
+                />
+                <Input
+                  placeholder="…или вставьте ссылку на файл"
+                  value={mediaUrl || ''}
+                  onChange={(e) => {
+                    const v = e.target.value || null
+                    setMediaUrl(v)
+                    setMediaType(v && v.startsWith('http') ? guessMediaType(v) : null)
+                  }}
+                />
+              </Space>
+            )}
           </Form.Item>
         </Form>
       </Modal>

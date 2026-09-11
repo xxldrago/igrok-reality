@@ -541,16 +541,55 @@ export interface BroadcastRequest {
   text: string
   archetype?: string | null
   parse_mode?: string
+  media_url?: string | null
+  media_type?: string | null
+  scheduled_at?: string | null
 }
 
 export interface BroadcastResponse {
   sent: number
   failed: number
   total: number
+  scheduled: boolean
 }
 
 export function sendBroadcast(data: BroadcastRequest) {
   return api.post<BroadcastResponse>('/admin/broadcast', data)
+}
+
+export interface ScheduledBroadcastItem {
+  scheduled_at: string
+  audience: string
+  text_preview: string
+  total: number
+  media_type: string | null
+}
+
+export function getScheduledBroadcasts() {
+  return api.get<{ items: ScheduledBroadcastItem[] }>('/admin/broadcasts/scheduled')
+}
+
+export function cancelScheduledBroadcast(scheduled_at: string, audience: string) {
+  return api.delete<{ cancelled: number }>('/admin/broadcasts/scheduled', {
+    data: { scheduled_at, audience },
+  })
+}
+
+// --- Media upload ---
+
+export interface MediaUploadResponse {
+  url: string
+  media_type: string
+  filename: string
+  size: number
+}
+
+export function uploadMedia(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<MediaUploadResponse>('/admin/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 export interface ArchetypeStatsResponse {

@@ -14,10 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from app.api.auth import auth_router, tma_auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.admin import admin_router
+from app.api.routes.media import media_router
 from app.api.webhooks import router as webhook_router
 
 ADMIN_DIST = Path("src/admin/dist")
 TMA_DIST = Path("src/tma/dist")
+MEDIA_DIR = Path("media")
 
 
 @asynccontextmanager
@@ -49,6 +51,12 @@ app.include_router(webhook_router)
 app.include_router(auth_router)
 app.include_router(tma_auth_router)
 app.include_router(admin_router)
+app.include_router(media_router)
+
+
+# --- Uploaded media (photos/videos/documents for scrolls & broadcasts) ---
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
 # --- Admin SPA ---
