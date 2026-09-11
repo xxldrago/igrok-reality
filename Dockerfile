@@ -11,6 +11,9 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Set working directory
+WORKDIR /app
+
 # Install Python dependencies
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .
@@ -18,4 +21,5 @@ RUN pip install --no-cache-dir -e .
 # Copy application source
 COPY src/ src/
 
-# Default: no CMD — each process has its own entrypoint
+# Make app module importable
+ENV PYTHONPATH="/app/src:$PYTHONPATH"
