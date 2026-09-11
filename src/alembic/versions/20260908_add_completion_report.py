@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision = "20260908_add_completion_report"
-down_revision = "20260908_restructure_scrolls"
+down_revision = "restructure_scrolls"
 branch_labels = None
 depends_on = None
 
