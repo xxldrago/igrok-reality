@@ -578,6 +578,47 @@ export function getUserCommands(userId: string, params?: { quest_day?: number })
   return api.get<UserCommandListResponse>(`/admin/users/${userId}/commands`, { params })
 }
 
+// --- User progress (90-day expected vs done) ---
+
+export interface ProgressDoneItem {
+  command: string
+  slot: string
+  xp_awarded: number
+  completed_at: string
+  report_text: string | null
+  report_media_url: string | null
+  report_media_type: string | null
+}
+
+export interface ProgressExpectedItem {
+  code: string
+  command: string
+  label: string
+  xp: number
+  time: string
+}
+
+export interface ProgressDayItem {
+  quest_day: number
+  day_type: string
+  expected: ProgressExpectedItem[]
+  done: ProgressDoneItem[]
+  earned_xp: number
+  max_xp: number
+}
+
+export interface UserProgressResponse {
+  user_id: string
+  quest_days_active: number
+  total_commands: number
+  total_xp_earned: number
+  days: ProgressDayItem[]
+}
+
+export function getUserProgress(userId: string) {
+  return api.get<UserProgressResponse>(`/admin/users/${userId}/progress`)
+}
+
 // --- Broadcast interfaces ---
 
 export interface BroadcastRequest {

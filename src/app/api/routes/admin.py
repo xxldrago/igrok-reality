@@ -1580,6 +1580,8 @@ class UserCommandResponse(BaseModel):
     xp_awarded: int
     completed_at: datetime
     report_text: Optional[str] = None
+    report_media_url: Optional[str] = None
+    report_media_type: Optional[str] = None
 
 
 class UserCommandListResponse(BaseModel):
@@ -1628,11 +1630,148 @@ async def list_user_commands(
                     xp_awarded=c.xp_awarded,
                     completed_at=c.completed_at,
                     report_text=c.report_text,
+                    report_media_url=c.report_media_url,
+                    report_media_type=c.report_media_type,
                 )
                 for c in commands
             ],
             total=total,
         )
+
+
+class ProgressDoneItem(BaseModel):
+    """One completed command within a day."""
+
+    command: str
+    slot: str = ""
+    xp_awarded: int
+    completed_at: datetime
+    report_text: Optional[str] = None
+    report_media_url: Optional[str] = None
+    report_media_type: Optional[str] = None
+
+
+class ProgressExpectedItem(BaseModel):
+    """One expected scroll within a day."""
+
+    code: str
+    command: str
+    label: str
+    xp: int
+    time: str
+
+
+class ProgressDayItem(BaseModel):
+    """One quest day: expected scrolls vs done commands."""
+
+    quest_day: int
+    day_type: str
+    expected: list[ProgressExpectedItem]
+    done: list[ProgressDoneItem]
+    earned_xp: int
+    max_xp: int
+
+
+class UserProgressResponse(BaseModel):
+    """Full 90-day progress of a user for the admin panel."""
+
+    user_id: UUID
+    quest_days_active: int
+    total_commands: int
+    total_xp_earned: int
+    days: list[ProgressDayItem]
+
+
+@admin_router.get(
+    "/users/{user_id}/progress",
+    response_model=UserProgressResponse,
+    dependencies=[Depends(require_role("master", "leader", "curator"))],
+)
+async def get_user_progress(user_id: UUID) -> UserProgressResponse:
+    """Return a user's full 90-day progress (expected vs completed per day)."""
+    from app.bot.services.day_type import get_available_scroll_codes, get_day_type
+    from app.shared.models.user_daily_command import UserDailyCommand
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        result = await session.execute(
+            select(UserDailyCommand)
+            .where(UserDailyCommand.user_id == user_id)
+            .order_by(UserDailyCommand.quest_day.asc(), UserDailyCommand.completed_at.asc())
+        )
+        commands = list(result.scalars().all())
+
+        result = await session.execute(select(ScrollTypeModel))
+        types = {st.code: st for st in result.scalars().all()}
+
+    by_day: dict[int, list] = {}
+    for c in commands:
+        by_day.setdefault(c.quest_day, []).append(c)
+
+    days: list[ProgressDayItem] = []
+    for day in range(1, 91):
+        day_type = get_day_type(day)
+        kind = (
+            "awareness"
+            if day_type.is_awareness
+            else "meditation"
+            if day_type.is_meditation
+            else "breathing"
+            if day_type.is_breathing
+            else "standard"
+        )
+        expected: list[ProgressExpectedItem] = []
+        for code in get_available_scroll_codes(day):
+            st = types.get(code)
+            if st is None:
+                continue
+            expected.append(
+                ProgressExpectedItem(
+                    code=code,
+                    command=st.command,
+                    label=st.name,
+                    xp=st.xp_reward,
+                    time=f"{st.hour:02d}:{st.minute:02d}" if st.hour >= 0 else "any",
+                )
+            )
+        done = [
+            ProgressDoneItem(
+                command=c.command,
+                slot=c.slot or "",
+                xp_awarded=c.xp_awarded,
+                completed_at=c.completed_at,
+                report_text=c.report_text,
+                report_media_url=c.report_media_url,
+                report_media_type=c.report_media_type,
+            )
+            for c in by_day.get(day, [])
+        ]
+        days.append(
+            ProgressDayItem(
+                quest_day=day,
+                day_type=kind,
+                expected=expected,
+                done=done,
+                earned_xp=sum(c.xp_awarded for c in by_day.get(day, [])),
+                max_xp=sum(e.xp for e in expected),
+            )
+        )
+
+    active = [d for d in days if d.done]
+    return UserProgressResponse(
+        user_id=user_id,
+        quest_days_active=len(active),
+        total_commands=sum(len(d.done) for d in active),
+        total_xp_earned=sum(d.earned_xp for d in active),
+        days=days,
+    )
 
 
 # --- Quiz management endpoints ---

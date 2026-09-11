@@ -463,3 +463,44 @@ async def handle_today(message: Message, state: FSMContext) -> None:
     lines.append(f"\n💰 XP сегодня: {earned_xp}/{total_xp_today}")
 
     await message.answer("\n".join(lines))
+
+
+# --- Unknown command fallback (spec 4.1: typos are not recognized) ---
+
+
+@daily_router.message(F.text.startswith("/"))
+async def handle_unknown_command(message: Message) -> None:
+    """Catch-all for mistyped commands — lists today's commands to resend.
+
+    Registered last in this router so real commands and FSM states match
+    first; the daily router itself is last in the dispatcher.
+    """
+    typed = (message.text or "").split()[0]
+
+    user = await get_user_by_telegram_id(message.from_user.id)
+    if user is None:
+        await message.answer(f"Неизвестная команда {typed}. Начните с /start.")
+        return
+
+    tz_name = user.timezone or settings.TZ
+    quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
+    if quest_day == 0:
+        await message.answer(f"Неизвестная команда {typed}. Начните с /start.")
+        return
+
+    async with session_factory() as session:
+        result = await session.execute(select(ScrollType))
+        all_types = {st.code: st for st in result.scalars().all()}
+
+    lines = [
+        f"❓ Команда {typed} не распознана.",
+        "",
+        f"Доступно сегодня (день {quest_day}):",
+    ]
+    for code in get_available_scroll_codes(quest_day):
+        st = all_types.get(code)
+        if st:
+            lines.append(f"{st.command} — {st.name}")
+    lines.append("")
+    lines.append("Подсказка: /today — статус дня.")
+    await message.answer("\n".join(lines))
