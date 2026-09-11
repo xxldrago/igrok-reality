@@ -38,7 +38,6 @@ async def main() -> None:
         functions=FUNCTIONS,
         redis_settings=redis_settings,
         max_tries=3,
-        retry_delay=60,
     )
     await worker.run()
 
