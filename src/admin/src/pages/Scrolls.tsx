@@ -10,17 +10,21 @@ import {
   InputNumber,
   Select,
   Tag,
+  Alert,
+  Collapse,
   message,
 } from 'antd'
-import { EditOutlined } from '@ant-design/icons'
+import { EditOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import {
   getScrollTypes,
   getDailyScrolls,
+  getScrollCoverage,
   updateDailyScroll,
   ScrollTypeItem,
   DailyScrollItem,
   DailyScrollListResponse,
+  ScrollCoverage,
 } from '../services/api'
 import MediaUpload from '../components/MediaUpload'
 
@@ -68,6 +72,24 @@ export default function Scrolls() {
   const [submitting, setSubmitting] = useState(false)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<string | null>(null)
+  const [coverage, setCoverage] = useState<ScrollCoverage | null>(null)
+  const [coverageLoading, setCoverageLoading] = useState(false)
+
+  const fetchCoverage = useCallback(async () => {
+    setCoverageLoading(true)
+    try {
+      const res = await getScrollCoverage()
+      setCoverage(res.data)
+    } catch (error) {
+      console.error('Failed to fetch coverage:', error)
+    } finally {
+      setCoverageLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCoverage()
+  }, [fetchCoverage])
 
   useEffect(() => {
     getScrollTypes()
@@ -119,6 +141,7 @@ export default function Scrolls() {
       await updateDailyScroll(editingScroll.id, { ...values, media_file_id: mediaUrl || '' })
       setEditModalOpen(false)
       fetchDailyScrolls()
+      fetchCoverage()
       message.success('Свиток обновлён')
     } catch {
       message.error('Ошибка сохранения')
@@ -133,6 +156,17 @@ export default function Scrolls() {
       dataIndex: 'day_number',
       key: 'day_number',
       width: 70,
+    },
+    {
+      title: 'Тип дня',
+      key: 'day_type',
+      width: 170,
+      render: (_, record) => {
+        const kind = coverage?.day_types[record.day_number]
+        if (!kind) return '—'
+        const label = dayTypeLabels[kind] || { text: kind, color: 'default' }
+        return <Tag color={label.color}>{label.text}</Tag>
+      },
     },
     {
       title: 'Тип',
@@ -208,9 +242,64 @@ export default function Scrolls() {
     },
   ]
 
+  const dayTypeLabels: Record<string, { text: string; color: string }> = {
+    standard: { text: 'Обычный', color: 'default' },
+    meditation: { text: 'Медитация', color: 'green' },
+    breathing: { text: 'Дыхание', color: 'blue' },
+    awareness: { text: 'Осознание (2 свитка)', color: 'orange' },
+  }
+
   return (
     <div>
       <Title level={3}>Свитки</Title>
+
+      {coverage && (
+        coverage.complete ? (
+          <Alert
+            type="success"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={`Покрытие полное: ${coverage.total_actual}/${coverage.total_expected}`}
+            action={
+              <Button size="small" icon={<ReloadOutlined />} onClick={fetchCoverage} loading={coverageLoading}>
+                Обновить
+              </Button>
+            }
+          />
+        ) : (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={`Не хватает свитков: ${coverage.total_actual}/${coverage.total_expected}. Дней с пробелами: ${coverage.missing_days.length}`}
+            action={
+              <Button size="small" icon={<ReloadOutlined />} onClick={fetchCoverage} loading={coverageLoading}>
+                Обновить
+              </Button>
+            }
+            description={
+              <Collapse
+                size="small"
+                items={[
+                  {
+                    key: 'gaps',
+                    label: 'Показать дни с пробелами',
+                    children: (
+                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                        {coverage.missing_days.map((d) => (
+                          <li key={d.day}>
+                            День {d.day} ({d.day_type}): нет {d.missing.join(', ')}
+                          </li>
+                        ))}
+                      </ul>
+                    ),
+                  },
+                ]}
+              />
+            }
+          />
+        )
+      )}
 
       <Space style={{ marginBottom: 16 }}>
         <InputNumber

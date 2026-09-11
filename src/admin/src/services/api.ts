@@ -510,6 +510,26 @@ export function getDailyScrolls(params: GetDailyScrollsParams = {}) {
   return api.get<DailyScrollListResponse>('/admin/daily-scrolls', { params })
 }
 
+export interface DayCoverageItem {
+  day: number
+  day_type: string
+  expected: string[]
+  actual: string[]
+  missing: string[]
+}
+
+export interface ScrollCoverage {
+  total_expected: number
+  total_actual: number
+  complete: boolean
+  missing_days: DayCoverageItem[]
+  day_types: Record<number, string>
+}
+
+export function getScrollCoverage() {
+  return api.get<ScrollCoverage>('/admin/daily-scrolls/coverage')
+}
+
 export function updateDailyScroll(id: string, data: { title?: string; content?: string; media_file_id?: string }) {
   return api.put(`/admin/daily-scrolls/${id}`, data)
 }

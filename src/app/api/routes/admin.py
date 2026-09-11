@@ -564,6 +564,34 @@ async def list_payments(
 
 
 @admin_router.get(
+    "/payments/export",
+    dependencies=[Depends(require_role("master"))],
+)
+async def export_payments_csv() -> dict:
+    """Export confirmed payments as CSV data for accounting.
+
+    NOTE: must stay BEFORE /payments/{payment_id} — otherwise "export"
+    is parsed as payment_id and FastAPI returns 422 (uuid_parsing).
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment, User.username, User.first_name)
+            .outerjoin(User, Payment.user_id == User.id)
+            .where(Payment.status == "confirmed")
+            .order_by(Payment.created_at.desc())
+        )
+        rows = result.all()
+        csv_lines = ["id,user_name,amount,currency,method,created_at"]
+        for payment, username, first_name in rows:
+            name = username or first_name or "—"
+            csv_lines.append(
+                f"{payment.id},{name},{payment.amount},{payment.currency},"
+                f"{payment.payment_method or '—'},{payment.created_at.isoformat()}"
+            )
+        return {"csv": "\n".join(csv_lines), "count": len(rows)}
+
+
+@admin_router.get(
     "/payments/{payment_id}",
     response_model=PaymentResponse,
     dependencies=[Depends(require_role("master", "leader"))],
@@ -680,6 +708,29 @@ async def list_users(
             page=page,
             page_size=page_size,
         )
+
+
+@admin_router.get(
+    "/users/archetype-stats",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_archetype_stats() -> dict:
+    """Get user count per archetype for broadcast targeting.
+
+    NOTE: must stay BEFORE /users/{user_id} — otherwise Starlette matches
+    "archetype-stats" as user_id and FastAPI returns 422 (uuid_parsing).
+    """
+    from app.shared.models.user import User as UserModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(UserModel.archetype, func.count(UserModel.id))
+            .where(UserModel.archetype.isnot(None), UserModel.started_at.isnot(None))
+            .group_by(UserModel.archetype)
+        )
+        stats = {row[0]: row[1] for row in result.all()}
+        total = sum(stats.values())
+        return {"total": total, "by_archetype": stats}
 
 
 @admin_router.get(
@@ -1071,30 +1122,6 @@ async def distribute_prize_fund(req: PrizeFundDistributeRequest) -> dict:
     return {"distributed": len(payouts), "fund_id": str(req.fund_id)}
 
 
-@admin_router.get(
-    "/payments/export",
-    dependencies=[Depends(require_role("master"))],
-)
-async def export_payments_csv() -> dict:
-    """Export confirmed payments as CSV data for accounting."""
-    async with session_factory() as session:
-        result = await session.execute(
-            select(Payment, User.username, User.first_name)
-            .outerjoin(User, Payment.user_id == User.id)
-            .where(Payment.status == "confirmed")
-            .order_by(Payment.created_at.desc())
-        )
-        rows = result.all()
-        csv_lines = ["id,user_name,amount,currency,method,created_at"]
-        for payment, username, first_name in rows:
-            name = username or first_name or "—"
-            csv_lines.append(
-                f"{payment.id},{name},{payment.amount},{payment.currency},"
-                f"{payment.payment_method or '—'},{payment.created_at.isoformat()}"
-            )
-        return {"csv": "\n".join(csv_lines), "count": len(rows)}
-
-
 # --- Moderation endpoints ---
 
 
@@ -1355,6 +1382,95 @@ async def list_daily_scrolls(
         return DailyScrollListResponse(
             scrolls=scrolls, total=total, page=page, page_size=page_size
         )
+
+
+class DayCoverageItem(BaseModel):
+    """Coverage of one incomplete day."""
+
+    day: int
+    day_type: str
+    expected: list[str]
+    actual: list[str]
+    missing: list[str]
+
+
+class ScrollCoverageResponse(BaseModel):
+    """90-day scroll coverage vs the delivery schedule."""
+
+    total_expected: int
+    total_actual: int
+    complete: bool
+    missing_days: list[DayCoverageItem]
+    day_types: dict[int, str]
+
+
+@admin_router.get(
+    "/daily-scrolls/coverage",
+    response_model=ScrollCoverageResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def daily_scrolls_coverage() -> ScrollCoverageResponse:
+    """Compare daily_scrolls rows against the delivery schedule (days 1-90).
+
+    NOTE: must stay BEFORE /daily-scrolls/{scroll_id} — otherwise "coverage"
+    is parsed as scroll_id and FastAPI returns 422 (uuid_parsing).
+    """
+    from app.bot.services.day_type import get_available_scroll_codes, get_day_type
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        result = await session.execute(select(ScrollTypeModel))
+        type_ids = {st.id: st.code for st in result.scalars().all()}
+
+        result = await session.execute(
+            select(DailyScrollModel.day_number, DailyScrollModel.scroll_type_id)
+        )
+        present: dict[int, set[str]] = {}
+        for day_number, type_id in result.all():
+            present.setdefault(day_number, set()).add(type_ids.get(type_id, "?"))
+
+    def _kind(day: int) -> str:
+        day_type = get_day_type(day)
+        if day_type.is_awareness:
+            return "awareness"
+        if day_type.is_meditation:
+            return "meditation"
+        if day_type.is_breathing:
+            return "breathing"
+        return "standard"
+
+    total_expected = 0
+    total_actual = 0
+    missing_days: list[DayCoverageItem] = []
+    day_types: dict[int, str] = {}
+    for day in range(1, 91):
+        expected = get_available_scroll_codes(day)
+        actual = sorted(present.get(day, set()))
+        missing = [c for c in expected if c not in present.get(day, set())]
+        total_expected += len(expected)
+        total_actual += len(present.get(day, set()))
+        kind = _kind(day)
+        day_types[day] = kind
+        if missing:
+            label = kind + (" (2 свитка по дизайну)" if kind == "awareness" else "")
+            missing_days.append(
+                DayCoverageItem(
+                    day=day,
+                    day_type=label,
+                    expected=expected,
+                    actual=actual,
+                    missing=missing,
+                )
+            )
+
+    return ScrollCoverageResponse(
+        total_expected=total_expected,
+        total_actual=total_actual,
+        complete=not missing_days,
+        missing_days=missing_days,
+        day_types=day_types,
+    )
 
 
 @admin_router.put(
@@ -1981,21 +2097,4 @@ async def get_settings_schema() -> dict:
     return {"groups": await load_schema()}
 
 
-@admin_router.get(
-    "/users/archetype-stats",
-    dependencies=[Depends(require_role("master", "leader"))],
-)
-async def get_archetype_stats() -> dict:
-    """Get user count per archetype for broadcast targeting."""
-    from sqlalchemy import func
-    from app.shared.models.user import User as UserModel
 
-    async with session_factory() as session:
-        result = await session.execute(
-            select(UserModel.archetype, func.count(UserModel.id))
-            .where(UserModel.archetype.isnot(None), UserModel.started_at.isnot(None))
-            .group_by(UserModel.archetype)
-        )
-        stats = {row[0]: row[1] for row in result.all()}
-        total = sum(stats.values())
-        return {"total": total, "by_archetype": stats}
