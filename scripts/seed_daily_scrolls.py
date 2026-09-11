@@ -179,9 +179,21 @@ AWARENESS_CONTENT = {
 }
 
 
-async def seed_daily_scrolls() -> None:
-    """Generate and insert daily scrolls for 90 days."""
+async def seed_daily_scrolls(rebuild: bool = False) -> None:
+    """Generate and insert daily scrolls for 90 days.
+
+    Args:
+        rebuild: when True, delete ALL existing daily_scrolls first so
+            missing/partial days are fully regenerated.
+    """
+    from sqlalchemy import delete
+
     async with session_factory() as session:
+        if rebuild:
+            await session.execute(delete(DailyScroll))
+            await session.commit()
+            print("Rebuild mode: deleted all existing daily_scrolls")
+
         # Get all scroll types
         result = await session.execute(select(ScrollType))
         scroll_types = {st.code: st for st in result.scalars().all()}
@@ -243,6 +255,38 @@ async def seed_daily_scrolls() -> None:
         await session.commit()
         print(f"Created {created} daily scrolls, skipped {skipped} existing")
 
+        # Coverage report: days 1-90 vs expected scroll codes
+        result = await session.execute(select(ScrollType))
+        type_ids = {st.id: st.code for st in result.scalars().all()}
+        result = await session.execute(
+            select(DailyScroll.day_number, DailyScroll.scroll_type_id)
+        )
+        present: dict[int, set[str]] = {}
+        for day_number, type_id in result.all():
+            present.setdefault(day_number, set()).add(type_ids.get(type_id, "?"))
+
+        gap_days: list[str] = []
+        for day in range(1, 91):
+            expected = set(get_available_scroll_codes(day))
+            missing = expected - present.get(day, set())
+            if missing:
+                gap_days.append(f"day {day}: missing {sorted(missing)}")
+        if gap_days:
+            print(f"GAPS ({len(gap_days)} days incomplete):")
+            for line in gap_days:
+                print(f"  {line}")
+        else:
+            print("Coverage OK: all 90 days have every expected scroll")
+
 
 if __name__ == "__main__":
-    asyncio.run(seed_daily_scrolls())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Seed daily scrolls for 90 days")
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Delete all daily_scrolls and regenerate from scratch",
+    )
+    args = parser.parse_args()
+    asyncio.run(seed_daily_scrolls(rebuild=args.rebuild))

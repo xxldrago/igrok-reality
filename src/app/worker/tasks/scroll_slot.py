@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.bot.keyboards.scroll import completion_keyboard
 from app.bot.services.day_type import get_available_scroll_codes
 from app.bot.services.scroll_service import get_active_users
+from app.bot.services.settings_service import get_bot_token
 from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.daily_scroll import DailyScroll
@@ -41,7 +42,7 @@ async def deliver_scroll_slot(hour: int, ctx: dict | None = None) -> None:
         hour: The hour (Moscow time) to deliver scrolls for (5, 8, 12, 16, 21).
         ctx: ARQ context dict.
     """
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
     failed = 0
 

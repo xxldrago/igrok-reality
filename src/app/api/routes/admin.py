@@ -46,6 +46,7 @@ class UserListItem(BaseModel):
     paid_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     created_at: datetime
+    role: str = "player"
 
 
 class UserListResponse(BaseModel):
@@ -1710,6 +1711,174 @@ async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
     # Send via ARQ worker (async, non-blocking)
     # Notifications are queued and will be sent by send_pending_notifications worker
     return BroadcastResponse(sent=len(notifications), failed=0, total=len(notifications))
+
+
+# --- User create / update endpoints ---
+
+
+class UserCreateRequest(BaseModel):
+    """Request body for creating a user manually."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    telegram_id: int = Field(description="Telegram user ID (must be unique)")
+    first_name: str = Field(min_length=1, description="First name")
+    last_name: Optional[str] = None
+    username: Optional[str] = Field(None, description="Telegram username without @")
+    archetype: Optional[str] = Field(None, description="head, shell, whirlwind, ghost")
+    xp: int = Field(default=0, ge=0)
+    streak: int = Field(default=0, ge=0)
+    is_active: bool = True
+    timezone: str = "Asia/Krasnoyarsk"
+    role: str = Field(default="player", description="player, curator, specialist, leader, master")
+
+
+class UserUpdateRequest(BaseModel):
+    """Request body for updating a user (all fields optional)."""
+
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = Field(None, description="Telegram username without @")
+    archetype: Optional[str] = Field(None, description="head, shell, whirlwind, ghost (null clears)")
+    xp: Optional[int] = Field(None, ge=0)
+    streak: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+    timezone: Optional[str] = None
+    role: Optional[str] = Field(None, description="player, curator, specialist, leader, master")
+    has_paid: Optional[bool] = Field(None, description="True grants access (sets paid_at), False revokes it")
+
+
+@admin_router.post(
+    "/users",
+    response_model=UserListItem,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def create_user_admin(req: UserCreateRequest) -> UserListItem:
+    """Create a user manually (e.g. for testing or manual onboarding)."""
+    from datetime import datetime, timezone
+    from app.bot.services.user_service import generate_referral_code
+
+    if req.archetype is not None and req.archetype not in VALID_ARCHETYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"archetype must be one of {VALID_ARCHETYPES}",
+        )
+
+    from app.bot.services.role_service import VALID_ROLES
+    if req.role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"role must be one of {sorted(VALID_ROLES)}",
+        )
+
+    username = req.username.strip().lstrip("@") if req.username else None
+
+    async with session_factory() as session:
+        existing = await session.execute(
+            select(User).where(User.telegram_id == req.telegram_id)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with telegram_id {req.telegram_id} already exists",
+            )
+
+        user = User(
+            telegram_id=req.telegram_id,
+            first_name=req.first_name.strip(),
+            last_name=req.last_name.strip() if req.last_name else None,
+            username=username or None,
+            archetype=req.archetype,
+            xp=req.xp,
+            streak=req.streak,
+            is_active=req.is_active,
+            timezone=req.timezone,
+            role=req.role,
+            referral_code=generate_referral_code(),
+            started_at=datetime.now(timezone.utc),
+        )
+        session.add(user)
+        session.add(AuditLog(action="user_created", details=f"telegram_id={req.telegram_id}"))
+        await session.commit()
+        await session.refresh(user)
+        return UserListItem.model_validate(user)
+
+
+@admin_router.put(
+    "/users/{user_id}",
+    response_model=UserListItem,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def update_user_admin(user_id: UUID, req: UserUpdateRequest) -> UserListItem:
+    """Update user fields (profile, archetype, XP, streak, status, role, access)."""
+    from datetime import datetime, timezone
+
+    if req.archetype is not None and req.archetype not in VALID_ARCHETYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"archetype must be one of {VALID_ARCHETYPES}",
+        )
+
+    if req.role is not None:
+        from app.bot.services.role_service import VALID_ROLES
+        if req.role not in VALID_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"role must be one of {sorted(VALID_ROLES)}",
+            )
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if req.first_name is not None:
+            user.first_name = req.first_name.strip()
+        if req.last_name is not None:
+            user.last_name = req.last_name.strip() or None
+        if req.username is not None:
+            cleaned = req.username.strip().lstrip("@")
+            user.username = cleaned or None
+        if req.archetype is not None:
+            user.archetype = req.archetype
+        if req.xp is not None:
+            user.xp = req.xp
+        if req.streak is not None:
+            user.streak = req.streak
+        if req.is_active is not None:
+            user.is_active = req.is_active
+        if req.timezone is not None:
+            user.timezone = req.timezone.strip() or user.timezone
+        if req.role is not None:
+            user.role = req.role
+        if req.has_paid is True and user.paid_at is None:
+            user.paid_at = datetime.now(timezone.utc)
+        elif req.has_paid is False:
+            user.paid_at = None
+
+        session.add(AuditLog(action="user_updated", details=f"Updated user {user_id}"))
+        await session.commit()
+        await session.refresh(user)
+        return UserListItem.model_validate(user)
+
+
+# --- Extended settings schema endpoint ---
+
+
+@admin_router.get(
+    "/settings-schema",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def get_settings_schema() -> dict:
+    """Return grouped editable settings with effective values for the admin panel."""
+    from app.bot.services.settings_service import get_settings_schema as load_schema
+
+    return {"groups": await load_schema()}
 
 
 @admin_router.get(

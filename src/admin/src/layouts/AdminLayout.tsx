@@ -9,6 +9,8 @@ import {
   SettingOutlined,
   AuditOutlined,
   NotificationOutlined,
+  QuestionCircleOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -37,8 +39,12 @@ export default function AdminLayout() {
       ? [{ key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' }]
       : []),
     ...(user?.role === 'master' || user?.role === 'leader'
+      ? [{ key: '/admin/quiz', icon: <QuestionCircleOutlined />, label: 'Входной тест' }]
+      : []),
+    ...(user?.role === 'master' || user?.role === 'leader'
       ? [{ key: '/admin/audit', icon: <AuditOutlined />, label: 'Аудит' }]
       : []),
+    { key: '/admin/profile', icon: <IdcardOutlined />, label: 'Профиль' },
   ]
 
   return (

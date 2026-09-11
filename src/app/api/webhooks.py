@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.bot.services.channel_access import grant_access, revoke_access
 from app.bot.services.commission import calculate_commission
 from app.bot.services.payment_service import get_payment
-from app.shared.config import settings
+from app.bot.services.settings_service import get_bot_token, get_platega_credentials
 from app.shared.database import session_factory
 from app.shared.models.payment import Payment
 from app.shared.models.user import User
@@ -40,7 +40,7 @@ async def _send_payment_notification(user_telegram_id: int, text: str) -> None:
     Catches and logs failures (e.g. user blocked bot) without crashing.
     """
     try:
-        bot = Bot(token=settings.BOT_TOKEN)
+        bot = Bot(token=await get_bot_token())
         await bot.send_message(chat_id=user_telegram_id, text=text)
     except Exception:
         logger.exception("Failed to send payment notification to telegram_id=%s", user_telegram_id)
@@ -58,7 +58,8 @@ async def platega_webhook(request: Request) -> dict:
     merchant_id = request.headers.get("X-MerchantId", "")
     secret = request.headers.get("X-Secret", "")
 
-    if merchant_id != settings.PLATEGA_MERCHANT_ID or secret != settings.PLATEGA_SECRET:
+    expected_merchant, expected_secret = await get_platega_credentials()
+    if merchant_id != expected_merchant or secret != expected_secret:
         logger.warning("Webhook rejected: invalid credentials (merchant_id=%s)", merchant_id)
         return {"error": "invalid credentials"}
 
@@ -128,7 +129,7 @@ async def platega_webhook(request: Request) -> dict:
         return {"status": "ok"}
 
     # --- Route by status ---
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     if new_status == "succeeded":
         await grant_access(user.id, bot)
         await _send_payment_notification(

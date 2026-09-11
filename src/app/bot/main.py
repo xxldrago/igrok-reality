@@ -19,6 +19,7 @@ from app.bot.handlers.referral import referral_router
 from app.bot.handlers.registration import registration_router
 from app.bot.handlers.scroll import scroll_router
 from app.bot.handlers.team import team_router
+from app.bot.services.settings_service import get_bot_token
 from app.shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ async def main() -> None:
         settings.LOG_LEVEL,
     )
 
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     storage = RedisStorage.from_url(settings.REDIS_URL)
     dp = Dispatcher(storage=storage)
 

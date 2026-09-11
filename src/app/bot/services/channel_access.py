@@ -13,7 +13,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from app.shared.config import settings
+from app.bot.services.settings_service import get_quest_channel_id
 from app.shared.database import session_factory
 from app.shared.models.user import User
 
@@ -41,7 +41,7 @@ async def grant_access(user_id: UUID, bot: Bot) -> str | None:
 
     try:
         invite = await bot.create_chat_invite_link(
-            chat_id=settings.QUEST_CHANNEL_ID,
+            chat_id=await get_quest_channel_id(),
             name=f"User {user_id}",
             member_limit=1,
         )
@@ -77,13 +77,14 @@ async def revoke_access(user_id: UUID, bot: Bot) -> bool:
         return False
 
     try:
+        channel_id = await get_quest_channel_id()
         await bot.ban_chat_member(
-            chat_id=settings.QUEST_CHANNEL_ID,
+            chat_id=channel_id,
             user_id=user.telegram_id,
         )
         # Unban so user can re-join later if they pay again
         await bot.unban_chat_member(
-            chat_id=settings.QUEST_CHANNEL_ID,
+            chat_id=channel_id,
             user_id=user.telegram_id,
         )
     except Exception:

@@ -8,7 +8,10 @@ from uuid import UUID
 import httpx
 from sqlalchemy import select
 
-from app.shared.config import settings
+from app.bot.services.settings_service import (
+    get_bot_username,
+    get_platega_credentials,
+)
 from app.shared.database import session_factory
 from app.shared.models.payment import Payment
 
@@ -84,18 +87,20 @@ async def call_platega_api(payment: Payment) -> dict:
     Updates payment.platega_transaction_id from the response.
     Returns the full response JSON.
     """
+    merchant_id, secret = await get_platega_credentials()
+    bot_username = await get_bot_username()
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://api.platega.io/v2/transaction/process",
             headers={
-                "X-MerchantId": settings.PLATEGA_MERCHANT_ID,
-                "X-Secret": settings.PLATEGA_SECRET,
+                "X-MerchantId": merchant_id,
+                "X-Secret": secret,
             },
             json={
                 "paymentMethod": 3,
                 "paymentDetails": {"amount": payment.amount, "currency": payment.currency},
-                "return": f"https://t.me/{settings.BOT_USERNAME}?start=payment_success",
-                "failedUrl": f"https://t.me/{settings.BOT_USERNAME}?start=payment_failed",
+                "return": f"https://t.me/{bot_username}?start=payment_success",
+                "failedUrl": f"https://t.me/{bot_username}?start=payment_failed",
                 "payload": str(payment.user_id),
                 "orderId": payment.idempotency_key,
                 "metadata": {"user_id": str(payment.user_id)},

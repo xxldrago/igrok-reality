@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramAPIError
 
 from app.bot.services.archetype import ARCHETYPE_NAMES
 from app.bot.services.scroll_service import get_scroll_content
-from app.shared.config import settings
+from app.bot.services.settings_service import get_bot_token, get_master_channel_id
 from app.shared.models.completion import UserCompletion
 from app.shared.models.user import User
 
@@ -23,16 +23,16 @@ async def forward_report_to_master(
 
     Returns True if sent successfully, False if config missing or send failed.
     """
-    master_chat_id = getattr(settings, "MASTER_CHAT_ID", None) or getattr(settings, "MASTER_CHANNEL_ID", None)
-    if master_chat_id is None:
+    master_chat_id = await get_master_channel_id()
+    if not master_chat_id:
         # Config missing — log and skip (non-fatal)
         import logging
         logging.getLogger(__name__).warning(
-            "MASTER_CHAT_ID not configured; skipping report forward for user %s", user.id
+            "master_channel_id not configured; skipping report forward for user %s", user.id
         )
         return False
 
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     try:
         archetype_name = ARCHETYPE_NAMES.get(user.archetype, user.archetype or "—")
         quest_day = f"День {scroll_day} из 90"

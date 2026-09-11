@@ -38,6 +38,7 @@ export interface UserListItem {
   paid_at: string | null
   started_at: string | null
   created_at: string
+  role?: string
 }
 
 export interface UserListResponse {
@@ -83,6 +84,117 @@ export function getUsers(params: GetUsersParams = {}) {
 
 export function getUser(id: string) {
   return api.get<UserDetailResponse>(`/admin/users/${id}`)
+}
+
+export interface UserCreateData {
+  telegram_id: number
+  first_name: string
+  last_name?: string | null
+  username?: string | null
+  archetype?: string | null
+  xp?: number
+  streak?: number
+  is_active?: boolean
+  timezone?: string
+  role?: string
+}
+
+export interface UserUpdateData {
+  first_name?: string
+  last_name?: string | null
+  username?: string | null
+  archetype?: string | null
+  xp?: number
+  streak?: number
+  is_active?: boolean
+  timezone?: string
+  role?: string
+  has_paid?: boolean | null
+}
+
+export function createUser(data: UserCreateData) {
+  return api.post<UserListItem>('/admin/users', data)
+}
+
+export function updateUser(id: string, data: UserUpdateData) {
+  return api.put<UserListItem>(`/admin/users/${id}`, data)
+}
+
+// --- Admin profile ---
+
+export interface AdminProfile {
+  username: string
+  telegram: string
+  has_custom_password: boolean
+}
+
+export interface AdminProfileUpdate {
+  username?: string
+  telegram?: string
+  password?: string
+}
+
+export function getProfile() {
+  return api.get<AdminProfile>('/admin/auth/profile')
+}
+
+export function updateProfile(data: AdminProfileUpdate) {
+  return api.put<AdminProfile>('/admin/auth/profile', data)
+}
+
+// --- Settings schema (grouped editor) ---
+
+export interface SettingsSchemaField {
+  key: string
+  label: string
+  type: string
+  hint: string
+  value: string
+  is_default: boolean
+}
+
+export interface SettingsSchemaGroup {
+  group: string
+  title: string
+  fields: SettingsSchemaField[]
+}
+
+export function getSettingsSchema() {
+  return api.get<{ groups: SettingsSchemaGroup[] }>('/admin/settings-schema')
+}
+
+// --- Quiz (entrance test) ---
+
+export interface QuizOption {
+  text: string
+  key: string
+}
+
+export interface QuizQuestion {
+  text: string
+  options: QuizOption[]
+}
+
+export interface QuizConfig {
+  intro: string
+  questions: QuizQuestion[]
+  results: Record<string, string>
+}
+
+export function getQuiz() {
+  return api.get<QuizConfig>('/admin/quiz')
+}
+
+export function updateQuiz(data: { intro: string; questions: QuizQuestion[] }) {
+  return api.put('/admin/quiz', data)
+}
+
+export function getQuizResults() {
+  return api.get<Record<string, string>>('/admin/quiz/results')
+}
+
+export function updateQuizResults(data: Record<string, string>) {
+  return api.put('/admin/quiz/results', data)
 }
 
 // --- Scroll interfaces ---

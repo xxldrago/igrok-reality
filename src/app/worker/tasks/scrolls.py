@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from app.bot.keyboards.scroll import completion_keyboard
 from app.bot.services.scroll_service import SECTION_HEADERS, get_active_users, get_scroll_by_day, get_scroll_content
-from app.shared.config import settings
+from app.bot.services.settings_service import get_bot_token, get_quest_channel_id
 from app.shared.database import session_factory
 from app.shared.models.scroll import Scroll
 
@@ -51,7 +51,7 @@ async def publish_to_channel(bot: Bot, scroll: Scroll, individual_tasks: dict[st
 
     try:
         await bot.send_message(
-            settings.QUEST_CHANNEL_ID,
+            await get_quest_channel_id(),
             channel_text,
             disable_web_page_preview=True,
         )
@@ -79,7 +79,7 @@ async def deliver_daily_scrolls(ctx: dict) -> None:
     Args:
         ctx: ARQ worker context (unused but required by ARQ signature).
     """
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
     failed = 0
 

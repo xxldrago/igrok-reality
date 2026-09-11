@@ -54,11 +54,10 @@ def _make_user(*, telegram_id: int = 99999) -> User:
 
 
 @pytest.mark.asyncio
-@patch("app.api.webhooks.settings")
-async def test_webhook_invalid_merchant_id(mock_settings: MagicMock) -> None:
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
+async def test_webhook_invalid_merchant_id(mock_get_platega_credentials: AsyncMock) -> None:
     """Request with invalid X-MerchantId returns 403-like error."""
-    mock_settings.PLATEGA_MERCHANT_ID = "correct-merchant"
-    mock_settings.PLATEGA_SECRET = "correct-secret"
+    mock_get_platega_credentials.return_value = ("correct-merchant", "correct-secret")
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -73,11 +72,10 @@ async def test_webhook_invalid_merchant_id(mock_settings: MagicMock) -> None:
 
 
 @pytest.mark.asyncio
-@patch("app.api.webhooks.settings")
-async def test_webhook_invalid_secret(mock_settings: MagicMock) -> None:
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
+async def test_webhook_invalid_secret(mock_get_platega_credentials: AsyncMock) -> None:
     """Request with invalid X-Secret returns error."""
-    mock_settings.PLATEGA_MERCHANT_ID = "correct-merchant"
-    mock_settings.PLATEGA_SECRET = "correct-secret"
+    mock_get_platega_credentials.return_value = ("correct-merchant", "correct-secret")
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -101,9 +99,9 @@ async def test_webhook_invalid_secret(mock_settings: MagicMock) -> None:
 @patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.settings")
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_confirmed(
-    mock_settings: MagicMock,
+    mock_get_platega_credentials: AsyncMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
@@ -112,8 +110,7 @@ async def test_webhook_confirmed(
     mock_calculate_commission: AsyncMock,
 ) -> None:
     """CONFIRMED status updates payment to 'succeeded' and sends success message."""
-    mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
-    mock_settings.PLATEGA_SECRET = "test-secret"
+    mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="pending")
     mock_get_payment.return_value = payment
@@ -178,17 +175,16 @@ async def test_webhook_confirmed(
 @patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.settings")
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_canceled(
-    mock_settings: MagicMock,
+    mock_get_platega_credentials: AsyncMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
     mock_notify: AsyncMock,
 ) -> None:
     """CANCELED status updates payment to 'canceled' and sends cancel message."""
-    mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
-    mock_settings.PLATEGA_SECRET = "test-secret"
+    mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="pending")
     mock_get_payment.return_value = payment
@@ -236,9 +232,9 @@ async def test_webhook_canceled(
 @patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.settings")
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_chargebacked(
-    mock_settings: MagicMock,
+    mock_get_platega_credentials: AsyncMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
@@ -246,8 +242,7 @@ async def test_webhook_chargebacked(
     mock_notify: AsyncMock,
 ) -> None:
     """CHARGEBACKED status updates payment to 'chargebacked' and sends revoke message."""
-    mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
-    mock_settings.PLATEGA_SECRET = "test-secret"
+    mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="succeeded")
     mock_get_payment.return_value = payment
@@ -295,14 +290,13 @@ async def test_webhook_chargebacked(
 
 @pytest.mark.asyncio
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.settings")
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_unknown_order(
-    mock_settings: MagicMock,
+    mock_get_platega_credentials: AsyncMock,
     mock_get_payment: AsyncMock,
 ) -> None:
     """Unknown orderId returns 200 OK without crash."""
-    mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
-    mock_settings.PLATEGA_SECRET = "test-secret"
+    mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
     mock_get_payment.return_value = None
 
     transport = ASGITransport(app=app)
@@ -321,16 +315,15 @@ async def test_webhook_unknown_order(
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.settings")
+@patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_duplicate_idempotent(
-    mock_settings: MagicMock,
+    mock_get_platega_credentials: AsyncMock,
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_notify: AsyncMock,
 ) -> None:
     """Duplicate webhook for same orderId is handled gracefully."""
-    mock_settings.PLATEGA_MERCHANT_ID = "test-merchant"
-    mock_settings.PLATEGA_SECRET = "test-secret"
+    mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     # First webhook: pending -> succeeded (valid)
     payment = _make_payment(status="succeeded")

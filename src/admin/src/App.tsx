@@ -12,6 +12,8 @@ import Moderation from './pages/Moderation'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 import Broadcast from './pages/Broadcast'
+import Profile from './pages/Profile'
+import Quiz from './pages/Quiz'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -48,6 +50,8 @@ export default function App() {
           <Route path="finance" element={<Finance />} />
           <Route path="moderation" element={<Moderation />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="quiz" element={<Quiz />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="audit" element={<AuditLog />} />
           <Route path="broadcast" element={<Broadcast />} />
         </Route>

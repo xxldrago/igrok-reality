@@ -17,7 +17,7 @@ def payment_keyboard(amount: int) -> InlineKeyboardMarkup:
     """
     builder = InlineKeyboardBuilder()
     builder.button(
-        text=f"Оплатить {amount} ₽",
+        text=f"Оплатить {amount // 100} ₽",
         callback_data=PaymentInit(amount=str(amount)).pack(),
     )
     builder.adjust(1)

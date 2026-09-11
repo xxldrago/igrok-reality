@@ -43,6 +43,22 @@ class UserInfo(BaseModel):
     role: str
 
 
+class AdminProfileResponse(BaseModel):
+    """Admin profile — login username and contact telegram."""
+
+    username: str
+    telegram: str = ""
+    has_custom_password: bool = False
+
+
+class AdminProfileUpdate(BaseModel):
+    """Editable admin profile fields (all optional)."""
+
+    username: Optional[str] = None
+    telegram: Optional[str] = None
+    password: Optional[str] = None
+
+
 def create_access_token(data: dict) -> str:
     """Encode a JWT token with the given payload.
 
@@ -66,10 +82,27 @@ def decode_access_token(token: str) -> dict:
 async def login(request: LoginRequest) -> TokenResponse:
     """Authenticate admin user and return JWT token.
 
-    Validates credentials against admin username/password from environment.
+    Validates credentials against the DB override (admin panel → profile)
+    with fallback to ADMIN_USERNAME / ADMIN_PASSWORD env variables.
     Returns 401 for invalid credentials.
     """
-    if request.username != settings.ADMIN_USERNAME or request.password != settings.ADMIN_PASSWORD:
+    from app.bot.services.settings_service import (
+        get_admin_credentials,
+        verify_admin_password,
+    )
+
+    admin_username, password_hash = await get_admin_credentials()
+    if request.username != admin_username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if password_hash is not None:
+        password_ok = verify_admin_password(request.password, password_hash)
+    else:
+        password_ok = request.password == settings.ADMIN_PASSWORD
+    if not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -125,6 +158,130 @@ async def me(token: str = Depends(oauth2_scheme)) -> UserInfo:
         )
 
     return UserInfo(username=username, role=role)
+
+
+@auth_router.get("/profile", response_model=AdminProfileResponse)
+async def get_profile(token: str = Depends(oauth2_scheme)) -> AdminProfileResponse:
+    """Return the admin profile (login username + contact telegram)."""
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.settings import Setting
+    from app.bot.services.settings_service import get_admin_credentials
+
+    payload = decode_access_token(token)
+    if payload.get("sub") is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    admin_username, password_hash = await get_admin_credentials()
+    telegram = ""
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "admin_telegram")
+            )
+            row = result.scalar_one_or_none()
+            telegram = row.value if row else ""
+    except Exception:
+        telegram = ""
+
+    return AdminProfileResponse(
+        username=admin_username,
+        telegram=telegram,
+        has_custom_password=password_hash is not None,
+    )
+
+
+@auth_router.put("/profile", response_model=AdminProfileResponse)
+async def update_profile(
+    request: AdminProfileUpdate, token: str = Depends(oauth2_scheme)
+) -> AdminProfileResponse:
+    """Update admin profile — username, contact telegram (@login), password.
+
+    Master role only. Empty password is ignored (keeps the current one).
+    """
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.audit import AuditLog
+    from app.shared.models.settings import Setting
+    from app.bot.services.settings_service import (
+        get_admin_credentials,
+        hash_admin_password,
+    )
+
+    try:
+        payload = decode_access_token(token)
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if payload.get("role") != "master":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only master can edit the admin profile",
+        )
+
+    async with session_factory() as session:
+        async def _upsert(key: str, value: str) -> None:
+            result = await session.execute(
+                select(Setting).where(Setting.key == key)
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.value = value
+            else:
+                session.add(Setting(key=key, value=value))
+
+        if request.username is not None:
+            username = request.username.strip()
+            if not username:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username must not be empty",
+                )
+            await _upsert("admin_username", username)
+
+        if request.telegram is not None:
+            telegram = request.telegram.strip()
+            if telegram and not telegram.startswith("@"):
+                telegram = f"@{telegram}"
+            await _upsert("admin_telegram", telegram)
+
+        if request.password:
+            if len(request.password) < 6:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Password must be at least 6 characters",
+                )
+            await _upsert("admin_password_hash", hash_admin_password(request.password))
+
+        session.add(AuditLog(action="admin_profile_updated", details="Admin profile edited"))
+        await session.commit()
+
+    admin_username, password_hash = await get_admin_credentials()
+    telegram = ""
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Setting).where(Setting.key == "admin_telegram")
+            )
+            row = result.scalar_one_or_none()
+            telegram = row.value if row else ""
+    except Exception:
+        telegram = ""
+
+    return AdminProfileResponse(
+        username=admin_username,
+        telegram=telegram,
+        has_custom_password=password_hash is not None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +353,9 @@ async def tma_login(request: TMAAuthRequest) -> TokenResponse:
     Validates the initData HMAC, looks up the user in the DB,
     and returns a JWT if the user has an admin role.
     """
-    bot_token = settings.effective_tma_token
+    from app.bot.services.settings_service import get_tma_bot_token
+
+    bot_token = await get_tma_bot_token()
     user_data = validate_telegram_init_data(request.initData, bot_token)
 
     if user_data is None:

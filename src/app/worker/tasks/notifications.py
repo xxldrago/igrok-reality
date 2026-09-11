@@ -14,8 +14,7 @@ from app.bot.services.notification_service import (
     get_pending_notifications,
     send_notification,
 )
-from app.bot.services.settings_service import get_setting
-from app.shared.config import settings
+from app.bot.services.settings_service import get_bot_token, get_setting
 from app.shared.database import session_factory
 from app.shared.models.user import User
 from app.shared.models.completion import UserCompletion
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 async def send_pending_notifications(ctx: dict) -> None:
     """ARQ task to send pending notifications from the queue."""
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
     failed = 0
 
@@ -35,7 +34,7 @@ async def send_pending_notifications(ctx: dict) -> None:
 
         for notification in notifications:
             try:
-                success = await send_notification(notification.id, settings.BOT_TOKEN)
+                success = await send_notification(notification.id, await get_bot_token())
                 if success:
                     sent += 1
                 else:
@@ -55,7 +54,7 @@ async def evening_scroll_reminder(ctx: dict) -> None:
     Runs at configured time (default 20:00 Moscow). Sends notification to all
     active users who have not completed today's scroll.
     """
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
 
     try:
@@ -129,7 +128,7 @@ async def streak_loss_warning(ctx: dict) -> None:
     - Completed yesterday (streak_last_date == today)
     - Have not completed today
     """
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
 
     try:
@@ -201,7 +200,7 @@ async def streak_loss_warning(ctx: dict) -> None:
 
 async def new_stream_notification(ctx: dict) -> None:
     """ARQ task: notify all active users about new stream start."""
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(token=await get_bot_token())
     sent = 0
 
     try:
