@@ -15,7 +15,12 @@ from app.bot.keyboards.registration import (
     archetype_keyboard,
     consent_keyboard,
 )
-from app.bot.services.archetype import ARCHETYPE_NAMES, calculate_archetype, load_quiz_config
+from app.bot.services.archetype import (
+    ARCHETYPE_NAMES,
+    DEFAULT_RESULTS,
+    calculate_archetype,
+    load_quiz_config,
+)
 from app.bot.services.settings_service import get_welcome_message
 from app.bot.services.user_service import (
     create_referral,
@@ -187,6 +192,10 @@ async def handle_q4(
     archetype, archetype_name = result
     data = await state.get_data()
 
+    # Load the personalized archetype result text (finalization of the test)
+    quiz = await load_quiz_config()
+    result_text = quiz.results.get(archetype) or DEFAULT_RESULTS.get(archetype, "")
+
     # Create user record in the database
     user_referral_code = generate_referral_code()
     user = await create_user(
@@ -229,8 +238,16 @@ async def handle_q4(
         f"Ссылка для приглашения:\n"
         f"{referral_link}\n"
         f"\n"
+        f"Следующий шаг — оплата участия: /pay\n"
+        f"\n"
         f"Добро пожаловать в квест!"
     )
 
-    await callback.message.edit_text(profile_text)
+    # Finalization: first show the personalized archetype result,
+    # then the profile summary as a follow-up message.
+    if result_text:
+        await callback.message.edit_text(result_text)
+        await callback.message.answer(profile_text)
+    else:
+        await callback.message.edit_text(profile_text)
     await state.clear()
