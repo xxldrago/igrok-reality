@@ -13,10 +13,15 @@ from app.bot.services.settings_service import (
     DEFAULT_PAYMENT_AMOUNT,
     get_admin_credentials,
     get_bot_token,
+    get_consent_text,
+    get_delivery_slots,
+    get_grace_period_hours,
+    get_leaderboard_limit,
     get_payment_amount,
     get_platega_credentials,
     get_quest_channel_id,
     get_settings_schema,
+    get_streak_warning_time,
     hash_admin_password,
     verify_admin_password,
 )
@@ -118,6 +123,57 @@ class TestAdminCredentials:
             username, pwd_hash = await get_admin_credentials()
             assert username == settings.ADMIN_USERNAME
             assert pwd_hash is None
+
+
+class TestQuestMechanics:
+    @pytest.mark.asyncio
+    async def test_grace_default(self) -> None:
+        with _patch_get_setting(""):
+            assert await get_grace_period_hours() == 5
+
+    @pytest.mark.asyncio
+    async def test_grace_custom(self) -> None:
+        with _patch_get_setting("3"):
+            assert await get_grace_period_hours() == 3
+
+    @pytest.mark.asyncio
+    async def test_grace_invalid(self) -> None:
+        with _patch_get_setting("99"):
+            assert await get_grace_period_hours() == 5
+
+    @pytest.mark.asyncio
+    async def test_leaderboard_default_and_custom(self) -> None:
+        with _patch_get_setting(""):
+            assert await get_leaderboard_limit() == 10
+        with _patch_get_setting("25"):
+            assert await get_leaderboard_limit() == 25
+
+    @pytest.mark.asyncio
+    async def test_delivery_slots_default(self) -> None:
+        with _patch_get_setting(""):
+            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+
+    @pytest.mark.asyncio
+    async def test_delivery_slots_custom(self) -> None:
+        with _patch_get_setting("06:30, 21:15"):
+            assert await get_delivery_slots() == [(6, 30), (21, 15)]
+
+    @pytest.mark.asyncio
+    async def test_delivery_slots_invalid(self) -> None:
+        with _patch_get_setting("nonsense"):
+            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+
+    @pytest.mark.asyncio
+    async def test_streak_warning_default(self) -> None:
+        with _patch_get_setting(""):
+            assert await get_streak_warning_time() == (23, 0)
+
+    @pytest.mark.asyncio
+    async def test_consent_db_and_fallback(self) -> None:
+        with _patch_get_setting("Custom consent"):
+            assert await get_consent_text() == "Custom consent"
+        with _patch_get_setting(""):
+            assert "персональных данных" in await get_consent_text()
 
 
 class TestSettingsSchema:

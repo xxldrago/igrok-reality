@@ -11,6 +11,7 @@ import {
   Select,
   Tag,
   Alert,
+  Card,
   Collapse,
   message,
 } from 'antd'
@@ -21,12 +22,14 @@ import {
   getDailyScrolls,
   getScrollCoverage,
   updateDailyScroll,
+  updateScrollType,
   ScrollTypeItem,
   DailyScrollItem,
   DailyScrollListResponse,
   ScrollCoverage,
 } from '../services/api'
 import MediaUpload from '../components/MediaUpload'
+import RoleGuard from '../components/RoleGuard'
 
 function guessMediaType(url: string): string | null {
   const clean = url.split('?')[0].toLowerCase()
@@ -74,6 +77,10 @@ export default function Scrolls() {
   const [mediaType, setMediaType] = useState<string | null>(null)
   const [coverage, setCoverage] = useState<ScrollCoverage | null>(null)
   const [coverageLoading, setCoverageLoading] = useState(false)
+  const [typeModalOpen, setTypeModalOpen] = useState(false)
+  const [editingType, setEditingType] = useState<ScrollTypeItem | null>(null)
+  const [typeSaving, setTypeSaving] = useState(false)
+  const [typeForm] = Form.useForm()
 
   const fetchCoverage = useCallback(async () => {
     setCoverageLoading(true)
@@ -249,6 +256,37 @@ export default function Scrolls() {
     awareness: { text: 'Осознание (2 свитка)', color: 'orange' },
   }
 
+  const handleEditType = (record: ScrollTypeItem) => {
+    setEditingType(record)
+    typeForm.setFieldsValue({
+      name: record.name,
+      description: record.description,
+      hour: record.hour,
+      minute: record.minute,
+      xp_reward: record.xp_reward,
+      sort_order: record.sort_order,
+    })
+    setTypeModalOpen(true)
+  }
+
+  const handleSaveType = async () => {
+    if (!editingType) return
+    try {
+      const values = await typeForm.validateFields()
+      setTypeSaving(true)
+      await updateScrollType(editingType.id, values)
+      message.success('Тип свитка обновлён')
+      setTypeModalOpen(false)
+      const res = await getScrollTypes()
+      setScrollTypes(res.data.scroll_types)
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return
+      message.error('Ошибка сохранения')
+    } finally {
+      setTypeSaving(false)
+    }
+  }
+
   return (
     <div>
       <Title level={3}>Свитки</Title>
@@ -334,6 +372,69 @@ export default function Scrolls() {
           onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
         }}
       />
+
+      <Card title="Типы свитков — расписание и награды" style={{ marginBottom: 24 }}>
+        <Table
+          dataSource={scrollTypes}
+          rowKey="id"
+          pagination={false}
+          size="small"
+          columns={[
+            { title: 'Название', dataIndex: 'name', key: 'name' },
+            { title: 'Команда', dataIndex: 'command', key: 'command' },
+            {
+              title: 'Время',
+              key: 'time',
+              render: (_, r) => (r.hour < 0 ? 'Любое' : `${String(r.hour).padStart(2, '0')}:${String(r.minute).padStart(2, '0')}`),
+            },
+            { title: 'XP', dataIndex: 'xp_reward', key: 'xp_reward', render: (v: number) => `+${v}` },
+            { title: 'Описание', dataIndex: 'description', key: 'description', ellipsis: true },
+            {
+              title: 'Действия',
+              key: 'actions',
+              width: 60,
+              render: (_, record) => (
+                <RoleGuard roles={['master']}>
+                  <Button type="link" icon={<EditOutlined />} onClick={() => handleEditType(record)} />
+                </RoleGuard>
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      <Modal
+        title={editingType ? `Тип свитка: ${editingType.code}` : 'Тип свитка'}
+        open={typeModalOpen}
+        onCancel={() => setTypeModalOpen(false)}
+        onOk={handleSaveType}
+        confirmLoading={typeSaving}
+        okText="Сохранить"
+        cancelText="Отмена"
+      >
+        <Form form={typeForm} layout="vertical">
+          <Form.Item name="name" label="Название" rules={[{ required: true, message: 'Введите название' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="Описание">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Space>
+            <Form.Item name="hour" label="Час (-1 — любое)" rules={[{ required: true }]}>
+              <InputNumber min={-1} max={23} />
+            </Form.Item>
+            <Form.Item name="minute" label="Минута" rules={[{ required: true }]}>
+              <InputNumber min={0} max={59} />
+            </Form.Item>
+            <Form.Item name="xp_reward" label="XP" rules={[{ required: true }]}>
+              <InputNumber min={0} max={100} />
+            </Form.Item>
+            <Form.Item name="sort_order" label="Порядок">
+              <InputNumber min={0} />
+            </Form.Item>
+          </Space>
+        </Form>
+      </Modal>
 
       <Modal
         title="Редактировать свиток"

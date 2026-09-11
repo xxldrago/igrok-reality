@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Card, Form, Input, Button, message, Spin, Typography, Tabs, Divider } from 'antd'
-import { getQuiz, updateQuiz, updateQuizResults, type QuizConfig } from '../services/api'
+import { Card, Form, Input, Button, message, Spin, Typography, Tabs, Divider, Select, Space } from 'antd'
+import {
+  getQuiz,
+  updateQuiz,
+  updateQuizResults,
+  getQuizScores,
+  updateQuizScores,
+  type QuizConfig,
+  type ArchetypeScores,
+} from '../services/api'
 import RoleGuard from '../components/RoleGuard'
 
 const { Title } = Typography
@@ -14,13 +22,22 @@ const ARCHETYPES = [
 
 const OPTION_KEYS = ['a', 'b', 'c', 'd']
 
+const DEFAULT_SCORE_MAP: Record<string, string> = { a: 'head', b: 'shell', c: 'whirlwind', d: 'ghost' }
+
+function winnerOf(points: Record<string, number> | undefined, letter: string): string {
+  if (!points || Object.keys(points).length === 0) return DEFAULT_SCORE_MAP[letter]
+  return Object.entries(points).sort((x, y) => y[1] - x[1])[0][0]
+}
+
 export default function Quiz() {
   const [quiz, setQuiz] = useState<QuizConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [savingQuiz, setSavingQuiz] = useState(false)
   const [savingResults, setSavingResults] = useState(false)
+  const [savingScores, setSavingScores] = useState(false)
   const [quizForm] = Form.useForm()
   const [resultsForm] = Form.useForm()
+  const [scoresForm] = Form.useForm()
 
   const fetchQuiz = async () => {
     try {
@@ -36,6 +53,20 @@ export default function Quiz() {
       })
       quizForm.setFieldsValue({ intro: response.data.intro, ...qValues })
       resultsForm.setFieldsValue(response.data.results)
+      try {
+        const scoresRes = await getQuizScores()
+        const scores: ArchetypeScores = scoresRes.data || {}
+        const sValues: Record<string, string> = {}
+        for (let qi = 1; qi <= 4; qi++) {
+          const qScores = scores[String(qi)] || scores[qi]
+          OPTION_KEYS.forEach((letter) => {
+            sValues[`score_q${qi}_${letter}`] = winnerOf(qScores?.[letter], letter)
+          })
+        }
+        scoresForm.setFieldsValue(sValues)
+      } catch {
+        console.error('Failed to load scores')
+      }
     } catch {
       message.error('Ошибка загрузки теста')
     } finally {
@@ -88,6 +119,29 @@ export default function Quiz() {
     }
   }
 
+  const handleSaveScores = async () => {
+    try {
+      const values = await scoresForm.validateFields()
+      setSavingScores(true)
+      const scores: ArchetypeScores = {}
+      for (let qi = 1; qi <= 4; qi++) {
+        const q: Record<string, Record<string, number>> = {}
+        OPTION_KEYS.forEach((letter) => {
+          const arch = values[`score_q${qi}_${letter}`]
+          q[letter] = { [arch]: 2 }
+        })
+        scores[String(qi)] = q
+      }
+      await updateQuizScores(scores)
+      message.success('Скоринг сохранён')
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return
+      message.error('Ошибка сохранения скоринга')
+    } finally {
+      setSavingScores(false)
+    }
+  }
+
   if (loading) {
     return <Spin />
   }
@@ -130,6 +184,35 @@ export default function Quiz() {
           <RoleGuard roles={['master']}>
             <Button type="primary" onClick={handleSaveQuiz} loading={savingQuiz}>
               Сохранить тест
+            </Button>
+          </RoleGuard>
+        </Form>
+      </Card>
+
+      <Card title="Скоринг — какой вариант за какой архетип" style={{ marginBottom: 24 }}>
+        <Form form={scoresForm} layout="vertical">
+          {[1, 2, 3, 4].map((qi) => (
+            <div key={qi}>
+              <Divider orientation="left">Вопрос {qi}</Divider>
+              <Space wrap>
+                {OPTION_KEYS.map((letter) => (
+                  <Form.Item
+                    key={letter}
+                    name={`score_q${qi}_${letter}`}
+                    label={`Вариант ${letter.toUpperCase()}`}
+                    style={{ marginBottom: 8, minWidth: 140 }}
+                  >
+                    <Select
+                      options={ARCHETYPES.map((a) => ({ value: a.key, label: a.label }))}
+                    />
+                  </Form.Item>
+                ))}
+              </Space>
+            </div>
+          ))}
+          <RoleGuard roles={['master']}>
+            <Button type="primary" onClick={handleSaveScores} loading={savingScores}>
+              Сохранить скоринг
             </Button>
           </RoleGuard>
         </Form>

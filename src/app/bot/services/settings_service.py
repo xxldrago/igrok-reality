@@ -182,6 +182,96 @@ async def get_platega_webhook_url() -> str:
     return await _db_or_env("platega_webhook_url", settings.PLATEGA_WEBHOOK_URL)
 
 
+async def get_grace_period_hours() -> int:
+    """Night grace period in hours (commands after midnight count for prev day)."""
+    raw = await _db_or_env("grace_period_hours", "5")
+    try:
+        value = int(raw)
+        if 0 <= value <= 12:
+            return value
+    except (TypeError, ValueError):
+        pass
+    return 5
+
+
+async def get_leaderboard_limit() -> int:
+    """How many top users the /leaderboard shows."""
+    raw = await _db_or_env("leaderboard_limit", "10")
+    try:
+        value = int(raw)
+        if 1 <= value <= 50:
+            return value
+    except (TypeError, ValueError):
+        pass
+    return 10
+
+
+DEFAULT_DELIVERY_SLOTS: list[tuple[int, int]] = [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+
+
+async def get_delivery_slots() -> list[tuple[int, int]]:
+    """Scroll delivery slots as [(hour, minute)] — editable, scheduler restart applies.
+
+    Stored as "05:00, 08:00, 12:00, 16:00, 21:00" (server time).
+    """
+    raw = await _db_or_env("delivery_slots", "")
+    if raw:
+        try:
+            slots: list[tuple[int, int]] = []
+            for part in raw.replace(";", ",").split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                h, _, m = part.partition(":")
+                hour, minute = int(h), int(m or 0)
+                if 0 <= hour <= 23 and 0 <= minute <= 59:
+                    slots.append((hour, minute))
+            if slots:
+                return sorted(set(slots))
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_DELIVERY_SLOTS
+
+
+async def get_streak_warning_time() -> tuple[int, int]:
+    """(hour, minute) of the streak-loss warning — editable, scheduler restart applies."""
+    try:
+        hour = int(await _db_or_env("streak_warning_hour", "23"))
+        minute = int(await _db_or_env("streak_warning_minute", "0"))
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return hour, minute
+    except (TypeError, ValueError):
+        pass
+    return 23, 0
+
+
+async def get_consent_text() -> str:
+    """152-ФЗ consent text shown at /start (editable via admin panel)."""
+    try:
+        value = await get_setting("consent_text", "")
+        if value:
+            return value
+    except Exception:
+        logger.warning("settings: DB unreachable for consent_text, using default")
+    return DEFAULT_CONSENT_TEXT
+
+
+DEFAULT_CONSENT_TEXT = (
+    "Добро пожаловать в Игрок.Реальность!\n"
+    "\n"
+    "Для участия в квесте нам нужны ваши данные:\n"
+    "• Имя и фамилия из Telegram\n"
+    "• Username (если есть)\n"
+    "\n"
+    "Мы обрабатываем ваши данные для:\n"
+    "• Управления вашим прогрессом в квесте\n"
+    "• Связи с вами по вопросам квеста\n"
+    "• Отправки ежедневных заданий\n"
+    "\n"
+    "Нажимая «Я согласен», вы подтверждаете обработку персональных данных."
+)
+
+
 # ---------------------------------------------------------------------------
 # Admin profile (login credentials editable via admin panel)
 # ---------------------------------------------------------------------------
@@ -291,6 +381,18 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
             SettingsField("xp_weight_habits", "XP за привычки", "number", ""),
             SettingsField("streak_bonus_days", "Пороги стрика (дни, через запятую)", "text", ""),
             SettingsField("streak_bonus_xp", "Бонусы стрика (XP, через запятую)", "text", ""),
+            SettingsField("grace_period_hours", "Ночной зачёт команд (часов после полуночи)", "number", "",
+                          "Команды в это время относятся к предыдущему дню. 0–12"),
+            SettingsField("leaderboard_limit", "Размер таблицы лидеров", "number", "",
+                          "Сколько игроков показывает /leaderboard. 1–50"),
+            SettingsField("reminder_hour", "Час вечернего напоминания", "number", "",
+                          "Время сервера. Применяется сразу"),
+            SettingsField("reminder_minute", "Минута вечернего напоминания", "number", ""),
+            SettingsField("delivery_slots", "Слоты доставки свитков (ЧЧ:ММ через запятую)", "text", "",
+                          "Время сервера. Применяется после рестарта scheduler"),
+            SettingsField("streak_warning_hour", "Час предупреждения о стрике", "number", "",
+                          "Применяется после рестарта scheduler"),
+            SettingsField("streak_warning_minute", "Минута предупреждения о стрике", "number", ""),
         ],
     ),
     SettingsGroup(
@@ -303,10 +405,12 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
     ),
     SettingsGroup(
         group="content",
-        title="Контент — первое приветствие",
+        title="Контент — приветствие и согласие",
         fields=[
             SettingsField("welcome_message", "Приветствие после /start", "textarea", "",
                           "Показывается вместе с кнопкой согласия на обработку данных"),
+            SettingsField("consent_text", "Текст согласия (152-ФЗ)", "textarea", "",
+                          "Показывается после приветствия, перед тестом"),
         ],
     ),
 ]

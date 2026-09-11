@@ -21,7 +21,7 @@ from app.bot.services.archetype import (
     calculate_archetype,
     load_quiz_config,
 )
-from app.bot.services.settings_service import get_welcome_message
+from app.bot.services.settings_service import get_consent_text, get_welcome_message
 from app.bot.services.user_service import (
     create_referral,
     create_user,
@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 
 registration_router = Router(name="registration")
 
+# Legacy constant (kept for backward compatibility) — the live text comes
+# from settings (consent_text, editable via admin panel).
 CONSENT_TEXT = (
     "Добро пожаловать в Игрок.Реальность!\n"
     "\n"
@@ -75,7 +77,9 @@ async def handle_start(message: Message, state: FSMContext) -> None:
     await state.set_state(RegistrationState.consent)
 
     welcome_text = await get_welcome_message()
-    await message.answer(welcome_text, reply_markup=consent_keyboard())
+    consent_text = await get_consent_text()
+    await message.answer(welcome_text)
+    await message.answer(consent_text, reply_markup=consent_keyboard())
 
 
 @registration_router.callback_query(ConsentCallback.filter(F.action == "agree"), RegistrationState.consent)

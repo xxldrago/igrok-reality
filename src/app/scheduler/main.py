@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-# Time slots for scroll delivery (Moscow time)
+# Fallback time slots for scroll delivery (server time) — live value comes
+# from settings (delivery_slots, editable via admin panel, scheduler restart).
 # Each slot delivers scrolls that are scheduled for that hour
 DELIVERY_SLOTS = [
     (5, 0),   # 05:00 — Rassvet, Ogne, Korni (meditation days)
@@ -113,8 +114,14 @@ async def enqueue_pending_notifications(ctx: None = None) -> None:
 
 async def schedule_jobs() -> None:
     """Configure and add all scheduled jobs."""
-    # Scroll delivery slots (5:00, 8:00, 12:00, 16:00, 21:00)
-    for hour, minute in DELIVERY_SLOTS:
+    from app.bot.services.settings_service import (
+        get_delivery_slots,
+        get_streak_warning_time,
+    )
+
+    # Scroll delivery slots (editable via admin panel, defaults 5/8/12/16/21)
+    delivery_slots = await get_delivery_slots()
+    for hour, minute in delivery_slots:
         job_id = f"scroll_slot_{hour:02d}"
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
@@ -139,16 +146,19 @@ async def schedule_jobs() -> None:
     )
     logger.info("Scheduled evening reminder at %02d:%02d %s time", r_hour, r_minute, settings.TZ)
 
-    # Streak loss warning (runs at 23:00 by default)
+    # Streak loss warning (editable via admin panel, default 23:00)
+    w_hour, w_minute = await get_streak_warning_time()
     if scheduler.get_job("streak_warning"):
         scheduler.remove_job("streak_warning")
     scheduler.add_job(
         enqueue_streak_warning,
-        CronTrigger(hour=23, minute=0, timezone=settings.TZ),
+        CronTrigger(hour=w_hour, minute=w_minute, timezone=settings.TZ),
         id="streak_warning",
         replace_existing=True,
     )
-    logger.info("Scheduled streak warning at 23:00 %s time", settings.TZ)
+    logger.info(
+        "Scheduled streak warning at %02d:%02d %s time", w_hour, w_minute, settings.TZ
+    )
 
     # Notification queue pump (every minute — broadcasts + scheduled)
     if scheduler.get_job("pending_notifications"):

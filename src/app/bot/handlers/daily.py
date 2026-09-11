@@ -21,6 +21,7 @@ from app.bot.services.day_type import (
     get_available_scroll_codes,
 )
 from app.bot.services.scroll_service import get_scroll_for_user
+from app.bot.services.settings_service import get_grace_period_hours
 from app.bot.services.user_service import get_user_by_telegram_id
 from app.shared.database import session_factory
 from app.shared.models.daily_scroll import DailyScroll
@@ -39,11 +40,14 @@ class ReportState(StatesGroup):
     waiting_for_report = State()
 
 
-def _get_quest_day(user, tz_name: str, now: datetime | None = None) -> int:
+def _get_quest_day(
+    user, tz_name: str, now: datetime | None = None, grace_hours: int | None = None
+) -> int:
     """Calculate the current quest day for a user based on their timezone.
 
-    Applies the grace period: if it's between 00:00 and 05:00 local time,
-    the command counts for the PREVIOUS day (night-shift workers).
+    Applies the grace period: if it's within grace_hours after midnight
+    local time, the command counts for the PREVIOUS day (night-shift workers).
+    grace_hours defaults to GRACE_PERIOD_HOURS (callers pass the DB value).
     """
     if user.started_at is None:
         return 0
@@ -52,9 +56,9 @@ def _get_quest_day(user, tz_name: str, now: datetime | None = None) -> int:
     started = user.started_at.replace(tzinfo=timezone.utc).astimezone(tz)
 
     # Determine which day this command belongs to
-    # Commands between 00:00-05:00 belong to the previous day (grace period)
+    grace = GRACE_PERIOD_HOURS if grace_hours is None else grace_hours
     effective_date = now.date()
-    if now.hour < GRACE_PERIOD_HOURS:
+    if grace > 0 and now.hour < grace:
         effective_date = now.date() - timedelta(days=1)
 
     delta = (effective_date - started.date()).days
@@ -179,7 +183,7 @@ async def _handle_scroll_command(
         return
 
     tz_name = user.timezone or settings.TZ
-    quest_day = _get_quest_day(user, tz_name)
+    quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
         await message.answer("Вы ещё не начали квест. Используйте /start.")
@@ -292,7 +296,7 @@ async def handle_report(message: Message, state: FSMContext) -> None:
         return
 
     tz_name = user.timezone or settings.TZ
-    quest_day = _get_quest_day(user, tz_name)
+    quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
         await message.answer("Вы ещё не начали квест. Используйте /start.")
@@ -359,7 +363,7 @@ async def handle_today(message: Message, state: FSMContext) -> None:
         return
 
     tz_name = user.timezone or settings.TZ
-    quest_day = _get_quest_day(user, tz_name)
+    quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
         await message.answer("Вы ещё не начали квест.")

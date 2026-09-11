@@ -197,6 +197,16 @@ export function updateQuizResults(data: Record<string, string>) {
   return api.put('/admin/quiz/results', data)
 }
 
+export type ArchetypeScores = Record<string, Record<string, Record<string, number>>>
+
+export function getQuizScores() {
+  return api.get<ArchetypeScores>('/admin/quiz/scores')
+}
+
+export function updateQuizScores(scores: ArchetypeScores) {
+  return api.put('/admin/quiz/scores', { scores })
+}
+
 // --- Scroll interfaces ---
 
 export interface ScrollItem {
@@ -476,6 +486,19 @@ export interface ScrollTypeListResponse {
 
 export function getScrollTypes() {
   return api.get<ScrollTypeListResponse>('/admin/scroll-types')
+}
+
+export interface ScrollTypeUpdateData {
+  name?: string
+  description?: string
+  hour?: number
+  minute?: number
+  xp_reward?: number
+  sort_order?: number
+}
+
+export function updateScrollType(id: string, data: ScrollTypeUpdateData) {
+  return api.put<ScrollTypeItem>(`/admin/scroll-types/${id}`, data)
 }
 
 // --- Daily Scrolls interfaces ---

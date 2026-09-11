@@ -1293,6 +1293,71 @@ async def list_scroll_types() -> ScrollTypeListResponse:
         )
 
 
+class ScrollTypeUpdateRequest(BaseModel):
+    """Editable scroll type fields (code/command immutable, day logic untouched)."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    hour: Optional[int] = Field(None, ge=-1, le=23)
+    minute: Optional[int] = Field(None, ge=0, le=59)
+    xp_reward: Optional[int] = Field(None, ge=0, le=100)
+    sort_order: Optional[int] = Field(None, ge=0)
+
+
+@admin_router.put(
+    "/scroll-types/{type_id}",
+    response_model=ScrollTypeResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_scroll_type(type_id: UUID, req: ScrollTypeUpdateRequest) -> ScrollTypeResponse:
+    """Update a scroll type (display, delivery time, XP reward)."""
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ScrollTypeModel).where(ScrollTypeModel.id == type_id)
+        )
+        st = result.scalar_one_or_none()
+        if st is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Scroll type not found",
+            )
+
+        if req.name is not None:
+            st.name = req.name.strip()
+        if req.description is not None:
+            st.description = req.description
+        if req.hour is not None:
+            st.hour = req.hour
+        if req.minute is not None:
+            st.minute = req.minute
+        if req.xp_reward is not None:
+            st.xp_reward = req.xp_reward
+        if req.sort_order is not None:
+            st.sort_order = req.sort_order
+
+        session.add(
+            AuditLog(action="scroll_type_updated", details=f"Updated scroll type {st.code}")
+        )
+        await session.commit()
+        await session.refresh(st)
+        return ScrollTypeResponse(
+            id=st.id,
+            code=st.code,
+            name=st.name,
+            command=st.command,
+            hour=st.hour,
+            minute=st.minute,
+            xp_reward=st.xp_reward,
+            description=st.description,
+            requires_meditation=st.requires_meditation,
+            is_breathing_day_only=st.is_breathing_day_only,
+            is_awareness_day_only=st.is_awareness_day_only,
+            sort_order=st.sort_order,
+        )
+
+
 # --- Daily Scrolls endpoints ---
 
 
@@ -1855,6 +1920,7 @@ async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
         scheduled_at=req.scheduled_at,
         audience=req.archetype or "all",
         archetype=req.archetype,
+        parse_mode=req.parse_mode,
     )
 
     return BroadcastResponse(

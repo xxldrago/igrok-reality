@@ -49,6 +49,7 @@ async def send_system_notification_to_all(
     scheduled_at: datetime | None = None,
     audience: str | None = None,
     archetype: str | None = None,
+    parse_mode: str | None = None,
 ) -> list[Notification]:
     """Create a notification for active users (optionally one archetype).
 
@@ -72,6 +73,7 @@ async def send_system_notification_to_all(
                 media_type=media_type,
                 scheduled_at=scheduled_at,
                 audience=audience or archetype or "all",
+                parse_mode=parse_mode if parse_mode in ("HTML", "Markdown") else None,
             )
             session.add(notification)
             notifications.append(notification)
@@ -135,33 +137,45 @@ async def send_notification(notification_id: UUID, bot_token: str) -> bool:
         if user is None:
             return False
 
+    async def _send_text(chat_id: int, text: str) -> None:
+        """Send text with parse_mode, falling back to plain text on markup errors."""
+        parse_mode = notification.parse_mode if notification.parse_mode in ("HTML", "Markdown") else None
+        if parse_mode:
+            try:
+                await bot.send_message(chat_id, text, parse_mode=parse_mode)
+                return
+            except TelegramAPIError:
+                pass
+        await bot.send_message(chat_id, text)
+
+    async def _send_media(
+        method: str, chat_id: int, url: str, caption: str | None, long_text: str | None
+    ) -> None:
+        """Send photo/video/document with caption, fall back to text on errors."""
+        parse_mode = notification.parse_mode if notification.parse_mode in ("HTML", "Markdown") else None
+        send = {"photo": bot.send_photo, "video": bot.send_video, "document": bot.send_document}[method]
+        try:
+            await send(chat_id, url, caption=caption, parse_mode=parse_mode)
+        except TelegramAPIError:
+            try:
+                await send(chat_id, url, caption=caption)
+            except TelegramAPIError:
+                await _send_text(chat_id, (caption or "") + (f"\n\n{long_text}" if long_text else ""))
+                return
+        if long_text:
+            await _send_text(chat_id, long_text)
+
     bot = Bot(token=bot_token)
     try:
         media_url = notification.media_url
         media_type = notification.media_type
-        if media_url and media_type == "photo":
-            try:
-                await bot.send_photo(user.telegram_id, media_url, caption=notification.payload[:1024] or None)
-                if len(notification.payload) > 1024:
-                    await bot.send_message(user.telegram_id, notification.payload)
-            except TelegramAPIError:
-                await bot.send_message(user.telegram_id, notification.payload)
-        elif media_url and media_type == "video":
-            try:
-                await bot.send_video(user.telegram_id, media_url, caption=notification.payload[:1024] or None)
-                if len(notification.payload) > 1024:
-                    await bot.send_message(user.telegram_id, notification.payload)
-            except TelegramAPIError:
-                await bot.send_message(user.telegram_id, notification.payload)
-        elif media_url and media_type == "document":
-            try:
-                await bot.send_document(user.telegram_id, media_url, caption=notification.payload[:1024] or None)
-                if len(notification.payload) > 1024:
-                    await bot.send_message(user.telegram_id, notification.payload)
-            except TelegramAPIError:
-                await bot.send_message(user.telegram_id, notification.payload)
+        payload = notification.payload
+        if media_url and media_type in ("photo", "video", "document"):
+            caption = payload[:1024] or None
+            rest = payload[1024:] if len(payload) > 1024 else None
+            await _send_media(media_type, user.telegram_id, media_url, caption, rest)
         else:
-            await bot.send_message(user.telegram_id, notification.payload)
+            await _send_text(user.telegram_id, payload)
         await mark_sent(notification_id)
         return True
     except TelegramAPIError:

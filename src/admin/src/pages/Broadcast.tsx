@@ -26,6 +26,7 @@ const audienceLabels: Record<string, string> = {
 export default function Broadcast() {
   const [text, setText] = useState('')
   const [archetype, setArchetype] = useState<string | null>(null)
+  const [parseMode, setParseMode] = useState<string | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<string | null>(null)
   const [scheduledAt, setScheduledAt] = useState<Dayjs | null>(null)
@@ -72,6 +73,7 @@ export default function Broadcast() {
       const res = await sendBroadcast({
         text: text.trim(),
         archetype,
+        parse_mode: parseMode ?? undefined,
         media_url: mediaUrl,
         media_type: mediaType,
         scheduled_at: scheduledAt ? scheduledAt.toISOString() : null,
@@ -144,10 +146,21 @@ export default function Broadcast() {
           <Input.TextArea
             rows={6}
             maxLength={4000}
-            placeholder="Текст сообщения (поддерживается Markdown/HTML)"
+            placeholder="Текст сообщения"
             value={text}
             onChange={(e) => setText(e.target.value)}
             showCount
+          />
+          <Select
+            placeholder="Форматирование: нет"
+            allowClear
+            style={{ width: 280 }}
+            value={parseMode ?? undefined}
+            onChange={setParseMode}
+            options={[
+              { value: 'HTML', label: 'HTML (<b>, <i>, <a>)' },
+              { value: 'Markdown', label: 'Markdown (*жирный*)' },
+            ]}
           />
           <div>
             <Text strong>Вложение (фото / видео / файл)</Text>
@@ -260,6 +273,9 @@ export default function Broadcast() {
         </Paragraph>
         <Paragraph>
           <Text><strong>Вложения:</strong> фото до 10 МБ, видео и файлы до 50 МБ. Длинный текст (свыше 1024 символов) придёт вторым сообщением после фото/видео.</Text>
+        </Paragraph>
+        <Paragraph>
+          <Text><strong>Форматирование:</strong> HTML или Markdown — при ошибке разметки сообщение уйдёт обычным текстом.</Text>
         </Paragraph>
       </Card>
     </div>

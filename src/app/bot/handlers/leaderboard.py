@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 
 from app.bot.keyboards.leaderboard import LeaderboardRefresh, leaderboard_keyboard
 from app.bot.services.progress_service import get_leaderboard, get_user_rank
+from app.bot.services.settings_service import get_leaderboard_limit
 from app.bot.services.user_service import get_user_by_id, get_user_by_telegram_id
 
 leaderboard_router = Router(name="leaderboard")
@@ -19,7 +20,8 @@ MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
 
 async def format_leaderboard_message(message: Message) -> str:
     """Format leaderboard message with top users and medals."""
-    leaderboard = await get_leaderboard(10)
+    limit = await get_leaderboard_limit()
+    leaderboard = await get_leaderboard(limit)
 
     if not leaderboard:
         return "Пока нет данных. Выполняй свитки чтобы попасть в рейтинг!"
@@ -31,11 +33,11 @@ async def format_leaderboard_message(message: Message) -> str:
         medal = MEDALS.get(i, f"{i + 1}.")
         lines.append(f"{medal} {name} — {entry['xp']} XP")
 
-    # Show user's rank if not in top 10
+    # Show user's rank if not in top N
     current_user = await get_user_by_telegram_id(message.from_user.id)
     if current_user:
         rank = await get_user_rank(current_user.id)
-        if rank is not None and rank >= 10:
+        if rank is not None and rank >= limit:
             lines.append(f"\nТы на позиции #{rank + 1}")
 
     return "\n".join(lines)
