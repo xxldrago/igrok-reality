@@ -361,12 +361,16 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
                           "Должен совпадать с URL в кабинете Platega"),
         ],
     ),
-    SettingsGroup(
+SettingsGroup(
         group="payments",
         title="Оплата участия",
         fields=[
             SettingsField("payment_amount", "Цена участия", "price_rub", "",
                           "В рублях. Применяется к новым платежам (/pay) сразу"),
+            SettingsField(
+                "payments_enabled", "Приём платежей", "bool", "true",
+                "Выключить для тестов (появляется кнопка тестовой оплаты)",
+            ),
         ],
     ),
     SettingsGroup(
@@ -383,8 +387,10 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
             SettingsField("xp_weight_habits", "XP за привычки", "number", ""),
             SettingsField("streak_bonus_days", "Пороги стрика (дни, через запятую)", "text", ""),
             SettingsField("streak_bonus_xp", "Бонусы стрика (XP, через запятую)", "text", ""),
-            SettingsField("grace_period_hours", "Ночной зачёт команд (часов после полуночи)", "number", "",
-                          "Команды в это время относятся к предыдущему дню. 0–12"),
+            SettingsField(
+                "grace_period_hours", "Ночной зачёт команд (часов после полуночи)", "number", "",
+                "Команды в это время относятся к предыдущему дню. 0–12",
+            ),
             SettingsField("leaderboard_limit", "Размер таблицы лидеров", "number", "",
                           "Сколько игроков показывает /leaderboard. 1–50"),
             SettingsField("reminder_hour", "Час вечернего напоминания", "number", "",
@@ -416,6 +422,20 @@ SETTINGS_SCHEMA: list[SettingsGroup] = [
         ],
     ),
 ]
+
+
+async def get_payments_enabled() -> bool:
+    """Whether real payments are currently accepted."""
+    val = await get_setting("payments_enabled", "true")
+    return val.lower() not in ("false", "0", "no")
+
+
+def _setting_value_to_bool(value: str | bool | int | None) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value in (True, "true", "True", 1, "1"):
+        return "true"
+    return "false"
 
 
 async def get_settings_schema() -> list[dict[str, Any]]:
