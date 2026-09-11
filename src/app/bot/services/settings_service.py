@@ -206,7 +206,9 @@ async def get_leaderboard_limit() -> int:
     return 10
 
 
-DEFAULT_DELIVERY_SLOTS: list[tuple[int, int]] = [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+DEFAULT_DELIVERY_SLOTS: list[tuple[int, int]] = [
+    (5, 0), (8, 0), (12, 0), (14, 0), (16, 0), (21, 0)
+]  # 14:00 — дневное дыхание в дни дыхания
 
 
 async def get_delivery_slots() -> list[tuple[int, int]]:

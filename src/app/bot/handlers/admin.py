@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
-from aiogram.types import InlineKeyboardButton, Message, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
 from app.bot.services.user_service import get_user_by_telegram_id
 from app.shared.config import settings

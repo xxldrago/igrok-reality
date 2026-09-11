@@ -19,8 +19,8 @@ class UserDailyCommand(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "user_daily_commands"
     __table_args__ = (
         UniqueConstraint(
-            "user_id", "quest_day", "command",
-            name="uq_user_day_command",
+            "user_id", "quest_day", "command", "slot",
+            name="uq_user_day_command_slot",
         ),
     )
 
@@ -31,6 +31,9 @@ class UserDailyCommand(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     command: Mapped[str] = mapped_column(String(30), nullable=False)
     # /wakeup, /cold, /scan, /scanreport, /breath, /micro, /focus, /food, /sleep, /report
+
+    slot: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    # Breathing-day /breath repeats: "morning" | "day" | "evening", else ""
 
     scroll_type_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("scroll_types.id"), nullable=True

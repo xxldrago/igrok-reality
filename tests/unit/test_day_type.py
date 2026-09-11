@@ -5,12 +5,14 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.bot.services.day_type import (
-    COMMAND_TO_SCROLL_CODE,
     get_day_type,
     get_available_scroll_codes,
+    get_breathing_slot,
+    COMMAND_TO_SCROLL_CODE,
     MEDITATION_DAYS,
     BREATHING_DAYS,
     AWARENESS_DAYS,
+    BREATHING_SLOTS,
 )
 
 
@@ -86,6 +88,24 @@ class TestGetAvailableScrollCodes:
         codes = get_available_scroll_codes(6)
         assert set(codes) == {"zrya", "otchet"}
 
+    def test_breathing_day_set(self):
+        codes = get_available_scroll_codes(7)
+        assert codes == ["vetr", "vetr_day", "vetr_evening", "zrya", "otchet"]
+
+
+class TestBreathingSlots:
+    def test_slot_boundaries(self):
+        assert get_breathing_slot(8) == "morning"
+        assert get_breathing_slot(11) == "morning"
+        assert get_breathing_slot(12) == "day"
+        assert get_breathing_slot(14) == "day"
+        assert get_breathing_slot(17) == "day"
+        assert get_breathing_slot(18) == "evening"
+        assert get_breathing_slot(21) == "evening"
+
+    def test_slots_cover_all_codes(self):
+        assert [code for _, code in BREATHING_SLOTS] == ["vetr", "vetr_day", "vetr_evening"]
+
     def test_command_to_scroll_mapping(self):
         assert COMMAND_TO_SCROLL_CODE["/wakeup"] == "rassvet"
         assert COMMAND_TO_SCROLL_CODE["/cold"] == "ogne"
@@ -97,3 +117,74 @@ class TestGetAvailableScrollCodes:
         assert COMMAND_TO_SCROLL_CODE["/food"] == "pitaniye"
         assert COMMAND_TO_SCROLL_CODE["/sleep"] == "integratsiya"
         assert COMMAND_TO_SCROLL_CODE["/report"] == "otchet"
+
+
+class TestBreathingGate:
+    """_is_command_allowed on breathing days (spec 3.3)."""
+
+    def _session(self, scroll_type, existing=None):
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_session = AsyncMock()
+        res_type = MagicMock()
+        res_type.scalar_one_or_none.return_value = scroll_type
+        res_dup = MagicMock()
+        res_dup.scalar_one_or_none.return_value = existing
+        mock_session.execute = AsyncMock(side_effect=[res_type, res_dup])
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=mock_session)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    def _scroll_type(self, code: str, breathing_only: bool = False):
+        from app.shared.models.scroll_type import ScrollType
+
+        return ScrollType(
+            code=code,
+            name=code,
+            command="/breath" if "vetr" in code else "/x",
+            hour=8,
+            is_breathing_day_only=breathing_only,
+        )
+
+    @pytest.mark.asyncio
+    async def test_breathing_day_rejects_wakeup(self):
+        from unittest.mock import patch
+        from uuid import uuid4
+        from app.bot.handlers import daily as daily_mod
+
+        cm = self._session(self._scroll_type("rassvet"))
+        with patch.object(daily_mod, "session_factory", return_value=cm):
+            allowed, reason = await daily_mod._is_command_allowed(
+                uuid4(), 7, "/wakeup", "rassvet"
+            )
+            assert allowed is False
+            assert "дыхания" in reason
+
+    @pytest.mark.asyncio
+    async def test_breathing_day_allows_vetr_slots(self):
+        from unittest.mock import patch
+        from uuid import uuid4
+        from app.bot.handlers import daily as daily_mod
+
+        for code, slot in (("vetr", "morning"), ("vetr_day", "day"), ("vetr_evening", "evening")):
+            cm = self._session(self._scroll_type(code, breathing_only=(code != "vetr")))
+            with patch.object(daily_mod, "session_factory", return_value=cm):
+                allowed, _ = await daily_mod._is_command_allowed(
+                    uuid4(), 7, "/breath", code, slot=slot
+                )
+                assert allowed is True, code
+
+    @pytest.mark.asyncio
+    async def test_breathing_extra_rejected_off_day(self):
+        from unittest.mock import patch
+        from uuid import uuid4
+        from app.bot.handlers import daily as daily_mod
+
+        cm = self._session(self._scroll_type("vetr_day", breathing_only=True))
+        with patch.object(daily_mod, "session_factory", return_value=cm):
+            allowed, reason = await daily_mod._is_command_allowed(
+                uuid4(), 2, "/breath", "vetr_day", slot="day"
+            )
+            assert allowed is False
+            assert "дыхания" in reason

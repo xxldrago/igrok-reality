@@ -65,8 +65,15 @@ def _get_quest_day(
     return min(delta + 1, 90)  # Clamp to 90
 
 
+BREATHING_CODES = ("vetr", "vetr_day", "vetr_evening")
+
 async def _is_command_allowed(
-    user_id, quest_day: int, command: str, scroll_code: str, now: datetime | None = None
+    user_id,
+    quest_day: int,
+    command: str,
+    scroll_code: str,
+    now: datetime | None = None,
+    slot: str = "",
 ) -> tuple[bool, str]:
     """Check if a command is allowed for this user on this day.
 
@@ -90,16 +97,21 @@ async def _is_command_allowed(
         if day_type.is_awareness and scroll_code not in ("zrya", "otchet"):
             return False, "В день осознания доступны только Свиток Зря и Отчёт."
 
+        # Check breathing day restriction (vetr x3 + zrya + otchet only)
+        if day_type.is_breathing and scroll_code not in (*BREATHING_CODES, "zrya", "otchet"):
+            return False, "В день дыхания доступны только Ветер, Зря и Отчёт."
+
         # Check breathing day extras
         if scroll_type.is_breathing_day_only and not day_type.is_breathing:
             return False, "Этот свиток доступен только в дни дыхания (7, 14, 21, 28...)."
 
-        # Check if command already used today
+        # Check if command already used today (slot-aware for 3x /breath)
         result = await session.execute(
             select(UserDailyCommand).where(
                 UserDailyCommand.user_id == user_id,
                 UserDailyCommand.quest_day == quest_day,
                 UserDailyCommand.command == command,
+                UserDailyCommand.slot == slot,
             )
         )
         existing = result.scalar_one_or_none()
@@ -118,6 +130,7 @@ async def _record_command(
     report_text: str | None = None,
     report_media_url: str | None = None,
     report_media_type: str | None = None,
+    slot: str = "",
 ) -> UserDailyCommand:
     """Record a command completion and return the record."""
     async with session_factory() as session:
@@ -141,6 +154,7 @@ async def _record_command(
             user_id=user_id,
             quest_day=quest_day,
             command=command,
+            slot=slot,
             scroll_type_id=scroll_type.id if scroll_type else None,
             daily_scroll_id=daily_scroll.id if daily_scroll else None,
             xp_awarded=xp,
@@ -167,7 +181,11 @@ async def _update_xp(user_id, xp: int) -> None:
 
 
 async def _handle_scroll_command(
-    message: Message, command: str, scroll_code: str, xp_override: int | None = None
+    message: Message,
+    command: str,
+    scroll_code: str,
+    xp_override: int | None = None,
+    slot: str = "",
 ) -> None:
     """Generic handler for scroll commands.
 
@@ -176,6 +194,7 @@ async def _handle_scroll_command(
         command: The slash command (e.g. /wakeup)
         scroll_code: The scroll type code (e.g. rassvet)
         xp_override: Optional XP override (e.g. /scan gives +0)
+        slot: Breathing-day slot (morning/day/evening) for repeated /breath
     """
     user = await get_user_by_telegram_id(message.from_user.id)
     if user is None:
@@ -189,7 +208,9 @@ async def _handle_scroll_command(
         await message.answer("Вы ещё не начали квест. Используйте /start.")
         return
 
-    allowed, reason = await _is_command_allowed(user.id, quest_day, command, scroll_code)
+    allowed, reason = await _is_command_allowed(
+        user.id, quest_day, command, scroll_code, slot=slot
+    )
     if not allowed:
         await message.answer(reason)
         return
@@ -215,7 +236,7 @@ async def _handle_scroll_command(
             daily_scroll = result.scalar_one_or_none()
 
     # Record the command
-    await _record_command(user.id, quest_day, command, scroll_code, xp)
+    await _record_command(user.id, quest_day, command, scroll_code, xp, slot=slot)
 
     # Award XP
     await _update_xp(user.id, xp)
@@ -259,8 +280,24 @@ async def handle_scanreport(message: Message, state: FSMContext) -> None:
 
 @daily_router.message(Command("breath"))
 async def handle_breath(message: Message, state: FSMContext) -> None:
-    """Handle /breath — Ветер (дыхательная практика)."""
-    await _handle_scroll_command(message, "/breath", "vetr")
+    """Handle /breath — Ветер (дыхательная практика).
+
+    On breathing days routes to the morning/day/evening scroll by hour,
+    so /breath can be completed 3 times (+5 XP each).
+    """
+    from app.bot.services.day_type import get_breathing_slot
+
+    user = await get_user_by_telegram_id(message.from_user.id)
+    code, slot = "vetr", ""
+    if user is not None:
+        tz_name = user.timezone or settings.TZ
+        quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
+        if quest_day > 0 and get_day_type(quest_day).is_breathing:
+            now_hour = datetime.now(ZoneInfo(tz_name)).hour
+            slot = get_breathing_slot(now_hour)
+            code = {"morning": "vetr", "day": "vetr_day", "evening": "vetr_evening"}[slot]
+
+    await _handle_scroll_command(message, "/breath", code, slot=slot)
 
 
 @daily_router.message(Command("micro"))
@@ -307,13 +344,14 @@ async def handle_report(message: Message, state: FSMContext) -> None:
         await message.answer(reason)
         return
 
-    # Record with +2 XP
-    await _record_command(user.id, quest_day, "/report", "otchet", 2)
-    await _update_xp(user.id, 2)
+    # Awareness days: report is the weekly summary, +5 XP (spec 3.4); else +2
+    report_xp = 5 if get_day_type(quest_day).is_awareness else 2
+    await _record_command(user.id, quest_day, "/report", "otchet", report_xp)
+    await _update_xp(user.id, report_xp)
 
     await message.answer(
-        "✅ Отчёт о дне — день {day}\n+2 XP\n\n"
-        "Можно добавить текст или фото (необязательно):".format(day=quest_day)
+        "✅ Отчёт о дне — день {day}\n+{xp} XP\n\n"
+        "Можно добавить текст или фото (необязательно):".format(day=quest_day, xp=report_xp)
     )
     await state.set_state(ReportState.waiting_for_report)
 
@@ -372,15 +410,24 @@ async def handle_today(message: Message, state: FSMContext) -> None:
     # Get available scrolls for today
     available_codes = get_available_scroll_codes(quest_day)
 
-    # Get completed commands
+    # Get completed commands (slot-aware for breathing-day repeats + actual XP)
+    from app.bot.services.day_type import BREATHING_SLOTS
+
+    slot_by_code = {code: slot for slot, code in BREATHING_SLOTS}
     async with session_factory() as session:
         result = await session.execute(
-            select(UserDailyCommand.command).where(
+            select(
+                UserDailyCommand.command,
+                UserDailyCommand.slot,
+                UserDailyCommand.xp_awarded,
+            ).where(
                 UserDailyCommand.user_id == user.id,
                 UserDailyCommand.quest_day == quest_day,
             )
         )
-        completed = {row[0] for row in result.all()}
+        rows = result.all()
+        done_pairs = {(row[0], row[1]) for row in rows}
+        earned_xp = sum(row[2] for row in rows)
 
     # Get scroll types for display
     async with session_factory() as session:
@@ -403,18 +450,14 @@ async def handle_today(message: Message, state: FSMContext) -> None:
         if st is None:
             continue
         cmd = st.command
-        done = "✅" if cmd in completed else "⬜"
+        slot = slot_by_code.get(code, "")
+        done = "✅" if (cmd, slot) in done_pairs else "⬜"
         time_str = f"{st.hour:02d}:{st.minute:02d}" if st.hour >= 0 else "когда удобно"
         lines.append(f"{done} {st.name} — {cmd} (+{st.xp_reward} XP) — {time_str}")
 
-    # XP summary
+    # XP summary (earned = actually awarded, e.g. awareness report +5)
     total_xp_today = sum(
         all_types[c].xp_reward for c in available_codes if c in all_types
-    )
-    earned_xp = sum(
-        all_types.get(COMMAND_TO_SCROLL_CODE.get(c, ""), ScrollType(xp_reward=0)).xp_reward
-        for c in completed
-        if COMMAND_TO_SCROLL_CODE.get(c) in all_types
     )
 
     lines.append(f"\n💰 XP сегодня: {earned_xp}/{total_xp_today}")

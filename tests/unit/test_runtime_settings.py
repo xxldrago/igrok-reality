@@ -151,7 +151,7 @@ class TestQuestMechanics:
     @pytest.mark.asyncio
     async def test_delivery_slots_default(self) -> None:
         with _patch_get_setting(""):
-            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (14, 0), (16, 0), (21, 0)]
 
     @pytest.mark.asyncio
     async def test_delivery_slots_custom(self) -> None:
@@ -161,7 +161,7 @@ class TestQuestMechanics:
     @pytest.mark.asyncio
     async def test_delivery_slots_invalid(self) -> None:
         with _patch_get_setting("nonsense"):
-            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (16, 0), (21, 0)]
+            assert await get_delivery_slots() == [(5, 0), (8, 0), (12, 0), (14, 0), (16, 0), (21, 0)]
 
     @pytest.mark.asyncio
     async def test_streak_warning_default(self) -> None:

@@ -46,6 +46,30 @@ async def _send_payment_notification(user_telegram_id: int, text: str) -> None:
         logger.exception("Failed to send payment notification to telegram_id=%s", user_telegram_id)
 
 
+async def _notify_payment_channel(text: str) -> None:
+    """Post a payment event to the payment channel (accounting feed).
+
+    Skipped silently when payment_channel_id is not configured.
+    Never raises — must not break webhook processing.
+    """
+    try:
+        from app.bot.services.settings_service import (
+            get_bot_token as _get_token,
+            get_payment_channel_id,
+        )
+
+        channel_id = await get_payment_channel_id()
+        if not channel_id:
+            return
+        bot = Bot(token=await _get_token())
+        try:
+            await bot.send_message(chat_id=channel_id, text=text)
+        finally:
+            await bot.session.close()
+    except Exception:
+        logger.exception("Failed to notify payment channel")
+
+
 @router.post("/webhook/platega")
 async def platega_webhook(request: Request) -> dict:
     """Handle Platega.io payment status webhooks.
@@ -129,12 +153,18 @@ async def platega_webhook(request: Request) -> dict:
         return {"status": "ok"}
 
     # --- Route by status ---
+    user_label = f"@{user.username}" if user.username else user.first_name
+    amount_rub = payment.amount // 100
     bot = Bot(token=await get_bot_token())
     if new_status == "succeeded":
         await grant_access(user.id, bot)
         await _send_payment_notification(
             user.telegram_id,
             "Оплата прошла успешно! Доступ в канал открыт.",
+        )
+        await _notify_payment_channel(
+            f"✅ Оплата {amount_rub}₽ — {user_label} (tg {user.telegram_id})\n"
+            f"Заказ {order_id}"
         )
         # Calculate mentor commission
         commission = await calculate_commission(payment.id)
@@ -154,11 +184,19 @@ async def platega_webhook(request: Request) -> dict:
             user.telegram_id,
             "Оплата отменена. Вы можете попробовать снова.",
         )
+        await _notify_payment_channel(
+            f"❌ Оплата отменена — {user_label} (tg {user.telegram_id})\n"
+            f"Заказ {order_id}"
+        )
     elif new_status in ("chargebacked", "refunded"):
         await revoke_access(user.id, bot)
         await _send_payment_notification(
             user.telegram_id,
             "Возврат оформлен. Доступ в канал закрыт.",
+        )
+        await _notify_payment_channel(
+            f"↩️ Возврат {amount_rub}₽ — {user_label} (tg {user.telegram_id})\n"
+            f"Заказ {order_id}"
         )
 
     return {"status": "ok"}

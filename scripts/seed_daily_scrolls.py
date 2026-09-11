@@ -55,14 +55,39 @@ TEMPLATES = {
         ),
     },
     "vetr": {
-        "title": "🌬️ Свиток Ветра",
+        "title": "🌬️ Свиток Ветра (утро)",
         "content": (
-            "Дыхательная практика:\n"
-            "1. Вдох через нос на 4 счёта\n"
-            "2. Задержка на 4 счёта\n"
-            "3. Выдох через рот на 6 счётов\n"
-            "4. Повторите 10 раз\n\n"
+            "Дыхание стоя (5 минут):\n"
+            "1. Встаньте ровно, ноги на ширине плеч\n"
+            "2. Вдох через нос на 4 счёта\n"
+            "3. Задержка на 4 счёта\n"
+            "4. Выдох через рот на 6 счётов\n"
+            "5. Повторите 10 раз\n\n"
             "Сфокусируйтесь на зоне недели во время дыхания."
+        ),
+    },
+    "vetr_day": {
+        "title": "🌬️ Свиток Ветра (день)",
+        "content": (
+            "🌬️ Дыхание сидя (день дыхания):\n"
+            "1. Сядьте ровно, ноги на полу\n"
+            "2. Вдох через нос на 4 счёта\n"
+            "3. Задержка на 4 счёта\n"
+            "4. Выдох через рот на 6 счётов\n"
+            "5. Повторите 10 раз\n\n"
+            "Сфокусируйтесь на ощущениях в теле."
+        ),
+    },
+    "vetr_evening": {
+        "title": "🌬️ Свиток Ветра (вечер)",
+        "content": (
+            "🌬️ Дыхание лёжа (день дыхания):\n"
+            "1. Лягте на спину, руки вдоль тела\n"
+            "2. Вдох животом на 4 счёта\n"
+            "3. Задержка на 4 счёта\n"
+            "4. Медленный выдох на 6 счётов\n"
+            "5. Повторите 10 раз\n\n"
+            "Позвольте телу полностью расслабиться."
         ),
     },
     "sledy": {
@@ -273,9 +298,10 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
                 # Day-specific overrides
                 if day == 1 and code == "korni" and "korni" in DAY_1_CONTENT:
                     content = DAY_1_CONTENT["korni"]
-                elif day in BREATHING_DAYS and code == "vetr":
-                    # Use different breathing content for the 14:00 and 21:00 slots
-                    pass  # Handled by scheduler using is_breathing_day_only flag
+                elif day in BREATHING_DAYS and code == "vetr_day":
+                    content = BREATHING_CONTENT["vetr_extra_14"]
+                elif day in BREATHING_DAYS and code == "vetr_evening":
+                    content = BREATHING_CONTENT["vetr_extra_21"]
                 elif day in AWARENESS_DAYS:
                     if code == "zrya" and "zrya" in AWARENESS_CONTENT:
                         content = AWARENESS_CONTENT["zrya"]

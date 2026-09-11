@@ -72,7 +72,7 @@ async def test_payments_export_not_shadowed_by_payment_id() -> None:
 
 @pytest.mark.asyncio
 async def test_daily_scrolls_coverage_endpoint() -> None:
-    """Coverage endpoint resolves and reports 661 expected on empty DB."""
+    """Coverage endpoint resolves and reports 625 expected on empty DB."""
 
     async def fake_execute(_q):
         r = MagicMock()
@@ -84,5 +84,5 @@ async def test_daily_scrolls_coverage_endpoint() -> None:
 
     status, body = await _get("/api/admin/daily-scrolls/coverage", fake_execute)
     assert status == 200, body
-    assert '"total_expected":661' in body
+    assert '"total_expected":625' in body
     assert '"complete":false' in body

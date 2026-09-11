@@ -15,7 +15,7 @@ from app.bot.services.day_type import get_available_scroll_codes  # noqa: E402
 def test_codes_in_sync() -> None:
     """Type codes, content templates and schedule codes must match exactly."""
     type_codes = {t["code"] for t in SCROLL_TYPES}
-    assert len(type_codes) == 9
+    assert len(type_codes) == 11
     assert set(TEMPLATES) == type_codes
 
     used: set[str] = set()
@@ -25,7 +25,7 @@ def test_codes_in_sync() -> None:
 
 
 def test_full_schedule_coverage() -> None:
-    """Every day 1-90 has scrolls; totals locked: 65x8 + 13x9 + 12x2 = 661."""
+    """Every day 1-90 has scrolls; totals locked: 53x8 + 13x9 + 12x5 + 12x2 = 625."""
     sizes = collections.Counter()
     total = 0
     for day in range(1, 91):
@@ -35,11 +35,17 @@ def test_full_schedule_coverage() -> None:
         sizes[len(codes)] += 1
         total += len(codes)
 
-    assert sizes == {8: 65, 9: 13, 2: 12}, f"unexpected day mix: {dict(sizes)}"
-    assert total == 661, f"unexpected total: {total}"
+    assert sizes == {8: 53, 9: 13, 5: 12, 2: 12}, f"unexpected day mix: {dict(sizes)}"
+    assert total == 625, f"unexpected total: {total}"
 
 
 def test_awareness_days_are_reduced_by_design() -> None:
     """Awareness days (6, 13, ...) intentionally have only zrya + otchet."""
     assert get_available_scroll_codes(6) == ["zrya", "otchet"]
     assert get_available_scroll_codes(13) == ["zrya", "otchet"]
+
+
+def test_breathing_day_has_three_vetr() -> None:
+    """Breathing day (spec 3.3): vetr x3 (morning/day/evening) + zrya + otchet."""
+    assert get_available_scroll_codes(7) == ["vetr", "vetr_day", "vetr_evening", "zrya", "otchet"]
+    assert get_available_scroll_codes(14) == ["vetr", "vetr_day", "vetr_evening", "zrya", "otchet"]

@@ -70,6 +70,32 @@ SCROLL_TYPES = [
         "sort_order": 4,
     },
     {
+        "code": "vetr_day",
+        "name": "Свиток Ветра (день)",
+        "command": "/breath",
+        "hour": 14,
+        "minute": 0,
+        "xp_reward": 5,
+        "description": "Дыхательная практика сидя (только дни дыхания)",
+        "requires_meditation": False,
+        "is_breathing_day_only": True,
+        "is_awareness_day_only": False,
+        "sort_order": 5,
+    },
+    {
+        "code": "vetr_evening",
+        "name": "Свиток Ветра (вечер)",
+        "command": "/breath",
+        "hour": 21,
+        "minute": 0,
+        "xp_reward": 5,
+        "description": "Дыхательная практика лёжа (только дни дыхания)",
+        "requires_meditation": False,
+        "is_breathing_day_only": True,
+        "is_awareness_day_only": False,
+        "sort_order": 6,
+    },
+    {
         "code": "sledy",
         "name": "Свиток Следов",
         "command": "/micro",
@@ -80,7 +106,7 @@ SCROLL_TYPES = [
         "requires_meditation": False,
         "is_breathing_day_only": False,
         "is_awareness_day_only": False,
-        "sort_order": 5,
+        "sort_order": 7,
     },
     {
         "code": "zrya",
@@ -93,7 +119,7 @@ SCROLL_TYPES = [
         "requires_meditation": False,
         "is_breathing_day_only": False,
         "is_awareness_day_only": False,
-        "sort_order": 6,
+        "sort_order": 8,
     },
     {
         "code": "pitaniye",
@@ -106,7 +132,7 @@ SCROLL_TYPES = [
         "requires_meditation": False,
         "is_breathing_day_only": False,
         "is_awareness_day_only": False,
-        "sort_order": 7,
+        "sort_order": 9,
     },
     {
         "code": "integratsiya",
@@ -119,7 +145,7 @@ SCROLL_TYPES = [
         "requires_meditation": False,
         "is_breathing_day_only": False,
         "is_awareness_day_only": False,
-        "sort_order": 8,
+        "sort_order": 10,
     },
     {
         "code": "otchet",
@@ -132,7 +158,7 @@ SCROLL_TYPES = [
         "requires_meditation": False,
         "is_breathing_day_only": False,
         "is_awareness_day_only": False,
-        "sort_order": 9,
+        "sort_order": 11,
     },
 ]
 

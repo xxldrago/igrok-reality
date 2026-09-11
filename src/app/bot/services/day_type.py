@@ -56,13 +56,30 @@ def get_day_type(day_number: int) -> DayType:
     )
 
 
+# Breathing-day /breath slots: (slot name, scroll type code)
+BREATHING_SLOTS: list[tuple[str, str]] = [
+    ("morning", "vetr"),  # 08:00 — standing
+    ("day", "vetr_day"),  # 14:00 — sitting
+    ("evening", "vetr_evening"),  # 21:00 — lying
+]
+
+
+def get_breathing_slot(hour: int) -> str:
+    """Map current hour to a breathing slot: morning (<12), day (<18), evening."""
+    if hour < 12:
+        return "morning"
+    if hour < 18:
+        return "day"
+    return "evening"
+
+
 def get_available_scroll_codes(day_number: int) -> list[str]:
     """Return the list of scroll type codes available for a given quest day.
 
     Standard day: rassvet, ogne, vetr, sledy, zrya, pitaniye, integratsiya, otchet
     Meditation day (1,8,15...): + korni
-    Breathing day (7,14,21...): + extra vetr slots (14:00, 21:00)
-    Awareness day (6,13,20...): reduced set
+    Breathing day (7,14,21...): vetr x3 (morning/day/evening) + zrya + otchet
+    Awareness day (6,13,20...): reduced set (zrya + otchet)
     """
     day = get_day_type(day_number)
 
@@ -73,9 +90,8 @@ def get_available_scroll_codes(day_number: int) -> list[str]:
         codes.insert(2, "korni")  # After ogne, before vetr
 
     if day.is_breathing:
-        # Extra vetr scrolls at 14:00 and 21:00
-        # These are handled by the scheduler using is_breathing_day_only flag
-        pass
+        # Breathing days: 3x vetr (8:00, 14:00, 21:00) + zrya + otchet
+        codes = [code for _, code in BREATHING_SLOTS] + ["zrya", "otchet"]
 
     if day.is_awareness:
         # Awareness days: only zrya + otchet
