@@ -76,7 +76,21 @@ async def login(request: LoginRequest) -> TokenResponse:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": request.username, "role": "admin"})
+    # Look up user role from database
+    from app.shared.database import session_factory
+    from app.shared.models.user import User
+    from sqlalchemy import select
+
+    role = "master"  # Default for direct admin login
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.username == request.username)
+        )
+        user = result.scalar_one_or_none()
+        if user:
+            role = user.role
+
+    access_token = create_access_token(data={"sub": request.username, "role": role})
     return TokenResponse(access_token=access_token)
 
 
