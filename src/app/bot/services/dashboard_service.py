@@ -12,6 +12,7 @@ from app.shared.models.commission import CommissionBalance
 from app.shared.models.completion import UserCompletion
 from app.shared.models.payment import Payment
 from app.shared.models.prize_fund import PrizeFund
+from app.shared.models.scroll import Scroll
 from app.shared.models.user import User
 
 

@@ -7,7 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 
@@ -31,6 +31,8 @@ admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 class UserListItem(BaseModel):
     """Single user row in the admin list."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     telegram_id: int
@@ -125,6 +127,8 @@ class ScrollUpdateRequest(BaseModel):
 class ScrollResponse(BaseModel):
     """Single scroll in list or detail response."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     day_number: int
     common_task: str
@@ -188,6 +192,8 @@ class SettingUpdateRequest(BaseModel):
 
 class SettingResponse(BaseModel):
     """Setting with timestamps."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     key: str
     value: str
@@ -264,7 +270,7 @@ class PrizeFundResponse(BaseModel):
     id: UUID
     name: str
     total_amount: int
-    percent_rule: int
+    percent_rule: str
     status: str
     distributed_at: Optional[datetime] = None
     created_at: datetime
@@ -983,7 +989,7 @@ async def list_commissions() -> CommissionListResponse:
         result = await session.execute(
             select(CommissionBalance, User.username)
             .outerjoin(User, CommissionBalance.user_id == User.id)
-            .order_by(CommissionBalance.pending.desc())
+            .order_by(CommissionBalance.total_pending.desc())
         )
         rows = result.all()
         balances = []
