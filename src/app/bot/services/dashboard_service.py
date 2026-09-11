@@ -65,7 +65,7 @@ async def compute_dashboard() -> dict[str, Any]:
                 func.count(UserCompletion.id),
             )
             .join(Scroll, UserCompletion.scroll_id == Scroll.id)
-            .where(UserCompletion.created_at >= thirty_days_ago)
+            .where(UserCompletion.completed_at >= thirty_days_ago)
             .group_by(Scroll.day_number)
             .order_by(Scroll.day_number)
         )
@@ -76,7 +76,7 @@ async def compute_dashboard() -> dict[str, Any]:
             select(UserCompletion, User.username, User.first_name, Scroll.day_number)
             .join(User, UserCompletion.user_id == User.id)
             .join(Scroll, UserCompletion.scroll_id == Scroll.id)
-            .order_by(UserCompletion.created_at.desc())
+            .order_by(UserCompletion.completed_at.desc())
             .limit(10)
         )
         recent_activity = []
@@ -86,7 +86,9 @@ async def compute_dashboard() -> dict[str, Any]:
                     "user_name": username or first_name or "—",
                     "day_number": day_number,
                     "xp_awarded": completion.xp_awarded,
-                    "created_at": completion.created_at.isoformat(),
+                    "created_at": completion.completed_at.isoformat()
+                    if completion.completed_at
+                    else "",
                 }
             )
 
