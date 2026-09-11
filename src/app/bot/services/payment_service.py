@@ -2,18 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import datetime, timezone
 from uuid import UUID
 
 import httpx
 from sqlalchemy import select
 
-from app.bot.services.settings_service import (
-    get_bot_username,
-    get_platega_credentials,
-)
+logger = logging.getLogger(__name__)
+
 from app.shared.database import session_factory
 from app.shared.models.payment import Payment
+from app.shared.models.user import User
+from app.bot.services.settings_service import (
+    get_bot_username,
+    get_bot_token,
+    get_platega_credentials,
+    get_payment_channel_id,
+)
+from app.bot.services.channel_access import grant_access, revoke_access
+from app.bot.services.commission import calculate_commission
 
 
 async def create_payment(user_id: UUID, amount: int, currency: str = "RUB") -> Payment:
@@ -79,6 +88,93 @@ async def get_payment(idempotency_key: str) -> Payment | None:
             select(Payment).where(Payment.idempotency_key == idempotency_key)
         )
         return result.scalar_one_or_none()
+
+
+async def record_test_payment(user_id: UUID, amount: int) -> Payment:
+    """Create a succeeded payment record for staging (payments_enabled=false).
+
+    Emulates a successful Platega payment end-to-end: writes record, grants
+    channel access, notifies the payment channel, and calculates commission —
+    exactly as the real webhook `succeeded` path does, but without an external
+    redirect.
+    """
+    return await succeed_payment(
+        user_id=user_id,
+        amount=amount,
+        order_id=f"testpay-{uuid.uuid4()}",
+        transaction_id=f"test-{uuid.uuid4()}",
+    )
+
+
+async def succeed_payment(
+    user_id: UUID, amount: int, order_id: str, transaction_id: str | None = None
+) -> Payment:
+    """Execute the full sucsess path (shared by webhook + test payment).
+
+    - Inserts a succeeded Payment row.
+    - Grants channel access (if configured).
+    - Notifies the user via Telegram.
+    - Posts to the payment channel (if configured).
+    - Calculates mentor commission.
+    """
+    from aiogram import Bot
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise ValueError(f"succeed_payment: user {user_id} not found")
+
+        payment = Payment(
+            user_id=user_id,
+            amount=amount,
+            currency="RUB",
+            status="succeeded",
+            idempotency_key=order_id,
+            platega_transaction_id=transaction_id,
+            paid_at=datetime.now(timezone.utc),
+        )
+        session.add(payment)
+        await session.commit()
+        await session.refresh(payment)
+
+    # Channel access + notifications (best-effort, never breaks the payment)
+    try:
+        bot = Bot(token=await get_bot_token())
+        try:
+            await grant_access(user.id, bot)
+            await bot.send_message(
+                chat_id=user.telegram_id,
+                text="Оплата прошла успешно! Доступ в квест открыт.",
+            )
+            await _notify_payment_channel_bot(bot, amount, order_id, user)
+        finally:
+            await bot.session.close()
+    except Exception:
+        logger.exception("succeed_payment: notification failed for user %s", user_id)
+
+    # Mentor commission (best-effort)
+    try:
+        await calculate_commission(user_id, payment.id)
+    except Exception:
+        logger.exception("succeed_payment: commission failed for user %s", user_id)
+
+    return payment
+
+
+async def _notify_payment_channel_bot(bot: Bot, amount: int, order_id: str, user: "User") -> None:
+    """Post a payment-success line to the payment channel (best-effort)."""
+    try:
+        channel_id = await get_payment_channel_id()
+        if not channel_id:
+            return
+        label = f"@{user.username}" if user.username else user.first_name
+        await bot.send_message(
+            chat_id=channel_id,
+            text=f"✅ Оплата {amount // 100}₽ — {label} (tg {user.telegram_id})\nЗаказ {order_id}",
+        )
+    except Exception:
+        logger.exception("Failed to notify payment channel")
 
 
 async def call_platega_api(payment: Payment) -> dict:
