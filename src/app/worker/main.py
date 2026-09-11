@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from arq.worker import Worker
@@ -30,8 +29,8 @@ FUNCTIONS = [
 ]
 
 
-async def main() -> None:
-    """Start the ARQ background worker."""
+def main() -> None:
+    """Start the ARQ background worker (sync entrypoint)."""
     logger.info("Worker starting...")
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     worker = Worker(
@@ -39,8 +38,8 @@ async def main() -> None:
         redis_settings=redis_settings,
         max_tries=3,
     )
-    await worker.run()
+    worker.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
