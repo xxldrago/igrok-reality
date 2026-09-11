@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import auth_router, tma_auth_router
@@ -51,34 +51,43 @@ app.include_router(tma_auth_router)
 app.include_router(admin_router)
 
 
-# SPA catch-all — serve index.html for all /app/* routes (TMA)
-@app.get("/app/{full_path:path}")
-async def serve_tma(full_path: str) -> FileResponse:
-    """Serve the TMA SPA for any route under /app/."""
-    index = TMA_DIST / "index.html"
-    if index.exists():
-        return FileResponse(index)
-    return FileResponse(TMA_DIST / "index.html", status_code=404)
+# --- Admin SPA ---
+# Mount static assets FIRST so they are served before the catch-all
+if ADMIN_DIST.exists() and (ADMIN_DIST / "assets").exists():
+    app.mount("/admin/assets", StaticFiles(directory=str(ADMIN_DIST / "assets")), name="admin-assets")
 
 
-# Mount TMA static files AFTER the catch-all route
-if TMA_DIST.exists():
-    app.mount("/app/assets", StaticFiles(directory=str(TMA_DIST / "assets")), name="tma-assets")
-
-
-# SPA catch-all — serve index.html for all /admin/* routes
 @app.get("/admin/{full_path:path}")
 async def serve_admin(full_path: str) -> FileResponse:
     """Serve the admin SPA for any route under /admin/."""
+    # If the requested file exists in dist, serve it directly
+    if full_path:
+        file_path = ADMIN_DIST / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+    # Otherwise serve index.html (SPA fallback)
     index = ADMIN_DIST / "index.html"
     if index.exists():
         return FileResponse(index)
-    return FileResponse(ADMIN_DIST / "index.html", status_code=404)
+    return HTMLResponse("<h1>Admin panel not built</h1>", status_code=404)
 
 
-# Mount admin static files AFTER the catch-all route
-if ADMIN_DIST.exists():
-    app.mount("/admin/assets", StaticFiles(directory=str(ADMIN_DIST / "assets")), name="admin-assets")
+# --- TMA SPA ---
+if TMA_DIST.exists() and (TMA_DIST / "assets").exists():
+    app.mount("/app/assets", StaticFiles(directory=str(TMA_DIST / "assets")), name="tma-assets")
+
+
+@app.get("/app/{full_path:path}")
+async def serve_tma(full_path: str) -> FileResponse:
+    """Serve the TMA SPA for any route under /app/."""
+    if full_path:
+        file_path = TMA_DIST / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+    index = TMA_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return HTMLResponse("<h1>TMA not built</h1>", status_code=404)
 
 
 if __name__ == "__main__":
