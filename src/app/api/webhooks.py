@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from aiogram import Bot
 from fastapi import APIRouter, Request, status
@@ -136,8 +135,8 @@ async def platega_webhook(request: Request) -> dict:
         db_payment.status = new_status
         if transaction_id:
             db_payment.platega_transaction_id = transaction_id
-        if new_status == "succeeded":
-            db_payment.paid_at = datetime.now(timezone.utc)
+        # NOTE: paid time lives on users.paid_at (set in finalize),
+        # Payment has no paid_at column.
         await session.commit()
 
     # --- Load user for notification and channel access ---

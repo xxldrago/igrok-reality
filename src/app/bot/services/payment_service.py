@@ -186,7 +186,6 @@ async def succeed_payment(
             status="succeeded",
             idempotency_key=order_id,
             platega_transaction_id=transaction_id,
-            paid_at=datetime.now(timezone.utc),
         )
         session.add(payment)
         await session.commit()

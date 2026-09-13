@@ -36,6 +36,25 @@ def _session_cm(mock_session):
     return cm
 
 
+class TestPaymentKwargs:
+    def test_succeed_kwargs_match_model(self) -> None:
+        """Payment(...) with succeed_payment kwargs must not raise.
+
+        Regression: paid_at is a User column, not a Payment column.
+        """
+        from app.shared.models.payment import Payment
+
+        payment = Payment(
+            user_id=uuid4(),
+            amount=490000,
+            currency="RUB",
+            status="succeeded",
+            idempotency_key="testpay-1",
+            platega_transaction_id="test-1",
+        )
+        assert payment.status == "succeeded"
+
+
 class TestFinalize:
     @pytest.mark.asyncio
     async def test_finalize_sets_paid_and_starts_clock(self) -> None:
