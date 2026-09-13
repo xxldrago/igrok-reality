@@ -1,195 +1,117 @@
-# Игрок.Реальность
+# Игрок.Реальность (ОРЪ)
 
-Telegram-платформа для 90-дневного квеста с ежедневным контентом, оплатой, реферальной системой и админ-панелью.
+Telegram-платформа 90-дневного квеста «Игра ОРЪ»: входной тест на архетип, ежедневные свитки с XP, стрик, оплата через Platega.io, реферальная система и две админ-панели (веб + Telegram Mini App).
 
 ## Архитектура
 
-**Модульный монолит** — 4 процесса, общее ядро:
+**Модульный монолит** — 4 процесса + фронты:
 
 | Процесс | Стек | Описание |
 |---------|------|----------|
-| **Bot** | aiogram 3.31 | Telegram-бот для пользователей |
-| **API** | FastAPI | REST API для вебхуков и админки |
-| **Worker** | ARQ | Фоновые задачи (доставка сообщений) |
-| **Scheduler** | APScheduler | Cron-триггеры (ежедневная доставка) |
+| **Bot** | aiogram 3.x | Telegram-бот: регистрация, квиз, команды, оплата |
+| **API** | FastAPI | REST API, вебхук Platega, раздача фронтов и медиа |
+| **Worker** | ARQ | Фон: рассылка свитков, очередь уведомлений |
+| **Scheduler** | APScheduler | Cron: слоты доставки, напоминания, прокачка очереди |
 
-**Инфраструктура:** PostgreSQL 15+, Redis, Docker Compose
+**Инфраструктура:** PostgreSQL 15+, Redis, Docker Compose. Фронты собираются внутри Dockerfile (multi-stage + Node).
 
-## Полная функциональность
+## Путь игрока
 
-### 1. Регистрация и онбординг
+1. `/start` → приветствие ОРЪ (режется на чанки по 4096) → согласие 152-ФЗ
+2. **Входной тест** — 4 вопроса (Тело / Тропа / Компас / Отклик), варианты A–D
+3. **Архетип** — большинство из 4 побеждает (3–4), сплит решает ответ на вопрос 1. Маппинг: A→Голова, B→Панцирь, C→Вихрь, D→Призрак + персональный результат с девизом и практикой
+4. **Оплата** — промпт сразу после регистрации: кнопка на Platega (4900₽ из настроек) или «Тестовая оплата» при выключенном приёме. После оплаты: `paid_at`, часы квеста стартуют, доступ продолжается **внутри бота**
+5. **Свитки** — ежедневно по слотам (05:00, 08:00, 12:00, 14:00, 16:00, 21:00), кнопка «✅ Выполнить» → отчёт/skip
+6. Типы дней: обычные (8 свитков, 31 XP) • медитация 1, 8, 15… (+Корни, 36 XP) • дыхание 7, 14, 21… (Ветер ×3 + Зря + Отчёт, 20 XP) • осознание 6, 13, 20… (Зря + Отчёт, 8 XP)
+7. Ночной зачёт 00:00–05:00 относит команды на прошлый день; повторы блокируются; опечатки получают подсказку со списком команд дня
 
-- **Команда `/start`** — точка входа с deep-link для рефералов
-- **FSM-машина состояний** — 7 шагов регистрации:
-  1. Приветствие и介绍
-  2. Пользовательское соглашение (152-ФЗ)
-  3. Конфиденциальность
-  4. Вопрос 1: Стиль жизни
-  5. Вопрос 2: Цели
-  6. Вопрос 3: Предпочтения
-  7. Вопрос 4: Мотивация
-- **Архетипы** — 4 типа игроков (Воин, Маг, Стратег, Исследователь) на основе ответов
-- **Реферальная ссылка** — генерируется автоматически, формат: `https://t.me/BOT?start=CODE`
+### Команды бота
 
-### 2. Квест-движок (90 дней)
+`/start` `/pay` `/today` `/report` `/wakeup` `/cold` `/scan` `/scanreport` `/breath` `/micro` `/focus` `/food` `/sleep` `/profile` `/progress` `/leaderboard` `/referral` `/admin` (роли master/leader/curator → TMA-панель)
 
-- **Свитки (Scrolls)** — ежедневные задания, 360 штук (4 архетипа × 90 дней)
-- **Доставка** — автоматическая в 08:00 по МСК через APScheduler + ARQ
-- **Отметка выполнения** — inline-кнопка "Выполнил" с callback
-- **Сид данных** — скрипт заполнения БД из JSON-файла
+## Платежи (Platega.io)
 
-### 3. Прогресс и геймификация
+- Создание платежа в `/pay`, колбэк вебхука `CONFIRMED/CANCELED/CHARGEBACKED/REFUNDED`, идемпотентность по `idempotency_key`
+- Общий финализатор успеха: `users.paid_at`, старт часов, доступ в квест-канал (инвайт), уведомление, пост в payment-канал, комиссия наставнику (10% с первой оплаты)
+- Возврат/чарджбэк: бан в канале + сброс `paid_at`
+- Тестовый режим: `payments_enabled=false` → кнопка «Тестовая оплата» идёт тем же путём без Platega
 
-- **Опыт (XP)** — начисляется за выполнение свитков
-- **Стрики** — отслеживание серий дней подряд с учётом таймзоны пользователя
-- **Лидерборд** — рейтинг игроков в Redis (sorted set)
-- **Команды:**
-  - `/progress` — текущий прогресс (уровень, XP, стрик)
-  - `/leaderboard` — топ игроков
+## Админ-панели
 
-### 4. Платежи (Platega.io)
+Веб (`/admin/`, JWT) и TMA (`/app/`, вход по Telegram initData, вне Telegram — пароль). Роли: master > leader > curator (+ specialist, player).
 
-- **Методы оплаты:** СБП, ЕРИП, банковские карты
-- **Команда `/pay`** — инициация платежа с inline-кнопкой
-- **Вебхук** — обработка статусов: `CONFIRMED`, `CANCELED`, `CHARGEBACKED`, `REFUNDED`
-- **Идемпотентность** — защита от дублирования через `idempotency_key`
-- **Доступ к каналу** — автоматическая выдача инвайт-ссылки после оплаты, отзыв при отмене
+| Раздел | Возможности |
+|--------|-------------|
+| Дашборд | KPI, удержание, активность |
+| Пользователи | Поиск/фильтры, карточка: профиль, прогресс-теплокарта 90 дней, платежи, **редактирование и создание** |
+| Свитки | Контент 90×N с фильтром по дню, **вложения** (фото/видео/файлы), баннер покрытия 625, редактор типов (XP, часы) |
+| Рассылка | Текст + **вложения** + parse_mode, фильтр по архетипу, **отложенная отправка** с календарём, очередь и отмена |
+| Входной тест | Вступление, 4 вопроса, скоринг A–D, тексты результатов |
+| Платежи / Финансы | Транзакции, комиссии, призовые фонды, CSV-экспорт |
+| Настройки | Группы: Telegram, Platega, оплата (цена, вкл/выкл), механики, медиа, контент |
+| Профиль | Логин, @telegram, смена пароля |
+| Модерация / Аудит | Жалобы, журнал действий |
 
-### 5. Реферальная система и комиссия
+## Настройки из панели (без рестарта, если не сказано иначе)
 
-- **Команда `/referral`** — показ реферальной ссылки с кнопкой копирования
-- **Трекинг** — запись реферала при регистрации через deep-link
-- **Комиссия** — 10% от первой оплаты реферала (разовая)
-- **Баланс наставника** — отслеживание заработанных/выплаченных средств
-- **Ручные выплаты** — админ может провести выплату через API
+Цена и вкл/выкл оплаты, токены и ID каналов, Platega, XP-веса, стрик-бонусы, grace-часы, размер лидерборда, время напоминания, слоты доставки и предупреждение о стрике (**рестарт scheduler**), тексты приветствия/согласия/квиза, `media_base_url`. Инфра (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`) — только через `.env`.
 
-### 6. Админ-панель (React + Ant Design)
-
-**Вход:** JWT-аутентификация с ролями (master, leader, curator)
-
-| Раздел | Описание | Роли |
-|--------|----------|------|
-| **Пользователи** | Список с поиском/фильтрами, детальный профиль | master, leader, curator |
-| **Свитки** | CRUD: создание, редактирование, удаление | master, leader |
-| **Платежи** | Список транзакций с фильтрами по статусу | master, leader |
-| **Настройки** | Конфигурация платформы (ключ-значение) | master |
-| **Аудит** | Журнал всех действий администраторов | master, leader |
-
-**Компоненты:**
-- `RoleGuard` — управление видимостью по ролям
-- `AdminLayout` — боковое меню с ролевым ограничением
-- Ant Design Table с серверной пагинацией
-
-### 7. Безопасность
-
-- **152-ФЗ** — согласие на обработку ПДн, серверы в России
-- **Вебхуки Platega** — верификация заголовков `X-MerchantId` + `X-Secret`
-- **Rate limiting** — очередь исходящих сообщений (Telegram: 20-25 msg/sec)
-- **RBAC** — ролевая модель: master > leader > curator
-
-## Технические решения
-
-| Компонент | Выбор | Обоснование |
-|-----------|-------|-------------|
-| Telegram | aiogram 3.31 | Async, FSM, router pattern |
-| API | FastAPI | Автоматическая OpenAPI-документация |
-| ORM | SQLAlchemy 2.0 async | Type hints, async/await |
-| Миграции | Alembic | Контроль версий схемы |
-| Очередь | ARQ + Redis | Async, lightweight |
-| Планировщик | APScheduler | Cron-триггеры |
-| Платежи | Platega.io | СБП, ЕРИП, карты, крипто |
-| Админка | React + Ant Design | Material-like, rich components |
-| БД | PostgreSQL 15+ | JSONB, CTE, window functions |
-| Кэш | Redis | Leaderboard (sorted sets), брокер |
-
-## Запуск
+## Запуск и обновление (VPS)
 
 ```bash
-# Клонировать
-git clone https://github.com/xxldrago/igrok-reality.git
-cd igrok-reality
-
-# Настроить окружение
-cp .env.example .env
-# Заполнить переменные в .env
-
-# Запустить все сервисы
+cd /home/igrok/igrok
+git pull
+# одноразово, если alembic_version ещё VARCHAR(32):
+docker compose run --rm api python -c "
+import asyncio, asyncpg, urllib.parse as up
+from app.shared.config import settings
+async def f():
+    d=settings.DATABASE_URL.replace('postgresql+asyncpg://','postgresql://'); p=up.urlparse(d)
+    c=await asyncpg.connect(host=p.hostname,port=p.port,user=p.username,password=p.password,database=p.path.lstrip('/'))
+    await c.execute('ALTER TABLE alembic_version ALTER COLUMN version_num TYPE varchar(128)')
+    await c.close(); print('widened')
+asyncio.run(f())
+"
+docker compose run --rm api alembic -c src/alembic.ini upgrade head
+docker compose build
+# Сиды (upsert; затрут ручные правки квиза/приветствия из панели!):
+docker compose run --rm bot python -m scripts.seed_daily_scrolls --rebuild
+docker compose run --rm bot python -m scripts.insert_welcome_message
+docker compose run --rm bot python -m scripts.seed_quiz_config
 docker compose up -d
-
-# Сид данных
-docker compose exec bot python -m app.shared.seed
+# Проверка:
+docker compose run --rm api alembic -c src/alembic.ini current  # head
+docker compose ps
 ```
 
-## Переменные окружения
-
-```bash
-# Telegram
-BOT_TOKEN=
-MASTER_CHANNEL_ID=
-QUEST_CHANNEL_ID=
-PAYMENT_CHANNEL_ID=
-
-# База данных
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/igrok
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Platega.io
-PLATEGA_MERCHANT_ID=
-PLATEGA_SECRET=
-PLATEGA_WEBHOOK_URL=
-
-# Админка
-ADMIN_USERNAME=
-ADMIN_PASSWORD=
-JWT_SECRET=
-
-# Приложение
-ENVIRONMENT=development
-LOG_LEVEL=INFO
-TZ=Europe/Moscow
-```
+Первый вход в веб-панель — логин/пароль из `.env` (`ADMIN_USERNAME`/`ADMIN_PASSWORD`); вход в TMA — командой `/admin` в боте (роль master/leader/curator).
 
 ## Структура проекта
 
 ```
 src/
 ├── app/
-│   ├── shared/           # Общее ядро
-│   │   ├── models/       # SQLAlchemy модели (7 таблиц)
-│   │   ├── config.py     # Настройки (pydantic-settings)
-│   │   └── database.py   # Async сессии PostgreSQL
-│   ├── bot/              # Telegram-бот
-│   │   ├── handlers/     # Роутеры (registration, quest, progress, referral)
-│   │   ├── services/     # Бизнес-логика (user, scroll, progress, payment, commission)
-│   │   └── main.py       # Точка входа бота
-│   └── api/              # FastAPI
-│       ├── routes/       # Эндпоинты (health, admin, webhooks)
-│       ├── auth.py       # JWT-аутентификация
-│       └── main.py       # Точка входа API
-├── admin/                # React-админка
-│   ├── src/
-│   │   ├── pages/        # Users, Scrolls, Payments, Settings, AuditLog
-│   │   ├── components/   # RoleGuard
-│   │   ├── services/     # API-клиент
-│   │   └── layouts/      # AdminLayout
-│   └── package.json
-├── tests/                # Unit-тесты (81 тест)
-└── alembic/              # Миграции БД
+│   ├── shared/      # config, database, models (users, scrolls, payments, ...)
+│   ├── bot/         # handlers (registration, daily, payment, scroll, ...), services, keyboards
+│   ├── api/         # routes (admin, media, webhooks, auth), main.py (+раздача /admin /app /media)
+│   ├── worker/      # ARQ-задачи (scroll_slot, notifications)
+│   └── scheduler/   # APScheduler (слоты, напоминания, прокачка очереди)
+├── admin/           # React (веб-панель)
+├── tma/             # React (Telegram Mini App)
+├── alembic.ini      # запуск: alembic -c src/alembic.ini ...
+└── alembic/versions # миграции
+scripts/             # seed_daily_scrolls, seed_quiz_config, insert_welcome_message, init_db
+tests/unit/          # юнит-тесты
+docs/                # DEPLOY.md, ROLE_MECHANICS.md
 ```
 
 ## Тесты
 
 ```bash
-# Все тесты
-pytest tests/ -v
-
-# Только unit-тесты
-pytest tests/unit/ -v
+.venv/bin/python -m pytest tests/ -q
 ```
 
-**Покрытие:** 81 тест, все проходят.
+227 passed (1 сетевой `test_login_success` требует DNS — не код). Фронты: `npx tsc --noEmit` + `npm run build` в `src/admin` и `src/tma`.
 
 ## Лицензия
 
