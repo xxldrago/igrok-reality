@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Spin } from 'antd'
 import { TmaAuthProvider, useTmaAuth } from './contexts/TmaAuthContext'
 import TmaLayout from './layouts/TmaLayout'
+import AdminLoginFallback from './components/AdminLoginFallback'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import UserDetail from './pages/UserDetail'
@@ -33,13 +34,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="tma-error">
-        <div className="tma-error__message">
-          Авторизация не удалась. Попробуйте перезапустить приложение.
-        </div>
-      </div>
-    )
+    // Not in Telegram Mini Apps — fall back to admin login.
+    return <AdminLoginFallback />
   }
 
   return <>{children}</>

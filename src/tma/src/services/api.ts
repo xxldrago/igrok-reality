@@ -202,6 +202,15 @@ export interface SettingUpdateData {
   settings: { key: string; value: string }[]
 }
 
+// --- Auth fallback (web browser, outside Telegram Mini Apps) ---
+
+export function tmaLogin(username: string, password: string) {
+  return api.post<{ access_token: string; token_type: string }>('/admin/auth/login', {
+    username,
+    password,
+  })
+}
+
 // --- Settings API methods ---
 
 export function getSettings() {

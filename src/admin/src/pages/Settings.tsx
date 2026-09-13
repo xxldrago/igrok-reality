@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Modal, Form, Input, InputNumber, Collapse, Card, message, Spin, Tag } from 'antd'
+import { Table, Button, Modal, Form, Input, InputNumber, Collapse, Card, message, Spin, Tag, Switch } from 'antd'
 import { EditOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   getSettings,
@@ -54,6 +54,8 @@ export default function Settings() {
             values[f.key] = toRub(f.value)
           } else if (f.type === 'number') {
             values[f.key] = f.value ? Number(f.value) : undefined
+          } else if (f.type === 'bool') {
+            values[f.key] = f.value === 'true'
           } else {
             values[f.key] = f.value
           }
@@ -81,6 +83,10 @@ export default function Settings() {
       const toUpdate: { key: string; value: string }[] = []
       group.fields.forEach((f) => {
         const v = values[f.key]
+        if (f.type === 'bool') {
+          toUpdate.push({ key: f.key, value: v ? 'true' : 'false' })
+          return
+        }
         if (v === undefined || v === null || v === '') {
           if (f.type === 'password') return
           if (f.type === 'price_rub') return
@@ -144,6 +150,8 @@ export default function Settings() {
         return <Input.Password placeholder={f.is_default ? 'По умолчанию из окружения' : ''} autoComplete="new-password" />
       case 'number':
         return <InputNumber style={{ width: '100%' }} placeholder={f.is_default ? 'По умолчанию' : ''} />
+      case 'bool':
+        return <Switch />
       case 'price_rub':
         return <InputNumber style={{ width: '100%' }} min={0} addonAfter="₽" />
       case 'textarea':
@@ -205,6 +213,7 @@ export default function Settings() {
                     <Form.Item
                       key={f.key}
                       name={f.key}
+                      valuePropName={f.type === 'bool' ? 'checked' : 'value'}
                       label={
                         <span>
                           {f.label}{' '}
