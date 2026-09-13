@@ -106,23 +106,77 @@ async def record_test_payment(user_id: UUID, amount: int) -> Payment:
     )
 
 
-async def succeed_payment(
-    user_id: UUID, amount: int, order_id: str, transaction_id: str | None = None
-) -> Payment:
-    """Execute the full sucsess path (shared by webhook + test payment).
+async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
+    """Shared post-payment actions (webhook + test payment).
 
-    - Inserts a succeeded Payment row.
+    - Marks user.paid_at (unlocks scroll delivery and commands).
+    - Starts the quest clock (started_at=now) if the user has no
+      completions yet — days count from payment, not registration.
     - Grants channel access (if configured).
-    - Notifies the user via Telegram.
+    - Notifies the user; quest continues inside the bot (no channel jump).
     - Posts to the payment channel (if configured).
     - Calculates mentor commission.
     """
     from aiogram import Bot
 
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    now = datetime.now(timezone.utc)
     async with session_factory() as session:
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if user is None:
+            raise ValueError(f"finalize: user {user_id} not found")
+
+        user.paid_at = user.paid_at or now
+        cmd_result = await session.execute(
+            select(UserDailyCommand.id).where(UserDailyCommand.user_id == user_id).limit(1)
+        )
+        if cmd_result.scalar_one_or_none() is None:
+            user.started_at = now
+        await session.commit()
+        telegram_id = user.telegram_id
+        username = user.username
+        first_name = user.first_name
+
+    # Channel access + notifications (best-effort, never breaks the payment)
+    try:
+        bot = Bot(token=await get_bot_token())
+        try:
+            await grant_access(user_id, bot)
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=(
+                    "Оплата прошла успешно! Доступ в квест открыт.\n"
+                    "\n"
+                    "Всё происходит прямо здесь, в боте:\n"
+                    "/today — задания на сегодня\n"
+                    "/report — отчёт о дне"
+                ),
+            )
+            label = f"@{username}" if username else first_name
+            await _notify_payment_channel_bot(
+                bot, payment.amount, payment.idempotency_key or "", telegram_id, label
+            )
+        finally:
+            await bot.session.close()
+    except Exception:
+        logger.exception("finalize: notification failed for user %s", user_id)
+
+    # Mentor commission (best-effort)
+    try:
+        await calculate_commission(user_id, payment.id)
+    except Exception:
+        logger.exception("finalize: commission failed for user %s", user_id)
+
+
+async def succeed_payment(
+    user_id: UUID, amount: int, order_id: str, transaction_id: str | None = None
+) -> Payment:
+    """Insert a succeeded Payment row and run the shared finalize path."""
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        if result.scalar_one_or_none() is None:
             raise ValueError(f"succeed_payment: user {user_id} not found")
 
         payment = Payment(
@@ -138,40 +192,21 @@ async def succeed_payment(
         await session.commit()
         await session.refresh(payment)
 
-    # Channel access + notifications (best-effort, never breaks the payment)
-    try:
-        bot = Bot(token=await get_bot_token())
-        try:
-            await grant_access(user.id, bot)
-            await bot.send_message(
-                chat_id=user.telegram_id,
-                text="Оплата прошла успешно! Доступ в квест открыт.",
-            )
-            await _notify_payment_channel_bot(bot, amount, order_id, user)
-        finally:
-            await bot.session.close()
-    except Exception:
-        logger.exception("succeed_payment: notification failed for user %s", user_id)
-
-    # Mentor commission (best-effort)
-    try:
-        await calculate_commission(user_id, payment.id)
-    except Exception:
-        logger.exception("succeed_payment: commission failed for user %s", user_id)
-
+    await finalize_successful_payment(user_id, payment)
     return payment
 
 
-async def _notify_payment_channel_bot(bot: Bot, amount: int, order_id: str, user: "User") -> None:
+async def _notify_payment_channel_bot(
+    bot, amount: int, order_id: str, telegram_id: int, label: str
+) -> None:
     """Post a payment-success line to the payment channel (best-effort)."""
     try:
         channel_id = await get_payment_channel_id()
         if not channel_id:
             return
-        label = f"@{user.username}" if user.username else user.first_name
         await bot.send_message(
             chat_id=channel_id,
-            text=f"✅ Оплата {amount // 100}₽ — {label} (tg {user.telegram_id})\nЗаказ {order_id}",
+            text=f"✅ Оплата {amount // 100}₽ — {label} (tg {telegram_id})\nЗаказ {order_id}",
         )
     except Exception:
         logger.exception("Failed to notify payment channel")

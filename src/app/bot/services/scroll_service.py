@@ -146,15 +146,17 @@ async def get_scroll_by_day(day_number: int) -> Scroll | None:
 
 
 async def get_active_users() -> list[User]:
-    """Return all users with archetype set and started_at not null.
+    """Return users eligible for daily scroll delivery.
 
-    These are users eligible for daily scroll delivery.
+    Paid users with archetype set and quest started (started_at not null).
+    The quest clock (started_at) is set on payment, not registration.
     """
     async with session_factory() as session:
         result = await session.execute(
             select(User).where(
                 User.archetype.isnot(None),
                 User.started_at.isnot(None),
+                User.paid_at.isnot(None),
             )
         )
         return list(result.scalars().all())

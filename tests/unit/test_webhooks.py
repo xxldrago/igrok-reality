@@ -93,9 +93,7 @@ async def test_webhook_invalid_secret(mock_get_platega_credentials: AsyncMock) -
 
 
 @pytest.mark.asyncio
-@patch("app.api.webhooks.calculate_commission", new_callable=AsyncMock)
-@patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
-@patch("app.api.webhooks.grant_access", new_callable=AsyncMock)
+@patch("app.api.webhooks.finalize_successful_payment", new_callable=AsyncMock)
 @patch("app.api.webhooks.Bot")
 @patch("app.api.webhooks.session_factory")
 @patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
@@ -105,11 +103,9 @@ async def test_webhook_confirmed(
     mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
-    mock_grant_access: AsyncMock,
-    mock_notify: AsyncMock,
-    mock_calculate_commission: AsyncMock,
+    mock_finalize: AsyncMock,
 ) -> None:
-    """CONFIRMED status updates payment to 'succeeded' and sends success message."""
+    """CONFIRMED status updates payment to 'succeeded' and runs shared finalize."""
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="pending")
@@ -140,13 +136,6 @@ async def test_webhook_confirmed(
 
     mock_session.execute = AsyncMock(side_effect=side_effect)
 
-    # Commission returns no mentor (no commission notification)
-    mock_calculate_commission.return_value = {
-        "amount": 0,
-        "mentor_id": None,
-        "mentor_telegram_id": None,
-    }
-
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
@@ -163,11 +152,7 @@ async def test_webhook_confirmed(
     assert response.json() == {"status": "ok"}
     assert payment.status == "succeeded"
     assert payment.platega_transaction_id == "tx-456"
-    mock_grant_access.assert_awaited_once()
-    mock_notify.assert_awaited_once_with(
-        99999, "Оплата прошла успешно! Доступ в канал открыт."
-    )
-    mock_calculate_commission.assert_awaited_once_with(payment.id)
+    mock_finalize.assert_awaited_once_with(user.id, payment)
 
 
 @pytest.mark.asyncio

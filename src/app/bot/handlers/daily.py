@@ -201,6 +201,10 @@ async def _handle_scroll_command(
         await message.answer("Сначала зарегистрируйтесь через /start.")
         return
 
+    if user.paid_at is None:
+        await message.answer("Сначала оплатите участие: /pay")
+        return
+
     tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
@@ -330,6 +334,10 @@ async def handle_report(message: Message, state: FSMContext) -> None:
     user = await get_user_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
+        return
+
+    if user.paid_at is None:
+        await message.answer("Сначала оплатите участие: /pay")
         return
 
     tz_name = user.timezone or settings.TZ

@@ -9,7 +9,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 
-from app.bot.keyboards.payment import payment_keyboard, test_payment_keyboard
+from app.bot.keyboards.payment import payment_keyboard, staging_payment_keyboard
 from app.bot.callbacks.payment import TestPayment
 from app.bot.services.payment_service import call_platega_api, create_payment
 from app.bot.services.settings_service import get_payment_amount, get_payments_enabled
@@ -21,21 +21,13 @@ logger = logging.getLogger(__name__)
 payment_router = Router(name="payment")
 
 
-@payment_router.message(Command("pay"))
-async def handle_pay(message: Message) -> None:
-    """Handle /pay command — show real payment link or test-pay button.
+async def send_pay_prompt(message: Message, user) -> None:
+    """Send the payment prompt for continued play.
 
-    When `payments_enabled=false` in settings, only the «тестовая оплата»
-    button is shown (for staging). Real payments are created via Platega.
+    Test mode (payments_enabled=false): «тестовая оплата» button that
+    emulates success instantly. Live mode: Platega checkout URL button.
+    Shared by /pay and the post-registration flow.
     """
-    from app.bot.services.user_service import get_user_by_telegram_id
-
-    tg_user = await get_user_by_telegram_id(message.from_user.id)
-    if tg_user is None:
-        await message.answer("Сначала зарегистрируйтесь через /start.")
-        return
-    user_id = tg_user.id
-
     payments_enabled = await get_payments_enabled()
     amount = await get_payment_amount()
 
@@ -43,12 +35,12 @@ async def handle_pay(message: Message) -> None:
         await message.answer(
             f"👛 Приём платежей выключен. Нажмите кнопку для тестовой оплаты {amount // 100}₽ — "
             "доступ будет выдан мгновенно.",
-            reply_markup=test_payment_keyboard(amount=amount),
+            reply_markup=staging_payment_keyboard(amount=amount),
         )
         return
 
     try:
-        payment = await create_payment(user_id=user_id, amount=amount, currency="RUB")
+        payment = await create_payment(user_id=user.id, amount=amount, currency="RUB")
     except Exception:
         await message.answer("Ошибка при создании платежа. Попробуйте позже.")
         return
@@ -64,11 +56,24 @@ async def handle_pay(message: Message) -> None:
         await message.answer("Ошибка при создании платежа. Попробуйте позже.")
         return
 
-    keyboard = payment_keyboard(amount=amount)
     await message.answer(
+        f"Для продолжения игры необходимо оплатить участие — {amount // 100} ₽.\n"
         "Нажмите кнопку для оплаты:",
-        reply_markup=keyboard,
+        reply_markup=payment_keyboard(amount=amount, payment_url=payment_url),
     )
+
+
+@payment_router.message(Command("pay"))
+async def handle_pay(message: Message) -> None:
+    """Handle /pay command — show real payment link or test-pay button."""
+    from app.bot.services.user_service import get_user_by_telegram_id
+
+    tg_user = await get_user_by_telegram_id(message.from_user.id)
+    if tg_user is None:
+        await message.answer("Сначала зарегистрируйтесь через /start.")
+        return
+
+    await send_pay_prompt(message, tg_user)
 
 
 @payment_router.callback_query(TestPayment.filter())

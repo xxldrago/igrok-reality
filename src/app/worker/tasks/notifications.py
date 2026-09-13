@@ -68,6 +68,7 @@ async def evening_scroll_reminder(ctx: dict) -> None:
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
+                    User.paid_at.isnot(None),
                 )
             )
             active_users = list(result.scalars().all())
@@ -138,6 +139,7 @@ async def streak_loss_warning(ctx: dict) -> None:
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
+                    User.paid_at.isnot(None),
                     User.streak > 0,
                 )
             )
@@ -209,6 +211,7 @@ async def new_stream_notification(ctx: dict) -> None:
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
+                    User.paid_at.isnot(None),
                 )
             )
             active_users = list(result.scalars().all())

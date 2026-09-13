@@ -285,4 +285,9 @@ async def handle_q4(
         await callback.message.answer(profile_text)
     else:
         await callback.message.edit_text(profile_text)
+
+    # Payment prompt right away: test button or Platega URL (no /pay typing needed)
+    from app.bot.handlers.payment import send_pay_prompt
+
+    await send_pay_prompt(callback.message, user)
     await state.clear()

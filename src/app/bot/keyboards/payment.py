@@ -3,14 +3,15 @@
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from app.bot.callbacks.payment import PaymentInit, TestPayment
+from app.bot.callbacks.payment import TestPayment
 
 
-def payment_keyboard(amount: int) -> InlineKeyboardMarkup:
-    """Build the payment keyboard with a single 'Оплатить' button.
+def payment_keyboard(amount: int, payment_url: str) -> InlineKeyboardMarkup:
+    """Build the payment keyboard with a URL button to Platega checkout.
 
     Args:
         amount: Payment amount in kopecks.
+        payment_url: Platega payment page URL.
 
     Returns:
         InlineKeyboardMarkup with one payment button.
@@ -18,13 +19,13 @@ def payment_keyboard(amount: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(
         text=f"Оплатить {amount // 100} ₽",
-        callback_data=PaymentInit(amount=str(amount)).pack(),
+        url=payment_url,
     )
     builder.adjust(1)
     return builder.as_markup()
 
 
-def test_payment_keyboard(amount: int) -> InlineKeyboardMarkup:
+def staging_payment_keyboard(amount: int) -> InlineKeyboardMarkup:
     """Build the test-payment keyboard (staging: payments_enabled=false)."""
     builder = InlineKeyboardBuilder()
     builder.button(
