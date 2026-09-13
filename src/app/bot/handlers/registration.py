@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -27,11 +28,14 @@ from app.bot.services.user_service import (
     create_user,
     generate_referral_code,
     get_user_by_id,
+    get_user_by_telegram_id,
 )
 from app.bot.states.registration import RegistrationState
 
 if TYPE_CHECKING:
     from aiogram.fsm.context import FSMContext
+
+logger = logging.getLogger(__name__)
 
 registration_router = Router(name="registration")
 
@@ -224,70 +228,98 @@ async def handle_q4(
     if result is None:
         return
 
-    archetype, archetype_name = result
-    data = await state.get_data()
+    try:
+        archetype, archetype_name = result
+        data = await state.get_data()
 
-    # Load the personalized archetype result text (finalization of the test)
-    quiz = await load_quiz_config()
-    result_text = quiz.results.get(archetype) or DEFAULT_RESULTS.get(archetype, "")
+        # Load the personalized archetype result text (finalization of the test)
+        quiz = await load_quiz_config()
+        result_text = quiz.results.get(archetype) or DEFAULT_RESULTS.get(archetype, "")
 
-    # Create user record in the database
-    user_referral_code = generate_referral_code()
-    user = await create_user(
-        telegram_id=data["telegram_id"],
-        first_name=data["first_name"],
-        last_name=data.get("last_name"),
-        username=data.get("username"),
-        archetype=archetype,
-        referral_code=user_referral_code,
-        started_at=datetime.now(timezone.utc),
-    )
-
-    # Handle referral if deep_link was present
-    referral_msg = ""
-    stored_referral_code = data.get("referral_code")
-    if stored_referral_code:
-        referrer = await create_referral(
-            referrer_code=stored_referral_code,
-            referee_id=user.id,
-        )
-        if referrer:
-            referrer_user = await get_user_by_id(referrer.referrer_id)
-            referrer_name = referrer_user.first_name if referrer_user else "Неизвестный"
-            referral_msg = f"\nВы приглашены {referrer_name}!"
+        # Get-or-create: re-running /start must not crash on existing telegram_id
+        user = await get_user_by_telegram_id(data["telegram_id"])
+        if user is None:
+            user_referral_code = generate_referral_code()
+            user = await create_user(
+                telegram_id=data["telegram_id"],
+                first_name=data["first_name"],
+                last_name=data.get("last_name"),
+                username=data.get("username"),
+                archetype=archetype,
+                referral_code=user_referral_code,
+                started_at=datetime.now(timezone.utc),
+            )
         else:
-            referral_msg = "\nПриглашение не найдено, но вы можете начать квест!"
+            logger.info("handle_q4: re-registration for telegram_id=%s", data["telegram_id"])
+            user_referral_code = user.referral_code
+            # Retook the quiz — store the new archetype
+            from sqlalchemy import select
 
-    # Build referral link for this user
-    referral_link = await create_start_link(callback.bot, user_referral_code)
+            from app.shared.database import session_factory
+            from app.shared.models.user import User
 
-    # Show profile summary
-    profile_text = (
-        f"Регистрация завершена!\n"
-        f"\n"
-        f"Имя: {data['first_name']}\n"
-        f"Архетип: {archetype_name}{referral_msg}\n"
-        f"\n"
-        f"Ваш код для приглашения: {user_referral_code}\n"
-        f"\n"
-        f"Ссылка для приглашения:\n"
-        f"{referral_link}\n"
-        f"\n"
-        f"Следующий шаг — оплата участия: /pay\n"
-        f"\n"
-        f"Добро пожаловать в квест!"
-    )
+            async with session_factory() as session:
+                result = await session.execute(select(User).where(User.id == user.id))
+                db_user = result.scalar_one_or_none()
+                if db_user is not None:
+                    db_user.archetype = archetype
+                    await session.commit()
 
-    # Finalization: first show the personalized archetype result,
-    # then the profile summary as a follow-up message.
-    if result_text:
-        await callback.message.edit_text(result_text)
-        await callback.message.answer(profile_text)
-    else:
-        await callback.message.edit_text(profile_text)
+        # Handle referral if deep_link was present
+        referral_msg = ""
+        stored_referral_code = data.get("referral_code")
+        if stored_referral_code:
+            referrer = await create_referral(
+                referrer_code=stored_referral_code,
+                referee_id=user.id,
+            )
+            if referrer:
+                referrer_user = await get_user_by_id(referrer.referrer_id)
+                referrer_name = referrer_user.first_name if referrer_user else "Неизвестный"
+                referral_msg = f"\nВы приглашены {referrer_name}!"
+            else:
+                referral_msg = "\nПриглашение не найдено, но вы можете начать квест!"
 
-    # Payment prompt right away: test button or Platega URL (no /pay typing needed)
-    from app.bot.handlers.payment import send_pay_prompt
+        # Build referral link for this user
+        referral_link = await create_start_link(callback.bot, user_referral_code)
 
-    await send_pay_prompt(callback.message, user)
-    await state.clear()
+        # Show profile summary
+        profile_text = (
+            f"Регистрация завершена!\n"
+            f"\n"
+            f"Имя: {data['first_name']}\n"
+            f"Архетип: {archetype_name}{referral_msg}\n"
+            f"\n"
+            f"Ваш код для приглашения: {user_referral_code}\n"
+            f"\n"
+            f"Ссылка для приглашения:\n"
+            f"{referral_link}\n"
+            f"\n"
+            f"Следующий шаг — оплата участия: /pay\n"
+            f"\n"
+            f"Добро пожаловать в квест!"
+        )
+
+        # Finalization: first show the personalized archetype result,
+        # then the profile summary as a follow-up message.
+        if result_text:
+            await callback.message.edit_text(result_text)
+            await callback.message.answer(profile_text)
+        else:
+            await callback.message.edit_text(profile_text)
+
+        # Payment prompt right away: test button or Platega URL (no /pay typing needed)
+        from app.bot.handlers.payment import send_pay_prompt
+
+        await send_pay_prompt(callback.message, user)
+    except Exception:
+        logger.exception(
+            "handle_q4 failed for telegram_id=%s",
+            (await state.get_data()).get("telegram_id"),
+        )
+        await callback.message.answer(
+            "Что-то пошло не так при завершении регистрации. "
+            "Попробуйте ещё раз: /start"
+        )
+    finally:
+        await state.clear()
