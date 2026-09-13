@@ -35,6 +35,36 @@ if TYPE_CHECKING:
 
 registration_router = Router(name="registration")
 
+TELEGRAM_MESSAGE_LIMIT = 4000
+
+
+def split_message(text: str, limit: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+    """Split long text into Telegram-sized chunks by paragraphs."""
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for para in text.split("\n\n"):
+        if len(para) > limit:
+            # Single oversized paragraph — hard split
+            if current:
+                chunks.append("\n\n".join(current))
+                current, current_len = [], 0
+            for i in range(0, len(para), limit):
+                chunks.append(para[i : i + limit])
+            continue
+        piece_len = len(para) if not current else len(para) + 2
+        if current_len + piece_len > limit and current:
+            chunks.append("\n\n".join(current))
+            current, current_len = [para], len(para)
+        else:
+            current.append(para)
+            current_len += piece_len
+    if current:
+        chunks.append("\n\n".join(current))
+    return chunks
+
 # Legacy constant (kept for backward compatibility) — the live text comes
 # from settings (consent_text, editable via admin panel).
 CONSENT_TEXT = (
@@ -78,7 +108,8 @@ async def handle_start(message: Message, state: FSMContext) -> None:
 
     welcome_text = await get_welcome_message()
     consent_text = await get_consent_text()
-    await message.answer(welcome_text)
+    for chunk in split_message(welcome_text):
+        await message.answer(chunk)
     await message.answer(consent_text, reply_markup=consent_keyboard())
 
 
