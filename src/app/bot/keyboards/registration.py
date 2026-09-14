@@ -5,6 +5,18 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.callbacks.registration import ArchetypeAnswer, ConsentCallback
 
+TELEGRAM_BUTTON_TEXT_LIMIT = 64  # Telegram inline button byte limit (UTF-8)
+
+
+def _truncate_button_text(text: str, limit: int = TELEGRAM_BUTTON_TEXT_LIMIT) -> str:
+    """Truncate button text to fit within Telegram's 64-byte UTF-8 limit."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= limit:
+        return text
+    # Reserve 3 bytes for '...'
+    truncated = encoded[: limit - 3].decode("utf-8", errors="ignore")
+    return truncated + "..."
+
 # Legacy constant for backward compatibility
 ARCHETYPE_QUESTIONS = {
     1: {
@@ -79,7 +91,7 @@ def archetype_keyboard(question: int, options: list[dict[str, str]] | None = Non
     builder = InlineKeyboardBuilder()
     for opt in options:
         builder.button(
-            text=opt["text"],
+            text=_truncate_button_text(opt["text"]),
             callback_data=ArchetypeAnswer(question=question, answer=opt["key"]),
         )
     builder.adjust(1)

@@ -128,8 +128,9 @@ async def handle_consent_agree(
     
     # Load quiz config and show intro + question 1
     quiz = await load_quiz_config()
-    q1_text = f"{quiz.intro}\n\n{quiz.questions[0].text}"
-    await callback.message.edit_text(q1_text, reply_markup=archetype_keyboard(1, quiz.questions[0].options))
+    q1 = quiz.questions[0]
+    q1_text = f"{quiz.intro}\n\n{_format_quiz_question(q1.text, q1.options)}"
+    await callback.message.edit_text(q1_text, reply_markup=archetype_keyboard(1, q1.options))
     await callback.answer("Согласие записано")
 
 
@@ -142,6 +143,18 @@ async def handle_consent_decline(
     await state.clear()
     await callback.message.edit_text("Вы можете начать заново командой /start")
     await callback.answer()
+
+
+def _format_quiz_question(question_text: str, options: list[dict[str, str]]) -> str:
+    """Append full option texts below the question for user reference.
+
+    Since button labels may be truncated to 64 bytes, the question message
+    lists every option in full so the user always sees the complete text.
+    """
+    lines = [question_text, ""]
+    for opt in options:
+        lines.append(f"• {opt['text']}")
+    return "\n".join(lines)
 
 
 # ── Archetype quiz handlers ──────────────────────────────────────────────
@@ -165,7 +178,7 @@ async def _handle_quiz_answer(
         await state.set_state(next_state)
         quiz = await load_quiz_config()
         q_data = quiz.questions[question]  # 0-indexed
-        q_text = q_data.text
+        q_text = _format_quiz_question(q_data.text, q_data.options)
         await callback.message.edit_text(q_text, reply_markup=archetype_keyboard(question + 1, q_data.options))
         await callback.answer()
         return None
