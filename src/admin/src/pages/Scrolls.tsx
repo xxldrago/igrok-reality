@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import dayjs, { Dayjs } from 'dayjs'
 import {
   Table,
   Button,
@@ -14,8 +15,10 @@ import {
   Card,
   Collapse,
   message,
+  TimePicker,
+  Popconfirm,
 } from 'antd'
-import { EditOutlined, ReloadOutlined } from '@ant-design/icons'
+import { EditOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import {
   getScrollTypes,
@@ -23,6 +26,8 @@ import {
   getScrollCoverage,
   updateDailyScroll,
   updateScrollType,
+  getSettings,
+  updateSettings,
   ScrollTypeItem,
   DailyScrollItem,
   DailyScrollListResponse,
@@ -81,6 +86,49 @@ export default function Scrolls() {
   const [editingType, setEditingType] = useState<ScrollTypeItem | null>(null)
   const [typeSaving, setTypeSaving] = useState(false)
   const [typeForm] = Form.useForm()
+
+  // --- Дelivery slots (время отправки свитков) ---
+  const DEFAULT_SLOTS = ['05:00', '08:00', '12:00', '16:00', '21:00']
+    const [slots, setSlots] = useState<string[]>(DEFAULT_SLOTS)
+    const [slotsSaving, setSlotsSaving] = useState(false)
+
+  const loadSlots = useCallback(async () => {
+    try {
+      const res = await getSettings()
+      const cfg = res.data.settings.find((s) => s.key === 'delivery_slots')
+      if (cfg && cfg.value) {
+        const parsed = cfg.value
+          .replace(/;/g, ',')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => /^\d{1,2}:\d{2}$/.test(s))
+        if (parsed.length) setSlots(parsed)
+      }
+    } catch {
+      // fall back to defaults
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSlots()
+  }, [loadSlots])
+
+  const saveSlots = async () => {
+    setSlotsSaving(true)
+    try {
+      const valid = slots
+        .map((s) => s.trim())
+        .filter((s) => /^\d{1,2}:\d{2}$/.test(s))
+      const unique = Array.from(new Set(valid)).sort()
+      await updateSettings({ settings: [{ key: 'delivery_slots', value: unique.join(', ') }] })
+      setSlots(unique.length ? unique : DEFAULT_SLOTS)
+      message.success('Время отправки сохранено. Применится после рестарта scheduler.')
+    } catch {
+      message.error('Ошибка сохранения времени отправки')
+    } finally {
+      setSlotsSaving(false)
+    }
+  }
 
   const fetchCoverage = useCallback(async () => {
     setCoverageLoading(true)
@@ -361,8 +409,53 @@ export default function Scrolls() {
         />
       </Space>
 
-      <Table
-        dataSource={dailyData?.scrolls || []}
+            <RoleGuard roles={['master']}>
+      <Card title="Слоты доставки свитков" size="small" style={{ marginBottom: 16 }}
+              extra={
+                <Space>
+                  <Button size="small" icon={<ReloadOutlined />} onClick={loadSlots}>Обновить</Button>
+                  <Button type="primary" size="small" onClick={saveSlots} loading={slotsSaving}>Сохранить</Button>
+                </Space>
+              }
+            >
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Время отправки свитков игрокам (время сервера). Значения по умолчанию: 05:00, 08:00, 12:00, 16:00, 21:00."
+                />
+                <Space wrap>
+                  {slots.map((s, idx) => (
+                    <TimePicker
+                      key={`${s}-${idx}`}
+                      format="HH:mm"
+                      value={dayjs(s, 'HH:mm')}
+                      onChange={(t: Dayjs | null) => {
+                        const next = [...slots]
+                        next[idx] = t ? t.format('HH:mm') : s
+                        setSlots(next)
+                      }}
+                      style={{ width: 110 }}
+                    />
+                  ))}
+                  <Button icon={<PlusOutlined />} onClick={() => setSlots([...slots, '12:00'])}>
+                    Добавить слот
+                  </Button>
+                  {slots.length > 1 && (
+                    <Popconfirm
+                      title="Удалить последний слот?"
+                      onConfirm={() => setSlots(slots.slice(0, -1))}
+                    >
+                      <Button icon={<DeleteOutlined />} danger>Удалить</Button>
+                    </Popconfirm>
+                  )}
+                </Space>
+              </Space>
+            </Card>
+                        </RoleGuard>
+
+                        <Table
+                          dataSource={dailyData?.scrolls || []}
         columns={columns}
         rowKey="id"
         loading={loading}
