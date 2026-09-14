@@ -112,11 +112,11 @@ export default function Moderation() {
     <div>
       <Title level={3}>Модерация</Title>
 
-      <Space style={{ marginBottom: 16 }}>
-        <Select
-          placeholder="Фильтр по статусу"
-          allowClear
-          style={{ width: 200 }}
+      <Space style={{ marginBottom: 16 }} wrap>
+              <Select
+                placeholder="Фильтр по статусу"
+                allowClear
+                style={{ width: 200, maxWidth: '100%' }}
           value={statusFilter}
           onChange={setStatusFilter}
           options={Object.entries(statusLabels).map(([value, label]) => ({
@@ -131,8 +131,9 @@ export default function Moderation() {
         columns={columns}
         rowKey="id"
         loading={loading}
-        pagination={{ total, pageSize: 20 }}
-      />
+                pagination={{ total, pageSize: 20 }}
+                scroll={{ x: 'max-content' }}
+              />
     </div>
   )
 }

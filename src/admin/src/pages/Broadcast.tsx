@@ -133,7 +133,7 @@ export default function Broadcast() {
           <Select
             placeholder="Фильтр по архетипу (всем — пусто)"
             allowClear
-            style={{ width: 280 }}
+            style={{ width: '100%', maxWidth: 280 }}
             value={archetype}
             onChange={setArchetype}
             options={[
@@ -154,7 +154,7 @@ export default function Broadcast() {
           <Select
             placeholder="Форматирование: нет"
             allowClear
-            style={{ width: 280 }}
+            style={{ width: '100%', maxWidth: 280 }}
             value={parseMode ?? undefined}
             onChange={setParseMode}
             options={[
@@ -185,7 +185,7 @@ export default function Broadcast() {
                 value={scheduledAt}
                 onChange={setScheduledAt}
                 disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
-                style={{ width: 280 }}
+                style={{ width: '100%', maxWidth: 280 }}
               />
             </div>
             <Text type="secondary">Пусто — сообщение уйдёт сразу. Время — ваше местное.</Text>
@@ -260,11 +260,12 @@ export default function Broadcast() {
                 </RoleGuard>
               ),
             },
-          ]}
-        />
-      </Card>
+          ]} 
+                  scroll={{ x: 'max-content' }}
+                  />
+                </Card>
 
-      <Card title="Помощь" style={{ marginTop: 16 }}>
+                <Card title="Помощь" style={{ marginTop: 16 }}>
         <Paragraph>
           <Text><strong>Фильтр по архетипу:</strong> если пусто — сообщение уйдёт всем активным игрокам.</Text>
         </Paragraph>

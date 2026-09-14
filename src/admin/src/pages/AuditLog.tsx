@@ -72,10 +72,10 @@ export default function AuditLog() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>Журнал аудита</h2>
-        <Select
-          style={{ width: 220 }}
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <h2 style={{ margin: 0 }}>Журнал аудита</h2>
+              <Select
+                style={{ width: 220, maxWidth: '100%' }}
           placeholder="Фильтр по действию"
           value={actionFilter || undefined}
           onChange={(value) => {
@@ -100,11 +100,12 @@ export default function AuditLog() {
           pageSizeOptions: ['10', '20', '50'],
           showTotal: (total) => `Всего: ${total}`,
           onChange: (newPage, newPageSize) => {
-            setPage(newPage)
-            setPageSize(newPageSize)
-          },
-        }}
-      />
+                      setPage(newPage)
+                      setPageSize(newPageSize)
+                    },
+                  }}
+                  scroll={{ x: 'max-content' }}
+                />
     </div>
   )
 }

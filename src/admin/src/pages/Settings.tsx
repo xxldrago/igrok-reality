@@ -254,9 +254,10 @@ export default function Settings() {
           columns={columns}
           dataSource={settings}
           rowKey="key"
-          loading={loading}
-          pagination={false}
-        />
+                    loading={loading}
+                    pagination={false}
+                    scroll={{ x: 'max-content' }}
+                  />
       </Card>
 
       <Modal

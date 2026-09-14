@@ -127,7 +127,7 @@ export default function Payments() {
             setPagination((prev) => ({ ...prev, current: 1 }))
           }}
           allowClear
-          style={{ width: 170 }}
+          style={{ width: 170, maxWidth: '100%' }}
           options={[
             { value: 'succeeded', label: 'Успешно' },
             { value: 'pending', label: 'Ожидание' },
@@ -148,8 +148,9 @@ export default function Payments() {
             total: data?.total || 0,
           }}
           onChange={handleTableChange}
-          locale={{ emptyText: 'Платежи не найдены' }}
-        />
+                    locale={{ emptyText: 'Платежи не найдены' }}
+                    scroll={{ x: 'max-content' }}
+                  />
       </Spin>
     </div>
   )

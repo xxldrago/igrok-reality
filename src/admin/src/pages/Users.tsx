@@ -245,7 +245,7 @@ export default function Users() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <Title level={4} style={{ margin: 0 }}>Пользователи</Title>
         <RoleGuard roles={['master', 'leader']}>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -260,7 +260,7 @@ export default function Users() {
           prefix={<SearchOutlined />}
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          style={{ width: 350 }}
+          style={{ width: '100%', maxWidth: 350 }}
           allowClear
         />
         <Select
@@ -271,7 +271,7 @@ export default function Users() {
             setPagination((prev) => ({ ...prev, current: 1 }))
           }}
           allowClear
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           options={[
             { value: 'head', label: 'Голова' },
             { value: 'shell', label: 'Панцирь' },
@@ -287,7 +287,7 @@ export default function Users() {
             setPagination((prev) => ({ ...prev, current: 1 }))
           }}
           allowClear
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           options={[
             { value: true, label: 'Активен' },
             { value: false, label: 'Неактивен' },
@@ -301,7 +301,7 @@ export default function Users() {
             setPagination((prev) => ({ ...prev, current: 1 }))
           }}
           allowClear
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           options={[
             { value: true, label: 'Оплачено' },
             { value: false, label: 'Не оплачено' },
@@ -324,7 +324,8 @@ export default function Users() {
             style: { cursor: 'pointer' },
           })}
           locale={{ emptyText: 'Пользователи не найдены' }}
-        />
+                    scroll={{ x: 'max-content' }}
+                  />
       </Spin>
 
       <UserDetail

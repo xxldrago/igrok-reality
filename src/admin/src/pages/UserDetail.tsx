@@ -167,7 +167,7 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
   return (
     <Drawer
       title={user ? `${user.first_name} ${user.last_name || ''}` : 'Пользователь'}
-      width={600}
+      width="min(600px, 92vw)"
       open={open}
       onClose={onClose}
     >
@@ -310,8 +310,9 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
               rowKey="id"
               pagination={false}
               size="small"
-              locale={{ emptyText: 'Нет платежей' }}
-            />
+                            locale={{ emptyText: 'Нет платежей' }}
+                            scroll={{ x: 'max-content' }}
+                          />
           </div>
         </Space>
       ) : null}

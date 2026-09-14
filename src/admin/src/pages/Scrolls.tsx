@@ -339,19 +339,19 @@ export default function Scrolls() {
         )
       )}
 
-      <Space style={{ marginBottom: 16 }}>
-        <InputNumber
-          placeholder="День"
-          min={1}
-          max={90}
-          style={{ width: 100 }}
-          value={dayFilter}
-          onChange={(v) => setDayFilter(v ?? undefined)}
-        />
-        <Select
-          placeholder="Тип свитка"
-          allowClear
-          style={{ width: 180 }}
+      <Space style={{ marginBottom: 16 }} wrap>
+              <InputNumber
+                placeholder="День"
+                min={1}
+                max={90}
+                style={{ width: 100 }}
+                value={dayFilter}
+                onChange={(v) => setDayFilter(v ?? undefined)}
+              />
+              <Select
+                placeholder="Тип свитка"
+                allowClear
+                style={{ width: 180, maxWidth: '100%' }}
           value={typeFilter}
           onChange={setTypeFilter}
           options={scrollTypes.map((st) => ({
@@ -370,8 +370,9 @@ export default function Scrolls() {
           ...pagination,
           total: dailyData?.total || 0,
           onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
-        }}
-      />
+                  }}
+                  scroll={{ x: 'max-content' }}
+                />
 
       <Card title="Типы свитков — расписание и награды" style={{ marginBottom: 24 }}>
         <Table
@@ -390,17 +391,18 @@ export default function Scrolls() {
             { title: 'XP', dataIndex: 'xp_reward', key: 'xp_reward', render: (v: number) => `+${v}` },
             { title: 'Описание', dataIndex: 'description', key: 'description', ellipsis: true },
             {
-              title: 'Действия',
-              key: 'actions',
-              width: 60,
-              render: (_, record) => (
-                <RoleGuard roles={['master']}>
-                  <Button type="link" icon={<EditOutlined />} onClick={() => handleEditType(record)} />
-                </RoleGuard>
-              ),
-            },
-          ]}
-        />
+                          title: 'Действия',
+                          key: 'actions',
+                          width: 60,
+                          render: (_, record) => (
+                            <RoleGuard roles={['master']}>
+                              <Button type="link" icon={<EditOutlined />} onClick={() => handleEditType(record)} />
+                            </RoleGuard>
+                          ),
+                        },
+                      ]}
+                      scroll={{ x: 'max-content' }}
+                    />
       </Card>
 
       <Modal

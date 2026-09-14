@@ -164,8 +164,9 @@ export default function Finance() {
                 dataSource={commissions}
                 columns={commissionColumns}
                 rowKey="user_id"
-                pagination={false}
-              />
+                                pagination={false}
+                                scroll={{ x: 'max-content' }}
+                              />
             ),
           },
           {
@@ -182,8 +183,9 @@ export default function Finance() {
                   dataSource={funds}
                   columns={fundColumns}
                   rowKey="id"
-                  pagination={false}
-                />
+                                    pagination={false}
+                                    scroll={{ x: 'max-content' }}
+                                  />
               </>
             ),
           },

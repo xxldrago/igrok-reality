@@ -26,8 +26,8 @@ export default function Login() {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5' }}>
-      <Card style={{ width: 400 }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5', padding: 16 }}>
+          <Card style={{ width: '100%', maxWidth: 400 }}>
         <Title level={3} style={{ textAlign: 'center' }}>Игрок.Реальность</Title>
         <Title level={5} style={{ textAlign: 'center', marginTop: 0 }}>Админ-панель</Title>
         {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 16 }} />}
