@@ -96,6 +96,7 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                     text += f"\n{st.description}"
 
                 text += f"\n\n⏱ Выполни: {st.command} (+{st.xp_reward} XP)"
+                text += "\n\n📝 После выполнения нажмите «Начать отчёт», чтобы отправить отчёт о прохождении (текст/фото/видео/файл) и подтвердить свиток."
 
                 # Attachment (admin panel → scroll media URL or Telegram file_id)
                 media = daily_scroll.media_file_id if daily_scroll else None
@@ -103,12 +104,25 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                 async def _send() -> None:
                     if media:
                         if len(text) <= 1024:
-                            await bot.send_photo(user.telegram_id, media, caption=text)
+                            await bot.send_photo(
+                                user.telegram_id,
+                                media,
+                                caption=text,
+                                reply_markup=completion_keyboard(daily_scroll.id),
+                            )
                         else:
                             await bot.send_photo(user.telegram_id, media)
-                            await bot.send_message(user.telegram_id, text)
+                            await bot.send_message(
+                                user.telegram_id,
+                                text,
+                                reply_markup=completion_keyboard(daily_scroll.id),
+                            )
                     else:
-                        await bot.send_message(user.telegram_id, text)
+                        await bot.send_message(
+                            user.telegram_id,
+                            text,
+                            reply_markup=completion_keyboard(daily_scroll.id),
+                        )
 
                 # Send to user
                 try:

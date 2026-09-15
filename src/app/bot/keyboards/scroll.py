@@ -31,7 +31,7 @@ def completion_keyboard(scroll_id: str) -> InlineKeyboardMarkup:
     """
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="\U0001F4DD Пройти свиток",
+        text="📝 Начать отчёт",
         callback_data=ScrollCompletion(scroll_id=scroll_id).pack(),
     )
     builder.adjust(1)
