@@ -35,12 +35,15 @@ def _get_quest_day(user, tz_name: str) -> int:
     return min(delta + 1, 90)
 
 
-async def deliver_scroll_slot(hour: int, ctx: dict | None = None) -> None:
+async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> None:
     """Deliver scrolls scheduled for a specific hour to all active users.
 
+    ARQ calls the function as coroutine(ctx, *args, **kwargs) where ctx is the
+    ARQ execution context dict.  The actual hour value arrives as args[0].
+
     Args:
+        ctx: ARQ execution context dict (redis, job_id, etc.).
         hour: The hour (Moscow time) to deliver scrolls for (5, 8, 12, 16, 21).
-        ctx: ARQ context dict.
     """
     bot = Bot(token=await get_bot_token())
     sent = 0
@@ -146,4 +149,4 @@ async def deliver_daily_scrolls(ctx: dict | None = None) -> None:
     Now delegates to deliver_scroll_slot for each hour.
     """
     for hour in [5, 8, 12, 16, 21]:
-        await deliver_scroll_slot(hour)
+        await deliver_scroll_slot({} if ctx is None else ctx, hour)
