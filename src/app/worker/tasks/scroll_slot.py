@@ -108,20 +108,20 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                                 user.telegram_id,
                                 media,
                                 caption=text,
-                                reply_markup=completion_keyboard(daily_scroll.id),
+                                reply_markup=completion_keyboard(str(daily_scroll.id)),
                             )
                         else:
                             await bot.send_photo(user.telegram_id, media)
                             await bot.send_message(
                                 user.telegram_id,
                                 text,
-                                reply_markup=completion_keyboard(daily_scroll.id),
+                                reply_markup=completion_keyboard(str(daily_scroll.id)),
                             )
                     else:
                         await bot.send_message(
                             user.telegram_id,
                             text,
-                            reply_markup=completion_keyboard(daily_scroll.id),
+                            reply_markup=completion_keyboard(str(daily_scroll.id)),
                         )
 
                 # Send to user
