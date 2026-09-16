@@ -92,8 +92,17 @@ async def handle_start(message: Message, state: FSMContext) -> None:
     """Handle /start command — initialise registration flow.
 
     Stores Telegram profile data and, if a deep-link referral code is present,
-    saves it for later binding.
+    saves it for later binding. If the user is already registered, skips the
+    quiz and shows the role-aware command menu instead of re-registering.
     """
+    # If user is already registered, don't re-run registration
+    existing = await get_user_by_telegram_id(message.from_user.id)
+    if existing is not None:
+            await state.clear()
+            from app.bot.handlers.help import handle_menu
+            await handle_menu(message)
+            return
+
     # Parse referral deep-link
     referral_code = None
     if message.text and " " in message.text:

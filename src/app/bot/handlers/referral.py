@@ -7,7 +7,10 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from app.bot.services.user_service import get_user_by_telegram_id
+from app.bot.services.user_service import (
+    ensure_referral_code,
+    get_user_by_telegram_id,
+)
 from app.shared.config import settings
 
 referral_router = Router(name="referral")
@@ -22,18 +25,17 @@ async def referral_handler(message: Message) -> None:
         await message.answer("Сначала зарегистрируйтесь: /start")
         return
 
-    if user.referral_code is None:
-        await message.answer("У вас нет реферального кода")
-        return
+    # Ensure the user has a referral code (legacy users may not have one)
+    code = await ensure_referral_code(user.id)
 
-    link = f"https://t.me/{settings.BOT_USERNAME}?start={user.referral_code}"
+    link = f"https://t.me/{settings.BOT_USERNAME}?start={code}"
     text = (
         f"Ваша реферальная ссылка:\n{link}\n\n"
         "Поделитесь с друзьями! За каждого оплатившего реферала вы получаете комиссию."
     )
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="Скопировать ссылку", callback_data=f"copy_ref:{user.referral_code}")
+    builder.button(text="Скопировать ссылку", callback_data=f"copy_ref:{code}")
     keyboard = builder.as_markup()
 
     await message.answer(text, reply_markup=keyboard)

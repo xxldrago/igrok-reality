@@ -86,6 +86,23 @@ async def create_referral(referrer_code: str, referee_id: UUID) -> Referral | No
         return referral
 
 
+async def ensure_referral_code(user_id: UUID) -> str:
+    """Return the user's referral code, generating and persisting one if missing.
+
+    Handles legacy users created before referral codes existed.
+    """
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise ValueError(f"User {user_id} not found")
+        if not user.referral_code:
+            user.referral_code = generate_referral_code()
+            await session.commit()
+            await session.refresh(user)
+        return user.referral_code
+
+
 async def get_user_by_referral_code(referral_code: str) -> User | None:
     """Look up a user by their referral code (for deep-link resolution)."""
     async with session_factory() as session:
