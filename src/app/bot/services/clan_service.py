@@ -152,6 +152,34 @@ async def get_clan_progress(clan_id: UUID) -> ClanProgress | None:
         )
 
 
+async def get_all_clans_progress() -> list[ClanProgress]:
+    """Return progress metrics for all clans."""
+    async with session_factory() as session:
+        result = await session.execute(select(Clan))
+        clans = list(result.scalars().all())
+
+    if not clans:
+        return []
+
+    out: list[ClanProgress] = []
+    for clan in clans:
+        members = await get_clan_members(clan.id)
+        if not members:
+            continue
+        total_xp = sum(m.xp for m in members)
+        total_streak = sum(m.streak for m in members)
+        out.append(ClanProgress(
+            clan_id=clan.id,
+            clan_name=clan.name,
+            member_count=len(members),
+            total_xp=total_xp,
+            avg_xp=total_xp / len(members),
+            total_streak=total_streak,
+            avg_streak=total_streak / len(members),
+        ))
+    return out
+
+
 async def get_user_clan(user_id: UUID) -> Clan | None:
     """Return the clan a user belongs to."""
     async with session_factory() as session:

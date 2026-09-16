@@ -27,6 +27,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     streak: Mapped[int] = mapped_column(Integer, default=0)
     streak_last_date: Mapped[Optional[date]] = mapped_column(nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     access_granted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     referral_code: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True)
