@@ -19,6 +19,7 @@ from app.bot.handlers.referral import referral_router
 from app.bot.handlers.registration import registration_router
 from app.bot.handlers.scroll import scroll_router
 from app.bot.handlers.team import team_router
+from app.bot.handlers.commission import router as commission_router
 from app.bot.services.settings_service import get_bot_token
 from app.shared.config import settings
 
@@ -36,6 +37,8 @@ async def _set_bot_commands(bot: Bot) -> None:
         BotCommand(command="progress", description="Мой прогресс"),
         BotCommand(command="leaderboard", description="Таблица лидеров"),
         BotCommand(command="referral", description="Реферальная ссылка"),
+        BotCommand(command="mygroup", description="Моя группа"),
+        BotCommand(command="myquests", description="Доп. квесты группы"),
         BotCommand(command="help", description="Помощь / связаться с куратором"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
@@ -63,6 +66,7 @@ async def main() -> None:
     dp.include_router(payment_router)
     dp.include_router(referral_router)
     dp.include_router(team_router)
+    dp.include_router(commission_router)
     dp.include_router(clan_router)
     dp.include_router(help_router)
     dp.include_router(daily_router)

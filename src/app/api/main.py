@@ -15,6 +15,7 @@ from app.api.auth import auth_router, tma_auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.admin import admin_router
 from app.api.routes.media import media_router
+from app.api.routes.groups import router as groups_router
 from app.api.webhooks import router as webhook_router
 
 ADMIN_DIST = Path("src/admin/dist")
@@ -51,6 +52,7 @@ app.include_router(webhook_router)
 app.include_router(auth_router)
 app.include_router(tma_auth_router)
 app.include_router(admin_router)
+app.include_router(groups_router)
 app.include_router(media_router)
 
 

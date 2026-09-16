@@ -1216,12 +1216,27 @@ async def resolve_moderation_report(
 @admin_router.post(
     "/users/{user_id}/role",
     response_model=RoleChangeResponse,
-    dependencies=[Depends(require_role("master"))],
+    dependencies=[Depends(require_role("master", "leader"))],
 )
-async def change_user_role(user_id: UUID, req: RoleChangeRequest) -> RoleChangeResponse:
-    """Change a user's role (master-only, records history + audit)."""
+async def change_user_role(
+    user_id: UUID,
+    req: RoleChangeRequest,
+    current_user: dict = Depends(get_current_user),
+) -> RoleChangeResponse:
+    """Change a user's role (master or leader, records history + audit).
+
+    Leaders can only assign the 'curator' role.
+    """
     from app.bot.services.role_service import change_role
     from datetime import datetime, timezone
+
+    # Leaders may only promote players to curator
+    caller_role = current_user.get("role", "")
+    if caller_role == "leader" and req.role != "curator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Leaders can only assign the 'curator' role",
+        )
 
     old_role, new_role = await change_role(user_id, req.role, admin_id=None)
     return RoleChangeResponse(
