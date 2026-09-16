@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from uuid import UUID
-
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
-
 from app.bot.services.clan_service import (
     create_clan,
     join_clan,
@@ -15,6 +13,7 @@ from app.bot.services.clan_service import (
     get_user_clan,
     get_clan_progress,
     get_clan_members,
+    get_all_clans_progress,
 )
 from app.bot.services.user_service import get_user_by_telegram_id
 from app.bot.services.role_service import is_valid_role
@@ -57,68 +56,71 @@ async def handle_clan(message: Message) -> None:
     members = await get_clan_members(clan.id)
 
     lines = [
-        f"🏰 Клан: {clan.name}",
+        f"⚔️ Клан «{clan.name}»",
         f"👥 Участников: {len(members)}",
+        f"🔥 Общий XP: {progress.total_xp}",
+        f"📊 Средний XP: {progress.avg_xp:.0f}",
+        f"🔗 Средний streak: {progress.avg_streak:.0f}",
     ]
-    if progress:
-        lines.extend([
-            f"⚡ Суммарный XP: {progress.total_xp}",
-            f"📊 Средний XP: {progress.avg_xp:.0f}",
-            f"🔥 Суммарная серия: {progress.total_streak}",
-            f"📈 Средняя серия: {progress.avg_streak:.1f}",
-        ])
-    lines.append("")
-    lines.append("Участники:")
-    for m in members[:20]:
-        name = f"@{m.username}" if m.username else m.first_name
-        lines.append(f"  • {name} — ⚡{m.xp} 🔥{m.streak}")
 
     await message.answer("\n".join(lines))
 
 
 async def handle_clan_create(message: Message, user, name: str) -> None:
-    """Handle /clan create <name> — only leaders can create."""
-    if user.role != "leader":
-        await message.answer("Только лидеры могут создавать кланы")
+    """Create a new clan."""
+    if user.role not in ("leader", "master"):
+        await message.answer("Только Лидер может создавать кланы")
         return
 
     clan = await create_clan(user.id, name)
-    await message.answer(f"Клан '{clan.name}' создан! Вы автоматически вступили в него.")
+    await message.answer(f"⚔️ Клан «{clan.name}» создан!\nВаш ID клана: `{clan.id}`")
 
 
 async def handle_clan_join(message: Message, user, clan_id_str: str) -> None:
-    """Handle /clan join <clan_id>."""
+    """Join an existing clan."""
     try:
         clan_id = UUID(clan_id_str)
     except ValueError:
-        await message.answer("Неверный ID клана")
+        await message.answer("Неверный формат ID клана")
         return
 
-    if user.clan_id is not None:
-        await message.answer("Вы уже состоите в клане. Сначала покиньте его: /clan leave")
-        return
-
-    success = await join_clan(user.id, clan_id)
-    if success:
+    ok = await join_clan(user.id, clan_id)
+    if ok:
         await message.answer("Вы вступили в клан!")
     else:
-        await message.answer("Не удалось вступить (клан не найден или уже в клане)")
+        await message.answer("Не удалось вступить в клан. Проверьте ID.")
 
 
 async def handle_clan_leave(message: Message, user) -> None:
-    """Handle /clan leave."""
-    if user.clan_id is None:
-        await message.answer("Вы не состоите в клане")
+    """Leave current clan."""
+    ok = await leave_clan(user.id)
+    if ok:
+        await message.answer("Вы покинули клан.")
+    else:
+        await message.answer("Вы не состоите в клане.")
+
+
+@clan_router.message(Command("clans"))
+async def clans_ranking_handler(message: Message) -> None:
+    """Handle /clans command — show clan ranking by XP."""
+    clans = await get_all_clans_progress()
+
+    if not clans:
+        await message.answer("Пока нет кланов. Создайте первый: /clan create <название>")
         return
 
-    success = await leave_clan(user.id)
-    if success:
-        await message.answer("Вы покинули клан")
-    else:
-        await message.answer("Не удалось покинуть клан")
+    # Sort by total XP descending
+    clans.sort(key=lambda c: c.total_xp, reverse=True)
 
+    lines = ["⚔️ Рейтинг кланов:\n"]
+    medals = ["🥇", "🥈", "🥉"]
+    for i, clan in enumerate(clans):
+        medal = medals[i] if i < 3 else f"  {i+1}."
+        lines.append(
+            f"{medal} «{clan.clan_name}» — "
+            f"👥 {clan.member_count} | "
+            f"🔥 {clan.total_xp} XP | "
+            f"📊 {clan.avg_xp:.0f} средн."
+        )
 
-@clan_router.message(Command("clan"))
-async def clan_handler(message: Message) -> None:
-    """Register /clan command handler."""
-    await handle_clan(message)
+    await message.answer("\n".join(lines))

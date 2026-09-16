@@ -85,15 +85,23 @@ async def distribute_fund(fund_id: UUID, top_n: int = 10) -> list[PrizeFundPayou
         if not top_users:
             return []
 
-        # Equal split for now (can be weighted by XP/streak per rule)
-        payout_amount = fund.total_amount // len(top_users)
+        # Weighted distribution by XP (not equal split)
+        total_xp = sum(u.xp for u in top_users)
+        if total_xp == 0:
+            # Fallback: equal split if no XP
+            payout_amount = fund.total_amount // len(top_users)
+            payout_amounts = [payout_amount] * len(top_users)
+        else:
+            payout_amounts = [
+                int(fund.total_amount * u.xp / total_xp) for u in top_users
+            ]
 
         payouts = []
-        for user in top_users:
+        for user, amount in zip(top_users, payout_amounts):
             payout = PrizeFundPayout(
                 prize_fund_id=fund_id,
                 user_id=user.id,
-                amount=payout_amount,
+                amount=amount,
                 paid_at=datetime.now(timezone.utc),
             )
             session.add(payout)

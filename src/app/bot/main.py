@@ -39,6 +39,7 @@ async def _set_bot_commands(bot: Bot) -> None:
         BotCommand(command="referral", description="Реферальная ссылка"),
         BotCommand(command="mygroup", description="Моя группа"),
         BotCommand(command="myquests", description="Доп. квесты группы"),
+        BotCommand(command="clans", description="Рейтинг кланов"),
         BotCommand(command="help", description="Помощь / связаться с куратором"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
@@ -55,6 +56,10 @@ async def main() -> None:
     bot = Bot(token=await get_bot_token())
     storage = RedisStorage.from_url(settings.REDIS_URL)
     dp = Dispatcher(storage=storage)
+
+    # Ban check middleware — blocks banned users from all commands
+    from app.bot.middleware.ban_check import BanCheckMiddleware
+    dp.message.middleware(BanCheckMiddleware())
 
     await _set_bot_commands(bot)
 

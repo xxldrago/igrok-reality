@@ -1196,6 +1196,17 @@ async def resolve_moderation_report(
             )
 
         report.status = req.decision
+
+        # Apply ban to user if decision is "ban"
+        if req.decision == "ban":
+            user_result = await session.execute(
+                select(User).where(User.id == report.user_id)
+            )
+            target_user = user_result.scalar_one_or_none()
+            if target_user:
+                target_user.is_banned = True
+                target_user.is_active = False
+
         await session.commit()
 
         # Log the action
