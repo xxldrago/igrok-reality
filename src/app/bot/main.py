@@ -25,6 +25,22 @@ from app.shared.config import settings
 logger = logging.getLogger(__name__)
 
 
+async def _set_bot_commands(bot: Bot) -> None:
+    """Set the Telegram command menu (☰ button) for all users."""
+    from aiogram.types import BotCommand, BotCommandScopeDefault
+
+    commands = [
+        BotCommand(command="start", description="Регистрация / вход"),
+        BotCommand(command="menu", description="Меню команд"),
+        BotCommand(command="today", description="Свитки на сегодня"),
+        BotCommand(command="progress", description="Мой прогресс"),
+        BotCommand(command="leaderboard", description="Таблица лидеров"),
+        BotCommand(command="referral", description="Реферальная ссылка"),
+        BotCommand(command="help", description="Помощь / связаться с куратором"),
+    ]
+    await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+
+
 async def main() -> None:
     """Start the Telegram bot with Redis-backed FSM storage."""
     logger.info(
@@ -36,6 +52,8 @@ async def main() -> None:
     bot = Bot(token=await get_bot_token())
     storage = RedisStorage.from_url(settings.REDIS_URL)
     dp = Dispatcher(storage=storage)
+
+    await _set_bot_commands(bot)
 
     dp.include_router(registration_router)
     dp.include_router(admin_handler_router)
