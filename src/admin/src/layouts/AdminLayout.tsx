@@ -12,6 +12,9 @@ import {
   NotificationOutlined,
   QuestionCircleOutlined,
   IdcardOutlined,
+  TeamOutlined,
+  TrophyOutlined,
+  WalletOutlined,
 } from '@ant-design/icons'
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -38,11 +41,16 @@ export default function AdminLayout() {
       ? [
           { key: '/admin/finance', icon: <FundOutlined />, label: 'Финансы' },
           { key: '/admin/moderation', icon: <SafetyOutlined />, label: 'Модерация' },
+          { key: '/admin/groups', icon: <TeamOutlined />, label: 'Группы' },
+          { key: '/admin/specialist-quests', icon: <TrophyOutlined />, label: 'Квесты спец.' },
           { key: '/admin/broadcast', icon: <NotificationOutlined />, label: 'Рассылка' },
         ]
       : []),
     ...(user?.role === 'master'
-      ? [{ key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' }]
+      ? [
+          { key: '/admin/commissions', icon: <WalletOutlined />, label: 'Комиссии' },
+          { key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' },
+        ]
       : []),
     ...(user?.role === 'master' || user?.role === 'leader'
       ? [{ key: '/admin/quiz', icon: <QuestionCircleOutlined />, label: 'Входной тест' }]

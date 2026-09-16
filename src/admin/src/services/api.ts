@@ -39,6 +39,7 @@ export interface UserListItem {
   started_at: string | null
   created_at: string
   role?: string
+  group_id?: string
 }
 
 export interface UserListResponse {
@@ -683,6 +684,61 @@ export interface ArchetypeStatsResponse {
 
 export function getArchetypeStats() {
   return api.get<ArchetypeStatsResponse>('/admin/users/archetype-stats')
+}
+
+// --- Groups API ---
+export interface GroupItem {
+  id: string
+  name: string
+  type: string
+  owner_id: string
+  max_members: number
+  member_count: number
+}
+export function getGroups(params?: { group_type?: string }) {
+  return api.get<GroupItem[]>('/admin/groups', { params })
+}
+export function createGroup(data: { name: string; type: string; owner_id: string; max_members?: number }) {
+  return api.post<GroupItem>('/admin/groups', data)
+}
+export function deleteGroup(id: string) {
+  return api.delete(`/admin/groups/${id}`)
+}
+export function addGroupMember(groupId: string, userId: string) {
+  return api.post(`/admin/groups/${groupId}/members`, { user_id: userId })
+}
+export function removeGroupMember(groupId: string, userId: string) {
+  return api.delete(`/admin/groups/${groupId}/members/${userId}`)
+}
+export function getGroupMembers(groupId: string) {
+  return api.get(`/admin/groups/${groupId}`)
+}
+
+// --- Specialist Quests API ---
+export interface SpecialistQuestItem {
+  id: string
+  group_id: string
+  specialist_id: string
+  title: string
+  content: string
+  day_number: number
+  media_file_id: string | null
+  xp_reward: number
+  published_at: string | null
+}
+export function getSpecialistQuests(params?: { group_id?: string; day_number?: number }) {
+  return api.get<SpecialistQuestItem[]>('/admin/specialist-quests', { params })
+}
+export function createSpecialistQuest(data: { group_id: string; title: string; content: string; day_number: number; xp_reward?: number }) {
+  return api.post<SpecialistQuestItem>('/admin/specialist-quests', data)
+}
+export function deleteSpecialistQuest(id: string) {
+  return api.delete(`/admin/specialist-quests/${id}`)
+}
+
+// --- Commissions API ---
+export function payoutCommission(userId: string, amount: number) {
+  return api.post('/admin/payout', { user_id: userId, amount })
 }
 
 export default api

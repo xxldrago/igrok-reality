@@ -190,6 +190,14 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
               <Descriptions.Item label="Telegram ID">
                 {user.telegram_id}
               </Descriptions.Item>
+              <Descriptions.Item label="Роль">
+                {user.role ? <Tag color={user.role === 'master' ? 'red' : user.role === 'leader' ? 'blue' : 'default'}>{user.role}</Tag> : '—'}
+              </Descriptions.Item>
+              {user.group_id && (
+                <Descriptions.Item label="Группа">
+                  {user.group_id}
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Архетип">
                 {user.archetype
                   ? archetypeLabels[user.archetype] || user.archetype
