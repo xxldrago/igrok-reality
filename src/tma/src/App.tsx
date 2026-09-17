@@ -10,6 +10,7 @@ import Scrolls from './pages/Scrolls'
 import Payments from './pages/Payments'
 import Finance from './pages/Finance'
 import Moderation from './pages/Moderation'
+import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 import Broadcast from './pages/Broadcast'
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="payments" element={<Payments />} />
               <Route path="finance" element={<Finance />} />
               <Route path="moderation" element={<Moderation />} />
+              <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditLog />} />
               <Route path="broadcast" element={<Broadcast />} />

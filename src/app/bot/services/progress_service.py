@@ -18,20 +18,26 @@ from app.shared.models.user import User
 
 
 async def create_completion(
-    user_id: UUID, scroll_id: UUID
+    user_id: UUID, scroll_id: UUID, xp_override: int | None = None
 ) -> UserCompletion | None:
-    """Record a scroll completion for a user with XP from configured weights.
+    """Record a scroll completion for a user.
+
+    XP priority: explicit override (per-scroll / type default) → legacy
+    full weighted sum for all sections.
 
     Returns the created UserCompletion, or None if already completed (idempotent).
     """
-    xp_weights = await get_xp_weights()
-    # Full weighted sum for all sections
-    xp = (
-        xp_weights.common
-        + xp_weights.individual
-        + xp_weights.ritual
-        + xp_weights.habits
-    )
+    if xp_override is not None:
+        xp = xp_override
+    else:
+        xp_weights = await get_xp_weights()
+        # Full weighted sum for all sections
+        xp = (
+            xp_weights.common
+            + xp_weights.individual
+            + xp_weights.ritual
+            + xp_weights.habits
+        )
 
     async with session_factory() as session:
         existing = await session.execute(

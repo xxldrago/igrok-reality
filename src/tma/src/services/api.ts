@@ -345,6 +345,54 @@ export function resolveModerationReport(id: string, decision: string) {
   return api.post(`/admin/moderation/${id}/resolve`, { decision })
 }
 
+export interface ModerationReplyData {
+  text?: string
+  media_url?: string | null
+  media_type?: string | null
+}
+
+export function replyModerationReport(id: string, data: ModerationReplyData) {
+  return api.post<{ report_id: string; sent: boolean }>(`/admin/moderation/${id}/reply`, data)
+}
+
+// --- User reports ---
+
+export interface ReportItem {
+  id: string
+  source: 'scroll' | 'daily'
+  user_id: string
+  username: string | null
+  first_name: string
+  archetype: string | null
+  quest_day: number | null
+  command: string | null
+  text: string | null
+  media_url: string | null
+  media_type: string | null
+  xp_awarded: number
+  created_at: string
+}
+
+export interface ReportListResponse {
+  reports: ReportItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface GetReportsParams {
+  quest_day?: number
+  archetype?: string
+  search?: string
+  source?: string
+  page?: number
+  page_size?: number
+}
+
+export function getReports(params: GetReportsParams = {}) {
+  return api.get<ReportListResponse>('/admin/reports', { params })
+}
+
 // --- Role change ---
 
 export function changeUserRole(userId: string, role: string) {
@@ -458,6 +506,23 @@ export interface ArchetypeStatsResponse {
 
 export function getArchetypeStats() {
   return api.get<ArchetypeStatsResponse>('/admin/users/archetype-stats')
+}
+
+// --- Media upload ---
+
+export interface MediaUploadResponse {
+  url: string
+  media_type: string
+  filename: string
+  size: number
+}
+
+export function uploadMedia(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post<MediaUploadResponse>('/admin/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 export default api

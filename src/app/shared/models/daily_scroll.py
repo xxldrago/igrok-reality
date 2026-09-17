@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.schema import UniqueConstraint
 
@@ -36,6 +36,12 @@ class DailyScroll(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     media_file_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     # Telegram file_id for photo/video attachment
+
+    requires_report: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Whether the user must attach a report to complete this scroll
+
+    xp_reward: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Per-scroll XP override; NULL means "use the scroll type default"
 
     published_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True

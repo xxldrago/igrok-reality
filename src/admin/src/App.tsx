@@ -9,6 +9,7 @@ import Scrolls from './pages/Scrolls'
 import Payments from './pages/Payments'
 import Finance from './pages/Finance'
 import Moderation from './pages/Moderation'
+import Reports from './pages/Reports'
 import Groups from './pages/Groups'
 import SpecialistQuests from './pages/SpecialistQuests'
 import Commissions from './pages/Commissions'
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="payments" element={<Payments />} />
           <Route path="finance" element={<Finance />} />
           <Route path="moderation" element={<Moderation />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="groups" element={<Groups />} />
           <Route path="specialist-quests" element={<SpecialistQuests />} />
           <Route path="commissions" element={<Commissions />} />

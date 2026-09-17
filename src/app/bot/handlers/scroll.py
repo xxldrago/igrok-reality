@@ -18,6 +18,7 @@ from aiogram.types import CallbackQuery, ContentType, Message
 from app.bot.callbacks.scroll import ScrollCompletion
 from app.bot.keyboards.scroll import ScrollReportAction, report_action_keyboard
 from app.bot.services.master_feed_service import forward_report_to_master
+from app.bot.services.user_service import get_user_by_telegram_id
 from app.bot.services.progress_service import (
     add_xp,
     create_completion,
@@ -52,7 +53,12 @@ async def handle_scroll_completion(callback: CallbackQuery, state: FSMContext) -
         await callback.answer("Ошибка: неверный ID свитка.")
         return
 
-    user_id = UUID(callback.from_user.id)
+    # Resolve the real user — never fabricate a UUID from the telegram id.
+    db_user = await get_user_by_telegram_id(callback.from_user.id)
+    if db_user is None:
+        await callback.answer("Сначала зарегистрируйтесь через /start.")
+        return
+    user_id = db_user.id
 
     # Enter report-entry state.
     await state.set_state(CompletionReportState.waiting_for_report)
@@ -93,8 +99,26 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
         await state.clear()
         return
 
+    # Load the daily scroll for report/XP policy (None for legacy rows).
+    daily_scroll = await _get_daily_scroll(scroll_id)
+    requires_report = daily_scroll.requires_report if daily_scroll is not None else True
+
+    # Enforce mandatory reports: skip is not allowed without content.
+    has_content = bool(data.get("report_text") or data.get("media_file_id"))
+    if action == "skip" and requires_report and not has_content:
+        await callback.answer(
+            "Для этого свитка нужен отчёт — прикрепите текст или файл.",
+            show_alert=True,
+        )
+        return  # keep the state so the user can attach the report
+
+    # Effective XP: per-scroll override → scroll type default → legacy weights.
+    xp_override = await _resolve_scroll_xp(daily_scroll)
+
     # Build the completion, awarding XP.
-    completion = await create_completion(user_id=user_id, scroll_id=scroll_id)
+    completion = await create_completion(
+        user_id=user_id, scroll_id=scroll_id, xp_override=xp_override
+    )
     if completion is None:
         await callback.answer("\u0423\u0436\u0435 \u043e\u0442\u043c\u0435\u0447\u0435\u043d\u043e!")
         await state.clear()
@@ -200,13 +224,51 @@ async def handle_report_media(message: Message, state: FSMContext) -> None:
     )
 
 
+async def _get_daily_scroll(scroll_id: UUID):
+    """Load a DailyScroll by id (None for legacy Scroll rows)."""
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.daily_scroll import DailyScroll
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(DailyScroll).where(DailyScroll.id == scroll_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def _resolve_scroll_xp(daily_scroll) -> int | None:
+    """Effective XP for a completion: scroll override → type default → None (legacy weights)."""
+    if daily_scroll is None:
+        return None
+    if daily_scroll.xp_reward is not None:
+        return daily_scroll.xp_reward
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.scroll_type import ScrollType
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ScrollType).where(ScrollType.id == daily_scroll.scroll_type_id)
+        )
+        scroll_type = result.scalar_one_or_none()
+        if scroll_type is not None:
+            return scroll_type.xp_reward
+    return None
+
+
 async def _finalize_report_and_forward(
     user_id: UUID,
     scroll_id: UUID,
 ) -> None:
     """Helper: load the completion + user + scroll and forward the report to Master's chat."""
+    import logging
+
     from app.shared.database import session_factory
     from app.shared.models.completion import UserCompletion
+    from app.shared.models.daily_scroll import DailyScroll
     from app.shared.models.user import User
     from sqlalchemy import select
 
@@ -220,10 +282,28 @@ async def _finalize_report_and_forward(
         user_result = await session.execute(select(User).where(User.id == user_id))
         user = user_result.scalar_one_or_none()
 
-        scroll_result = await session.execute(
-            select(Scroll).where(Scroll.id == scroll_id)
+        # Completions reference DailyScroll rows (current flow) or legacy Scroll rows.
+        day_number: int | None = None
+        daily_result = await session.execute(
+            select(DailyScroll).where(DailyScroll.id == scroll_id)
         )
-        scroll = scroll_result.scalar_one_or_none()
+        daily = daily_result.scalar_one_or_none()
+        if daily is not None:
+            day_number = daily.day_number
+        else:
+            scroll_result = await session.execute(
+                select(Scroll).where(Scroll.id == scroll_id)
+            )
+            scroll = scroll_result.scalar_one_or_none()
+            if scroll is not None:
+                day_number = scroll.day_number
 
-        if completion and user and scroll:
-            await forward_report_to_master(completion, user, scroll.day_number)
+        if completion and user and day_number is not None:
+            await forward_report_to_master(completion, user, day_number)
+        else:
+            logging.getLogger(__name__).warning(
+                "report forward skipped: completion=%s user=%s day=%s",
+                bool(completion),
+                bool(user),
+                day_number,
+            )

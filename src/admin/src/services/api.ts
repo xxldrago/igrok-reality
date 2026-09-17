@@ -522,8 +522,62 @@ export interface DailyScrollItem {
   title: string
   content: string
   media_file_id: string | null
+  requires_report: boolean
+  xp_reward: number | null
   published_at: string | null
   created_at: string
+}
+
+export interface DailyScrollCreateData {
+  day_number: number
+  scroll_type_id: string
+  title: string
+  content: string
+  media_file_id?: string | null
+  requires_report?: boolean
+  xp_reward?: number | null
+}
+
+export function createDailyScroll(data: DailyScrollCreateData) {
+  return api.post<DailyScrollItem>('/admin/daily-scrolls', data)
+}
+
+// --- User reports ---
+
+export interface ReportItem {
+  id: string
+  source: 'scroll' | 'daily'
+  user_id: string
+  username: string | null
+  first_name: string
+  archetype: string | null
+  quest_day: number | null
+  command: string | null
+  text: string | null
+  media_url: string | null
+  media_type: string | null
+  xp_awarded: number
+  created_at: string
+}
+
+export interface ReportListResponse {
+  reports: ReportItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface GetReportsParams {
+  quest_day?: number
+  archetype?: string
+  search?: string
+  source?: string
+  page?: number
+  page_size?: number
+}
+
+export function getReports(params: GetReportsParams = {}) {
+  return api.get<ReportListResponse>('/admin/reports', { params })
 }
 
 export interface DailyScrollListResponse {
@@ -564,7 +618,10 @@ export function getScrollCoverage() {
   return api.get<ScrollCoverage>('/admin/daily-scrolls/coverage')
 }
 
-export function updateDailyScroll(id: string, data: { title?: string; content?: string; media_file_id?: string }) {
+export function updateDailyScroll(
+  id: string,
+  data: { title?: string; content?: string; media_file_id?: string; requires_report?: boolean; xp_reward?: number | null },
+) {
   return api.put(`/admin/daily-scrolls/${id}`, data)
 }
 

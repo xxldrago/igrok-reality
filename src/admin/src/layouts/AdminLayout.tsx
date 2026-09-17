@@ -15,6 +15,7 @@ import {
   TeamOutlined,
   TrophyOutlined,
   WalletOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons'
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -37,6 +38,11 @@ export default function AdminLayout() {
     { key: '/admin/users', icon: <UserOutlined />, label: 'Пользователи' },
     { key: '/admin/scrolls', icon: <BookOutlined />, label: 'Свитки' },
     { key: '/admin/payments', icon: <DollarOutlined />, label: 'Платежи' },
+    ...(user?.role === 'master' || user?.role === 'leader' || user?.role === 'curator'
+      ? [
+          { key: '/admin/reports', icon: <FileTextOutlined />, label: 'Отчёты' },
+        ]
+      : []),
     ...(user?.role === 'master' || user?.role === 'leader'
       ? [
           { key: '/admin/finance', icon: <FundOutlined />, label: 'Финансы' },

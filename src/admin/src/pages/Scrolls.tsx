@@ -14,6 +14,7 @@ import {
   Alert,
   Card,
   Collapse,
+  Switch,
   message,
   TimePicker,
   Popconfirm,
@@ -25,6 +26,7 @@ import {
   getDailyScrolls,
   getScrollCoverage,
   updateDailyScroll,
+  createDailyScroll,
   updateScrollType,
   getSettings,
   updateSettings,
@@ -177,9 +179,20 @@ export default function Scrolls() {
     fetchDailyScrolls()
   }, [fetchDailyScrolls])
 
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createForm] = Form.useForm()
+  const [creating, setCreating] = useState(false)
+  const [createMediaUrl, setCreateMediaUrl] = useState<string | null>(null)
+  const [createMediaType, setCreateMediaType] = useState<string | null>(null)
+
   const handleEdit = (record: DailyScrollItem) => {
     setEditingScroll(record)
-    form.setFieldsValue({ title: record.title, content: record.content })
+    form.setFieldsValue({
+      title: record.title,
+      content: record.content,
+      requires_report: record.requires_report,
+      xp_reward: record.xp_reward ?? undefined,
+    })
     setMediaUrl(record.media_file_id || null)
     setMediaType(
       record.media_file_id && record.media_file_id.startsWith('http')
@@ -189,11 +202,20 @@ export default function Scrolls() {
     setEditModalOpen(true)
   }
 
-  const handleSave = async (values: { title: string; content: string }) => {
+  const handleSave = async (values: {
+    title: string
+    content: string
+    requires_report?: boolean
+    xp_reward?: number | null
+  }) => {
     if (!editingScroll) return
     setSubmitting(true)
     try {
-      await updateDailyScroll(editingScroll.id, { ...values, media_file_id: mediaUrl || '' })
+      await updateDailyScroll(editingScroll.id, {
+        ...values,
+        media_file_id: mediaUrl || '',
+        xp_reward: values.xp_reward ?? null,
+      })
       setEditModalOpen(false)
       fetchDailyScrolls()
       fetchCoverage()
@@ -202,6 +224,46 @@ export default function Scrolls() {
       message.error('Ошибка сохранения')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const openCreate = () => {
+    createForm.resetFields()
+    createForm.setFieldsValue({
+      day_number: dayFilter || 1,
+      requires_report: true,
+    })
+    setCreateMediaUrl(null)
+    setCreateMediaType(null)
+    setCreateModalOpen(true)
+  }
+
+  const handleCreate = async (values: {
+    day_number: number
+    scroll_type_id: string
+    title: string
+    content: string
+    requires_report?: boolean
+    xp_reward?: number | null
+  }) => {
+    setCreating(true)
+    try {
+      await createDailyScroll({
+        ...values,
+        media_file_id: createMediaUrl || null,
+        requires_report: values.requires_report ?? true,
+        xp_reward: values.xp_reward ?? null,
+      })
+      setCreateModalOpen(false)
+      fetchDailyScrolls()
+      fetchCoverage()
+      message.success('Свиток создан')
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      message.error(detail || 'Ошибка создания (возможно, такой свиток уже есть)')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -264,11 +326,23 @@ export default function Scrolls() {
     {
       title: 'XP',
       key: 'xp',
-      width: 60,
+      width: 70,
       render: (_, record) => {
+        if (record.xp_reward != null) return `+${record.xp_reward}*`
         const st = scrollTypes.find((s) => s.code === record.scroll_type_code)
         return st ? `+${st.xp_reward}` : '—'
       },
+    },
+    {
+      title: 'Отчёт',
+      key: 'requires_report',
+      width: 90,
+      render: (_, record) =>
+        record.requires_report ? (
+          <Tag color="green">нужен</Tag>
+        ) : (
+          <Tag color="default">не нужен</Tag>
+        ),
     },
     {
       title: 'Заголовок',
@@ -407,6 +481,11 @@ export default function Scrolls() {
             label: `${st.name} (${st.command})`,
           }))}
         />
+        <RoleGuard roles={['master', 'leader']}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Создать свиток
+          </Button>
+        </RoleGuard>
       </Space>
 
             <RoleGuard roles={['master']}>
@@ -545,6 +624,23 @@ export default function Scrolls() {
           <Form.Item name="content" label="Контент">
             <TextArea rows={8} />
           </Form.Item>
+          <Space size="large">
+            <Form.Item
+              name="requires_report"
+              label="Отчёт обязателен"
+              valuePropName="checked"
+              style={{ marginBottom: 0 }}
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="xp_reward"
+              label="XP (пусто — по типу)"
+              style={{ marginBottom: 0 }}
+            >
+              <InputNumber min={0} max={100} placeholder="по типу" />
+            </Form.Item>
+          </Space>
           <Form.Item label="Вложение (фото / видео / файл)">
             {mediaUrl && !mediaUrl.startsWith('http') ? (
               <Space direction="vertical">
@@ -577,6 +673,84 @@ export default function Scrolls() {
               </Space>
             )}
           </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Создать свиток"
+        open={createModalOpen}
+        onCancel={() => setCreateModalOpen(false)}
+        onOk={() => createForm.submit()}
+        confirmLoading={creating}
+        okText="Создать"
+        cancelText="Отмена"
+        width={640}
+      >
+        <Form form={createForm} onFinish={handleCreate} layout="vertical">
+          <Space size="large" style={{ display: 'flex' }}>
+            <Form.Item
+              name="day_number"
+              label="День (1–90)"
+              rules={[{ required: true, message: 'Укажите день' }]}
+            >
+              <InputNumber min={1} max={90} />
+            </Form.Item>
+            <Form.Item
+              name="scroll_type_id"
+              label="Тип свитка"
+              rules={[{ required: true, message: 'Выберите тип' }]}
+              style={{ minWidth: 220 }}
+            >
+              <Select
+                placeholder="Тип свитка"
+                options={scrollTypes.map((st) => ({
+                  value: st.id,
+                  label: `${st.name} (${st.command})`,
+                }))}
+              />
+            </Form.Item>
+          </Space>
+          <Form.Item
+            name="title"
+            label="Заголовок"
+            rules={[{ required: true, message: 'Введите заголовок' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="content"
+            label="Контент"
+            rules={[{ required: true, message: 'Введите контент' }]}
+          >
+            <TextArea rows={6} />
+          </Form.Item>
+          <Form.Item label="Вложение (фото / видео / файл)">
+            <MediaUpload
+              value={createMediaUrl}
+              mediaType={createMediaType}
+              onChange={(url, type) => {
+                setCreateMediaUrl(url)
+                setCreateMediaType(type)
+              }}
+            />
+          </Form.Item>
+          <Space size="large">
+            <Form.Item
+              name="requires_report"
+              label="Отчёт обязателен"
+              valuePropName="checked"
+              style={{ marginBottom: 0 }}
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="xp_reward"
+              label="XP (пусто — по типу)"
+              style={{ marginBottom: 0 }}
+            >
+              <InputNumber min={0} max={100} placeholder="по типу" />
+            </Form.Item>
+          </Space>
         </Form>
       </Modal>
     </div>

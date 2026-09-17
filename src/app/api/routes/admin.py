@@ -1488,6 +1488,8 @@ class DailyScrollResponse(BaseModel):
     title: str
     content: str
     media_file_id: Optional[str] = None
+    requires_report: bool = True
+    xp_reward: Optional[int] = None
     published_at: Optional[datetime] = None
     created_at: datetime
 
@@ -1507,6 +1509,20 @@ class DailyScrollUpdateRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     media_file_id: Optional[str] = None
+    requires_report: Optional[bool] = None
+    xp_reward: Optional[int] = Field(None, ge=0, le=100)
+
+
+class DailyScrollCreateRequest(BaseModel):
+    """Request body for creating a daily scroll."""
+
+    day_number: int = Field(ge=1, le=90)
+    scroll_type_id: UUID
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+    media_file_id: Optional[str] = None
+    requires_report: bool = True
+    xp_reward: Optional[int] = Field(None, ge=0, le=100)
 
 
 @admin_router.get(
@@ -1556,6 +1572,8 @@ async def list_daily_scrolls(
                     title=ds.title,
                     content=ds.content,
                     media_file_id=ds.media_file_id,
+                    requires_report=ds.requires_report,
+                    xp_reward=ds.xp_reward,
                     published_at=ds.published_at,
                     created_at=ds.created_at,
                 )
@@ -1563,6 +1581,73 @@ async def list_daily_scrolls(
 
         return DailyScrollListResponse(
             scrolls=scrolls, total=total, page=page, page_size=page_size
+        )
+
+
+@admin_router.post(
+    "/daily-scrolls",
+    response_model=DailyScrollResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def create_daily_scroll(req: DailyScrollCreateRequest) -> DailyScrollResponse:
+    """Create a daily scroll (day + type must be unique)."""
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+    from app.shared.models.scroll_type import ScrollType as ScrollTypeModel
+
+    async with session_factory() as session:
+        type_result = await session.execute(
+            select(ScrollTypeModel).where(ScrollTypeModel.id == req.scroll_type_id)
+        )
+        scroll_type = type_result.scalar_one_or_none()
+        if scroll_type is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Scroll type not found",
+            )
+
+        dup = await session.execute(
+            select(DailyScrollModel).where(
+                DailyScrollModel.day_number == req.day_number,
+                DailyScrollModel.scroll_type_id == req.scroll_type_id,
+            )
+        )
+        if dup.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Scroll for day {req.day_number} and this type already exists",
+            )
+
+        ds = DailyScrollModel(
+            day_number=req.day_number,
+            scroll_type_id=req.scroll_type_id,
+            title=req.title,
+            content=req.content,
+            media_file_id=req.media_file_id,
+            requires_report=req.requires_report,
+            xp_reward=req.xp_reward,
+        )
+        session.add(ds)
+        session.add(
+            AuditLog(
+                action="daily_scroll_created",
+                details=f"day={req.day_number} type={scroll_type.code}",
+            )
+        )
+        await session.commit()
+        await session.refresh(ds)
+        return DailyScrollResponse(
+            id=ds.id,
+            day_number=ds.day_number,
+            scroll_type_id=ds.scroll_type_id,
+            scroll_type_code=scroll_type.code,
+            title=ds.title,
+            content=ds.content,
+            media_file_id=ds.media_file_id,
+            requires_report=ds.requires_report,
+            xp_reward=ds.xp_reward,
+            published_at=ds.published_at,
+            created_at=ds.created_at,
         )
 
 
@@ -1679,6 +1764,10 @@ async def update_daily_scroll(
             ds.content = req.content
         if req.media_file_id is not None:
             ds.media_file_id = req.media_file_id
+        if req.requires_report is not None:
+            ds.requires_report = req.requires_report
+        if req.xp_reward is not None:
+            ds.xp_reward = req.xp_reward
 
         await session.commit()
         return {"id": str(scroll_id), "updated": True}
@@ -1888,6 +1977,171 @@ async def get_user_progress(user_id: UUID) -> UserProgressResponse:
         total_commands=sum(len(d.done) for d in active),
         total_xp_earned=sum(d.earned_xp for d in active),
         days=days,
+    )
+
+
+# --- User reports endpoint ---
+
+
+class ReportItemResponse(BaseModel):
+    """One user report (scroll completion or daily summary)."""
+
+    id: UUID
+    source: str
+    user_id: UUID
+    username: Optional[str] = None
+    first_name: str = ""
+    archetype: Optional[str] = None
+    quest_day: Optional[int] = None
+    command: Optional[str] = None
+    text: Optional[str] = None
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    xp_awarded: int = 0
+    created_at: datetime
+
+
+class ReportListResponse(BaseModel):
+    """Paginated user reports."""
+
+    reports: list[ReportItemResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+@admin_router.get(
+    "/reports",
+    response_model=ReportListResponse,
+    dependencies=[Depends(require_role("master", "leader", "curator"))],
+)
+async def list_reports(
+    quest_day: Optional[int] = Query(None, ge=1, le=90, description="Filter by quest day"),
+    archetype: Optional[str] = Query(None, description="Filter by archetype"),
+    search: str = Query("", description="Search by name, username, or telegram_id"),
+    source: Optional[str] = Query(None, description="scroll (completions) or daily (/report summaries)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> ReportListResponse:
+    """List user reports from scroll completions and daily summaries."""
+    from app.shared.models.completion import UserCompletion
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+    from app.shared.models.scroll import Scroll as ScrollModel
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    if source is not None and source not in ("scroll", "daily"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="source must be 'scroll' or 'daily'",
+        )
+
+    async with session_factory() as session:
+        users_result = await session.execute(select(User))
+        users = {u.id: u for u in users_result.scalars().all()}
+
+        items: list[ReportItemResponse] = []
+
+        if source in (None, "scroll"):
+            comp_result = await session.execute(
+                select(UserCompletion).order_by(UserCompletion.completed_at.desc())
+            )
+            completions = [
+                c
+                for c in comp_result.scalars().all()
+                if c.report_text or c.report_media_url
+            ]
+            scroll_ids = {c.scroll_id for c in completions}
+            day_by_scroll: dict = {}
+            if scroll_ids:
+                daily_result = await session.execute(
+                    select(DailyScrollModel).where(DailyScrollModel.id.in_(scroll_ids))
+                )
+                for ds in daily_result.scalars().all():
+                    day_by_scroll[ds.id] = ds.day_number
+                missing = scroll_ids - set(day_by_scroll)
+                if missing:
+                    legacy_result = await session.execute(
+                        select(ScrollModel).where(ScrollModel.id.in_(missing))
+                    )
+                    for s in legacy_result.scalars().all():
+                        day_by_scroll[s.id] = s.day_number
+            for c in completions:
+                u = users.get(c.user_id)
+                items.append(
+                    ReportItemResponse(
+                        id=c.id,
+                        source="scroll",
+                        user_id=c.user_id,
+                        username=u.username if u else None,
+                        first_name=u.first_name if u else "",
+                        archetype=u.archetype if u else None,
+                        quest_day=day_by_scroll.get(c.scroll_id),
+                        command=None,
+                        text=c.report_text,
+                        media_url=c.report_media_url,
+                        media_type=c.report_media_type,
+                        xp_awarded=c.xp_awarded,
+                        created_at=c.completed_at,
+                    )
+                )
+
+        if source in (None, "daily"):
+            cmd_result = await session.execute(
+                select(UserDailyCommand).order_by(UserDailyCommand.completed_at.desc())
+            )
+            for c in cmd_result.scalars().all():
+                if not (c.report_text or c.report_media_url):
+                    continue
+                u = users.get(c.user_id)
+                items.append(
+                    ReportItemResponse(
+                        id=c.id,
+                        source="daily",
+                        user_id=c.user_id,
+                        username=u.username if u else None,
+                        first_name=u.first_name if u else "",
+                        archetype=u.archetype if u else None,
+                        quest_day=c.quest_day,
+                        command=c.command,
+                        text=c.report_text,
+                        media_url=c.report_media_url,
+                        media_type=c.report_media_type,
+                        xp_awarded=c.xp_awarded,
+                        created_at=c.completed_at,
+                    )
+                )
+
+    # Filters
+    if archetype:
+        items = [i for i in items if i.archetype == archetype]
+    if quest_day is not None:
+        items = [i for i in items if i.quest_day == quest_day]
+    if search:
+        q = search.strip().lower().lstrip("@")
+        try:
+            tid = int(search.strip())
+        except ValueError:
+            tid = None
+        filtered = []
+        for i in items:
+            u = users.get(i.user_id)
+            hay = " ".join(
+                s for s in [i.first_name, i.username or ""] if s
+            ).lower()
+            if q and q in hay:
+                filtered.append(i)
+            elif tid is not None and u is not None and u.telegram_id == tid:
+                filtered.append(i)
+        items = filtered
+
+    items.sort(key=lambda i: i.created_at, reverse=True)
+    total = len(items)
+    start = (page - 1) * page_size
+    return ReportListResponse(
+        reports=items[start : start + page_size],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Table, Tag, Select, Space, Button, Typography, message } from 'antd'
-import { CheckCircleOutlined, StopOutlined, WarningOutlined } from '@ant-design/icons'
+import { Table, Tag, Select, Space, Button, Typography, Modal, Form, Input, message } from 'antd'
+import { CheckCircleOutlined, StopOutlined, WarningOutlined, MessageOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
   getModerationReports,
   resolveModerationReport,
+  replyModerationReport,
   ModerationReportItem,
 } from '../services/api'
+import MediaUpload from '../components/MediaUpload'
 
 const { Title } = Typography
 
@@ -29,6 +31,12 @@ export default function Moderation() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const [replyModalOpen, setReplyModalOpen] = useState(false)
+  const [replyingReport, setReplyingReport] = useState<ModerationReportItem | null>(null)
+  const [replySending, setReplySending] = useState(false)
+  const [replyMediaUrl, setReplyMediaUrl] = useState<string | null>(null)
+  const [replyMediaType, setReplyMediaType] = useState<string | null>(null)
+  const [replyForm] = Form.useForm()
 
   const loadReports = (status?: string) => {
     setLoading(true)
@@ -55,6 +63,40 @@ export default function Moderation() {
     }
   }
 
+  const openReply = (record: ModerationReportItem) => {
+    setReplyingReport(record)
+    replyForm.resetFields()
+    setReplyMediaUrl(null)
+    setReplyMediaType(null)
+    setReplyModalOpen(true)
+  }
+
+  const handleReply = async () => {
+    if (!replyingReport) return
+    try {
+      const values = await replyForm.validateFields()
+      const text = (values.text || '').trim()
+      if (!text && !replyMediaUrl) {
+        message.warning('Введите текст или прикрепите файл')
+        return
+      }
+      setReplySending(true)
+      await replyModerationReport(replyingReport.id, {
+        text: text || undefined,
+        media_url: replyMediaUrl,
+        media_type: replyMediaType,
+      })
+      message.success('Ответ отправлен')
+      setReplyModalOpen(false)
+      setReplyingReport(null)
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return
+      message.error('Ошибка отправки')
+    } finally {
+      setReplySending(false)
+    }
+  }
+
   const columns: ColumnsType<ModerationReportItem> = [
     { title: 'Логин', dataIndex: 'username', key: 'username' },
     { title: 'Причина', dataIndex: 'reason', key: 'reason', ellipsis: true },
@@ -72,6 +114,11 @@ export default function Moderation() {
       render: (_, record) =>
         record.status === 'pending' ? (
           <Space size="small">
+            <Button
+              size="small"
+              icon={<MessageOutlined />}
+              onClick={() => openReply(record)}
+            />
             <Button
               size="small"
               icon={<WarningOutlined />}
@@ -122,6 +169,32 @@ export default function Moderation() {
         size="small"
         pagination={{ total, pageSize: 20 }}
       />
+
+      <Modal
+        title="Ответ пользователю"
+        open={replyModalOpen}
+        onCancel={() => setReplyModalOpen(false)}
+        onOk={handleReply}
+        confirmLoading={replySending}
+        okText="Отправить"
+        cancelText="Отмена"
+      >
+        <Form form={replyForm} layout="vertical">
+          <Form.Item name="text" label="Текст ответа">
+            <Input.TextArea rows={4} placeholder="Сообщение пользователю в боте" />
+          </Form.Item>
+          <Form.Item label="Вложение">
+            <MediaUpload
+              value={replyMediaUrl}
+              mediaType={replyMediaType}
+              onChange={(url, type) => {
+                setReplyMediaUrl(url)
+                setReplyMediaType(type)
+              }}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

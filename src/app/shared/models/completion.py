@@ -17,7 +17,9 @@ class UserCompletion(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "user_completions"
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    scroll_id: Mapped[UUID] = mapped_column(ForeignKey("scrolls.id"), nullable=False)
+    # Polymorphic reference: DailyScroll.id (current flow) or legacy Scroll.id.
+    # No FK constraint (see 20260917_scroll_reports migration).
+    scroll_id: Mapped[UUID] = mapped_column(nullable=False)
     completed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
