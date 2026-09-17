@@ -248,7 +248,9 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
         rebuild: when True, delete ALL existing daily_scrolls first so
             missing/partial days are fully regenerated.
     """
-    from sqlalchemy import delete
+    from sqlalchemy import delete, update
+
+    from app.shared.models.user_daily_command import UserDailyCommand
 
     async with session_factory() as session:
         # 1. Scroll types first — never silently skip codes again
@@ -263,9 +265,15 @@ async def seed_daily_scrolls(rebuild: bool = False) -> None:
 
         # 2. Daily scrolls
         if rebuild:
+            # User command history references daily_scrolls via FK — detach
+            # first (history rows keep xp/timestamps, link is re-resolved
+            # lazily), then regenerate content from scratch.
+            await session.execute(
+                update(UserDailyCommand).values(daily_scroll_id=None)
+            )
             await session.execute(delete(DailyScroll))
             await session.commit()
-            print("Rebuild mode: deleted all existing daily_scrolls")
+            print("Rebuild mode: detached command history, deleted all daily_scrolls")
 
         created = 0
         skipped = 0
