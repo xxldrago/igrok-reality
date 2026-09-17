@@ -28,9 +28,11 @@ def user_id() -> UUID:
 # --- /referral handler tests ---
 
 
+@patch("app.bot.handlers.referral.ensure_referral_code")
 @patch("app.bot.handlers.referral.get_user_by_telegram_id")
 async def test_referral_shows_link(
     mock_get_user: MagicMock,
+    mock_ensure_code: MagicMock,
     telegram_id: int,
 ) -> None:
     """Test that /referral shows user their unique referral link."""
@@ -41,6 +43,7 @@ async def test_referral_shows_link(
         referral_code="abc12345",
     )
     mock_get_user.return_value = user
+    mock_ensure_code.return_value = "abc12345"
 
     message = AsyncMock()
     message.from_user.id = telegram_id
