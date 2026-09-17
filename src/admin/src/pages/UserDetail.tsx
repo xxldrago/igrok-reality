@@ -184,10 +184,10 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
               <Descriptions.Item label="Полное имя">
                 {user.first_name} {user.last_name || ''}
               </Descriptions.Item>
-              <Descriptions.Item label="Username">
+              <Descriptions.Item label="Логин">
                 {user.username ? `@${user.username}` : '—'}
               </Descriptions.Item>
-              <Descriptions.Item label="Telegram ID">
+              <Descriptions.Item label="ID Telegram">
                 {user.telegram_id}
               </Descriptions.Item>
               <Descriptions.Item label="Роль">
@@ -214,7 +214,7 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
             <Title level={5}>Прогресс</Title>
             <Descriptions column={2} bordered size="small">
               <Descriptions.Item label="XP">{user.xp}</Descriptions.Item>
-              <Descriptions.Item label="Streak">{user.streak} дн.</Descriptions.Item>
+              <Descriptions.Item label="Дней подряд">{user.streak} дн.</Descriptions.Item>
               <Descriptions.Item label="Дата начала">
                 {user.started_at
                   ? new Date(user.started_at).toLocaleDateString('ru-RU')

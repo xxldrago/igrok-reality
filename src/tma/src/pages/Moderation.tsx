@@ -56,7 +56,7 @@ export default function Moderation() {
   }
 
   const columns: ColumnsType<ModerationReportItem> = [
-    { title: 'Username', dataIndex: 'username', key: 'username' },
+    { title: 'Логин', dataIndex: 'username', key: 'username' },
     { title: 'Причина', dataIndex: 'reason', key: 'reason', ellipsis: true },
     {
       title: 'Статус',

@@ -1221,6 +1221,97 @@ async def resolve_moderation_report(
         return {"report_id": str(report_id), "decision": req.decision}
 
 
+class ModerationReplyRequest(BaseModel):
+    """Reply to a user appeal with text and/or media."""
+
+    text: Optional[str] = Field(None, max_length=4000)
+    media_url: Optional[str] = None
+    media_type: Optional[str] = Field(None, description="photo, video or document")
+
+
+@admin_router.post(
+    "/moderation/{report_id}/reply",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def reply_moderation_report(
+    report_id: UUID, req: ModerationReplyRequest
+) -> dict:
+    """Send a reply (text and/or photo/video/file) to the report author via bot."""
+    from aiogram import Bot
+
+    from app.bot.services.settings_service import get_bot_token
+    from app.shared.models.moderation_report import ModerationReport
+
+    if not req.text and not req.media_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reply needs text or media",
+        )
+    if req.media_url and req.media_type not in ("photo", "video", "document"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="media_type must be photo, video or document",
+        )
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ModerationReport).where(ModerationReport.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+        if report is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Report not found",
+            )
+        user_result = await session.execute(
+            select(User).where(User.id == report.user_id)
+        )
+        target = user_result.scalar_one_or_none()
+        if target is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Report author not found",
+            )
+        telegram_id = target.telegram_id
+
+    bot = Bot(token=await get_bot_token())
+    try:
+        text = req.text or ""
+        if req.media_url and req.media_type == "photo":
+            await bot.send_photo(telegram_id, req.media_url, caption=text[:1024] or None)
+            if len(text) > 1024:
+                await bot.send_message(telegram_id, text[1024:])
+        elif req.media_url and req.media_type == "video":
+            await bot.send_video(telegram_id, req.media_url, caption=text[:1024] or None)
+            if len(text) > 1024:
+                await bot.send_message(telegram_id, text[1024:])
+        elif req.media_url and req.media_type == "document":
+            await bot.send_document(telegram_id, req.media_url, caption=text[:1024] or None)
+            if len(text) > 1024:
+                await bot.send_message(telegram_id, text[1024:])
+        else:
+            await bot.send_message(telegram_id, text)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Telegram send failed: {e}",
+        )
+    finally:
+        await bot.session.close()
+
+    async with session_factory() as session:
+        session.add(
+            AuditLog(
+                admin_id=None,
+                action="moderation_reply",
+                details=f"Replied to report {report_id}",
+            )
+        )
+        await session.commit()
+
+    return {"report_id": str(report_id), "sent": True}
+
+
 # --- Role change endpoint ---
 
 

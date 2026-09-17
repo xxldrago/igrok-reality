@@ -458,6 +458,16 @@ export function resolveModerationReport(id: string, decision: string) {
   return api.post(`/admin/moderation/${id}/resolve`, { decision })
 }
 
+export interface ModerationReplyData {
+  text?: string
+  media_url?: string | null
+  media_type?: string | null
+}
+
+export function replyModerationReport(id: string, data: ModerationReplyData) {
+  return api.post<{ report_id: string; sent: boolean }>(`/admin/moderation/${id}/reply`, data)
+}
+
 // --- Role change ---
 
 export function changeUserRole(userId: string, role: string) {

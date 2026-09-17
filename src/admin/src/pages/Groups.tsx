@@ -7,9 +7,16 @@ import {
   createGroup,
   deleteGroup,
   addGroupMember,
+  getUsers,
   GroupItem,
+  UserListItem,
 } from '../services/api'
 import RoleGuard from '../components/RoleGuard'
+
+function userLabel(u: UserListItem): string {
+  const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Без имени'
+  return u.username ? `@${u.username} — ${name}` : `${name} (tg ${u.telegram_id})`
+}
 
 const { Title } = Typography
 
@@ -34,6 +41,8 @@ export default function Groups() {
   const [selectedGroup, setSelectedGroup] = useState<GroupItem | null>(null)
   const [newMemberId, setNewMemberId] = useState('')
   const [form] = Form.useForm()
+  const [ownerOptions, setOwnerOptions] = useState<UserListItem[]>([])
+  const [ownerLoading, setOwnerLoading] = useState(false)
 
   const loadGroups = () => {
     setLoading(true)
@@ -46,6 +55,25 @@ export default function Groups() {
   useEffect(() => {
     loadGroups()
   }, [typeFilter])
+
+  const searchOwners = (query: string) => {
+    setOwnerLoading(true)
+    getUsers({ search: query || undefined, page_size: 20 })
+      .then((res) => setOwnerOptions(res.data.users))
+      .catch(console.error)
+      .finally(() => setOwnerLoading(false))
+  }
+
+  useEffect(() => {
+    if (createModalOpen && ownerOptions.length === 0) {
+      searchOwners('')
+    }
+  }, [createModalOpen])
+
+  const ownerName = (ownerId: string): string => {
+    const found = ownerOptions.find((u) => u.id === ownerId)
+    return found ? userLabel(found) : ownerId
+  }
 
   const handleCreate = async (values: { name: string; type: string; owner_id: string; max_members?: number }) => {
     try {
@@ -90,7 +118,13 @@ export default function Groups() {
       key: 'type',
       render: (type: string) => <Tag color={typeColors[type] || 'default'}>{typeLabels[type] || type}</Tag>,
     },
-    { title: 'Владелец', dataIndex: 'owner_id', key: 'owner_id', ellipsis: true },
+    {
+      title: 'Владелец',
+      dataIndex: 'owner_id',
+      key: 'owner_id',
+      ellipsis: true,
+      render: (ownerId: string) => <span title={ownerId}>{ownerName(ownerId)}</span>,
+    },
     {
       title: 'Участники',
       key: 'members',
@@ -174,8 +208,16 @@ export default function Groups() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="owner_id" label="ID владельца" rules={[{ required: true, message: 'Введите ID владельца' }]}>
-            <Input placeholder="Telegram ID владельца" />
+          <Form.Item name="owner_id" label="Владелец" rules={[{ required: true, message: 'Выберите владельца' }]}>
+            <Select
+              showSearch
+              placeholder="Выберите пользователя по username"
+              filterOption={false}
+              loading={ownerLoading}
+              onSearch={searchOwners}
+              notFoundContent={ownerLoading ? 'Загрузка...' : 'Ничего не найдено'}
+              options={ownerOptions.map((u) => ({ value: u.id, label: userLabel(u) }))}
+            />
           </Form.Item>
           <Form.Item name="max_members" label="Макс. участников">
             <InputNumber min={1} max={1000} placeholder="100" style={{ width: '100%' }} />

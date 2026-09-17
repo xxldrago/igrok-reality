@@ -15,7 +15,7 @@ import { useTmaAuth } from '../contexts/TmaAuthContext'
 
 const navItems = [
   { key: '/app', icon: <DashboardOutlined />, label: 'Дашборд' },
-  { key: '/app/users', icon: <UserOutlined />, label: 'Юзеры' },
+  { key: '/app/users', icon: <UserOutlined />, label: 'Пользователи' },
   { key: '/app/scrolls', icon: <BookOutlined />, label: 'Свитки' },
   { key: '/app/payments', icon: <DollarOutlined />, label: 'Платежи' },
 ]

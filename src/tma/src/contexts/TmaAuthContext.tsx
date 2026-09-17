@@ -6,6 +6,8 @@ interface TmaAuthContextType {
   user: { username: string; role: string } | null
   loading: boolean
   error: string | null
+  /** True when opened outside Telegram (no WebApp object) — show password login. */
+  isWebMode: boolean
 }
 
 const TmaAuthContext = createContext<TmaAuthContextType | undefined>(undefined)
@@ -14,12 +16,14 @@ export function TmaAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<{ username: string; role: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isWebMode, setIsWebMode] = useState(false)
 
   const authenticate = useCallback(async () => {
     try {
       const tg = window.Telegram?.WebApp
       if (!tg) {
-        setError('Telegram WebApp недоступен. Откройте приложение через Telegram.')
+        // Opened in a regular browser — password login fallback (no error).
+        setIsWebMode(true)
         setLoading(false)
         return
       }
@@ -69,7 +73,7 @@ export function TmaAuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <TmaAuthContext.Provider
-      value={{ isAuthenticated: !!user, user, loading, error }}
+      value={{ isAuthenticated: !!user, user, loading, error, isWebMode }}
     >
       {children}
     </TmaAuthContext.Provider>

@@ -61,7 +61,7 @@ export default function Commissions() {
   }, [data])
 
   const columns: ColumnsType<UserListItem> = [
-    { title: 'User ID', dataIndex: 'id', key: 'id', ellipsis: true },
+    { title: 'ID пользователя', dataIndex: 'id', key: 'id', ellipsis: true },
     {
       title: 'Заработано',
       key: 'earned',

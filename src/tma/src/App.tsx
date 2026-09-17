@@ -15,7 +15,7 @@ import AuditLog from './pages/AuditLog'
 import Broadcast from './pages/Broadcast'
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading, error } = useTmaAuth()
+  const { isAuthenticated, loading, error, isWebMode } = useTmaAuth()
 
   if (loading) {
     return (
@@ -23,6 +23,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         <Spin size="large" />
       </div>
     )
+  }
+
+  if (isWebMode && !isAuthenticated) {
+    // Browser without Telegram — password login instead of the dead-end error.
+    return <AdminLoginFallback />
   }
 
   if (error) {

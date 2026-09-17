@@ -157,7 +157,7 @@ export default function Payments() {
             <Descriptions.Item label="Пользователь">
               {drawerPayment.user_name}
             </Descriptions.Item>
-            <Descriptions.Item label="Username">
+            <Descriptions.Item label="Логин">
               {drawerPayment.user_username || '—'}
             </Descriptions.Item>
             <Descriptions.Item label="Сумма">

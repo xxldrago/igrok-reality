@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Table, Space, Button, Typography, Modal, Form, Input, InputNumber, Tag, message } from 'antd'
+import { Table, Space, Button, Typography, Modal, Form, Input, InputNumber, Tag, Select, message } from 'antd'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
   getSpecialistQuests,
   createSpecialistQuest,
   deleteSpecialistQuest,
+  getGroups,
+  GroupItem,
   SpecialistQuestItem,
 } from '../services/api'
 import RoleGuard from '../components/RoleGuard'
@@ -21,6 +23,16 @@ export default function SpecialistQuests() {
   const [dayFilter, setDayFilter] = useState<number | undefined>(undefined)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [form] = Form.useForm()
+  const [groups, setGroups] = useState<GroupItem[]>([])
+
+  useEffect(() => {
+    getGroups().then((res) => setGroups(res.data)).catch(console.error)
+  }, [])
+
+  const groupName = (groupId: string): string => {
+    const found = groups.find((g) => g.id === groupId)
+    return found ? found.name : groupId
+  }
 
   const loadQuests = () => {
     setLoading(true)
@@ -60,7 +72,13 @@ export default function SpecialistQuests() {
   }
 
   const columns: ColumnsType<SpecialistQuestItem> = [
-    { title: 'Группа', dataIndex: 'group_id', key: 'group_id', ellipsis: true },
+    {
+      title: 'Группа',
+      dataIndex: 'group_id',
+      key: 'group_id',
+      ellipsis: true,
+      render: (groupId: string) => <span title={groupId}>{groupName(groupId)}</span>,
+    },
     { title: 'Заголовок', dataIndex: 'title', key: 'title' },
     {
       title: 'День',
@@ -102,12 +120,13 @@ export default function SpecialistQuests() {
     <div>
       <Title level={4}>Квесты специалистов</Title>
       <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="Фильтр по группе (ID)"
-          style={{ width: 200 }}
-          value={groupFilter}
-          onChange={(e) => setGroupFilter(e.target.value || undefined)}
+        <Select
+          placeholder="Фильтр по группе"
           allowClear
+          style={{ width: 220 }}
+          value={groupFilter}
+          onChange={setGroupFilter}
+          options={groups.map((g) => ({ value: g.id, label: g.name }))}
         />
         <InputNumber
           placeholder="День"
@@ -145,8 +164,11 @@ export default function SpecialistQuests() {
         width={600}
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
-          <Form.Item name="group_id" label="ID группы" rules={[{ required: true, message: 'Введите ID группы' }]}>
-            <Input placeholder="Group ID" />
+          <Form.Item name="group_id" label="Группа" rules={[{ required: true, message: 'Выберите группу' }]}>
+            <Select
+              placeholder="Выберите группу по названию"
+              options={groups.map((g) => ({ value: g.id, label: g.name }))}
+            />
           </Form.Item>
           <Form.Item name="title" label="Заголовок" rules={[{ required: true, message: 'Введите заголовок' }]}>
             <Input placeholder="Заголовок квеста" />

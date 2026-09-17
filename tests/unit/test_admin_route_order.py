@@ -28,7 +28,9 @@ def _mock_session(execute=None):
     return cm
 
 
-async def _get(path: str, execute=None) -> tuple[int, str]:
+async def _request(
+    path: str, execute=None, method: str = "get", json: dict | None = None
+) -> tuple[int, str]:
     with (
         patch.object(
             deps_mod,
@@ -39,8 +41,14 @@ async def _get(path: str, execute=None) -> tuple[int, str]:
     ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            r = await client.get(path, headers={"Authorization": "Bearer x"})
+            r = await client.request(
+                method, path, headers={"Authorization": "Bearer x"}, json=json
+            )
             return r.status_code, r.text
+
+
+async def _get(path: str, execute=None) -> tuple[int, str]:
+    return await _request(path, execute)
 
 
 @pytest.mark.asyncio
@@ -68,6 +76,17 @@ async def test_payments_export_not_shadowed_by_payment_id() -> None:
 
     status, body = await _get("/api/admin/payments/export", fake_execute)
     assert status == 200, body
+
+
+@pytest.mark.asyncio
+async def test_moderation_reply_requires_text_or_media() -> None:
+    """Empty reply body is rejected before any DB/Bot calls."""
+    status, body = await _request(
+        "/api/admin/moderation/12345678-1234-1234-1234-123456789012/reply",
+        method="post",
+        json={},
+    )
+    assert status == 400, body
 
 
 @pytest.mark.asyncio

@@ -88,7 +88,7 @@ export default function UserDetail() {
 
       <Card size="small" title="Основное" style={{ marginBottom: 12 }}>
         <Descriptions column={1} size="small">
-          <Descriptions.Item label="Telegram ID">
+          <Descriptions.Item label="ID Telegram">
             {user.telegram_id}
           </Descriptions.Item>
           <Descriptions.Item label="Часовой пояс">

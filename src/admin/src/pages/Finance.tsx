@@ -88,7 +88,7 @@ export default function Finance() {
 
   const commissionColumns: ColumnsType<CommissionBalanceItem> = [
     { title: 'ID', dataIndex: 'user_id', key: 'user_id', ellipsis: true },
-    { title: 'Username', dataIndex: 'username', key: 'username' },
+    { title: 'Логин', dataIndex: 'username', key: 'username' },
     {
       title: 'Ожидает',
       dataIndex: 'pending',
@@ -211,7 +211,7 @@ export default function Finance() {
       >
         <Form form={form} onFinish={handleCreateFund} layout="vertical">
           <Form.Item name="name" label="Название" rules={[{ required: true }]}>
-            <Input placeholder="Фонд January 2026" />
+            <Input placeholder="Фонд Январь 2026" />
           </Form.Item>
           <Form.Item
             name="percent_rule"

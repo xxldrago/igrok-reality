@@ -109,8 +109,16 @@ export default function Payments() {
       title: 'Дата',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 140,
+      width: 120,
       render: (date: string) => new Date(date).toLocaleDateString('ru-RU'),
+    },
+    {
+      title: 'Время',
+      dataIndex: 'created_at',
+      key: 'created_time',
+      width: 100,
+      render: (date: string) =>
+        new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     },
   ]
 

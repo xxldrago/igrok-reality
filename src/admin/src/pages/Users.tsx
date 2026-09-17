@@ -161,14 +161,14 @@ export default function Users() {
       ),
     },
     {
-      title: 'Username',
+      title: 'Логин',
       dataIndex: 'username',
       key: 'username',
       render: (username: string | null) =>
         username ? `@${username}` : '—',
     },
     {
-      title: 'Telegram ID',
+      title: 'ID Telegram',
       dataIndex: 'telegram_id',
       key: 'telegram_id',
     },
@@ -192,7 +192,7 @@ export default function Users() {
       sorter: true,
     },
     {
-      title: 'Streak',
+      title: 'Дней подряд',
       dataIndex: 'streak',
       key: 'streak',
       sorter: true,
@@ -351,7 +351,7 @@ export default function Users() {
           {!editingUser && (
             <Form.Item
               name="telegram_id"
-              label="Telegram ID"
+              label="ID Telegram"
               rules={[{ required: true, message: 'Введите Telegram ID' }]}
             >
               <InputNumber style={{ width: '100%' }} placeholder="123456789" />
@@ -397,7 +397,7 @@ export default function Users() {
             <Form.Item name="xp" label="XP" style={{ marginBottom: 0 }}>
               <InputNumber min={0} />
             </Form.Item>
-            <Form.Item name="streak" label="Streak" style={{ marginBottom: 0 }}>
+            <Form.Item name="streak" label="Дней подряд" style={{ marginBottom: 0 }}>
               <InputNumber min={0} />
             </Form.Item>
             <Form.Item name="is_active" label="Активен" valuePropName="checked" style={{ marginBottom: 0 }}>

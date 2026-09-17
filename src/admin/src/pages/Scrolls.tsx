@@ -244,7 +244,7 @@ export default function Scrolls() {
       key: 'command',
       width: 100,
       render: (_, record) => {
-        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        const st = scrollTypes.find((s) => s.code === record.scroll_type_code)
         return st?.command || '—'
       },
     },
@@ -253,7 +253,7 @@ export default function Scrolls() {
       key: 'time',
       width: 120,
       render: (_, record) => {
-        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        const st = scrollTypes.find((s) => s.code === record.scroll_type_code)
         return st ? (
           <Tag color={timeSlotColors[st.hour] || 'default'}>
             {timeSlotLabels[st.hour] || `${st.hour}:${String(st.minute).padStart(2, '0')}`}
@@ -266,7 +266,7 @@ export default function Scrolls() {
       key: 'xp',
       width: 60,
       render: (_, record) => {
-        const st = scrollTypes.find((s) => s.id === record.scroll_type_code)
+        const st = scrollTypes.find((s) => s.code === record.scroll_type_code)
         return st ? `+${st.xp_reward}` : '—'
       },
     },
