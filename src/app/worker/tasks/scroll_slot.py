@@ -78,15 +78,24 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                 if st.code not in available_codes:
                     continue
 
-                # Get daily scroll content
-                async with session_factory() as session:
-                    result = await session.execute(
-                        select(DailyScroll).where(
-                            DailyScroll.day_number == quest_day,
-                            DailyScroll.scroll_type_id == st.id,
+                # Get daily scroll content (DB failure → type-default fallback,
+                # never kill the whole slot for remaining users)
+                try:
+                    async with session_factory() as session:
+                        result = await session.execute(
+                            select(DailyScroll).where(
+                                DailyScroll.day_number == quest_day,
+                                DailyScroll.scroll_type_id == st.id,
+                            )
                         )
+                        daily_scroll = result.scalar_one_or_none()
+                except Exception:
+                    logger.warning(
+                        "DB lookup failed for day %d type %s — using type default",
+                        quest_day,
+                        st.code,
                     )
-                    daily_scroll = result.scalar_one_or_none()
+                    daily_scroll = None
 
                 # Compose message
                 text = f"📜 {st.name} — День {quest_day}\n"
@@ -95,11 +104,25 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                 else:
                     text += f"\n{st.description}"
 
-                text += f"\n\n⏱ Выполни: {st.command} (+{st.xp_reward} XP)"
-                text += "\n\n📝 После выполнения нажмите «Начать отчёт», чтобы отправить отчёт о прохождении (текст/фото/видео/файл) и подтвердить свиток."
+                # Effective XP mirrors the completion flow (override → type).
+                effective_xp = (
+                    daily_scroll.xp_reward
+                    if daily_scroll and daily_scroll.xp_reward is not None
+                    else st.xp_reward
+                )
+                text += f"\n\n⏱ Выполни: {st.command} (+{effective_xp} XP)"
+                if daily_scroll and daily_scroll.requires_report:
+                    text += "\n\n📝 После выполнения нажмите «Начать отчёт» и отправьте отчёт (текст/фото/видео/файл) — без отчёта свиток не засчитается."
+                else:
+                    text += "\n\n📝 После выполнения нажмите «Начать отчёт», чтобы отправить отчёт о прохождении (текст/фото/видео/файл) и подтвердить свиток."
 
                 # Attachment (admin panel → scroll media URL or Telegram file_id)
                 media = daily_scroll.media_file_id if daily_scroll else None
+                # No daily row → text-only fallback WITHOUT button: a button
+                # would carry a bogus id and crash completion for everyone.
+                keyboard = (
+                    completion_keyboard(str(daily_scroll.id)) if daily_scroll else None
+                )
 
                 async def _send() -> None:
                     if media:
@@ -108,20 +131,20 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                                 user.telegram_id,
                                 media,
                                 caption=text,
-                                reply_markup=completion_keyboard(str(daily_scroll.id)),
+                                reply_markup=keyboard,
                             )
                         else:
                             await bot.send_photo(user.telegram_id, media)
                             await bot.send_message(
                                 user.telegram_id,
                                 text,
-                                reply_markup=completion_keyboard(str(daily_scroll.id)),
+                                reply_markup=keyboard,
                             )
                     else:
                         await bot.send_message(
                             user.telegram_id,
                             text,
-                            reply_markup=completion_keyboard(str(daily_scroll.id)),
+                            reply_markup=keyboard,
                         )
 
                 # Send to user

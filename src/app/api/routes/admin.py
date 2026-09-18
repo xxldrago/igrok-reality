@@ -1766,7 +1766,8 @@ async def update_daily_scroll(
             ds.media_file_id = req.media_file_id
         if req.requires_report is not None:
             ds.requires_report = req.requires_report
-        if req.xp_reward is not None:
+        # Explicit null clears the override back to "use type default".
+        if "xp_reward" in req.model_fields_set:
             ds.xp_reward = req.xp_reward
 
         await session.commit()

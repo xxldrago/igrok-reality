@@ -14,7 +14,7 @@ from app.bot.services.notification_service import (
     get_pending_notifications,
     send_notification,
 )
-from app.bot.services.settings_service import get_bot_token, get_setting
+from app.bot.services.settings_service import get_bot_token
 from app.shared.database import session_factory
 from app.shared.models.user import User
 from app.shared.models.completion import UserCompletion
@@ -58,10 +58,8 @@ async def evening_scroll_reminder(ctx: dict) -> None:
     sent = 0
 
     try:
-        # Get reminder time from settings
-        hour = int(await get_setting("reminder_hour", "20"))
-        minute = int(await get_setting("reminder_minute", "0"))
-
+        # NOTE: run time is owned by the scheduler (reminder_hour/minute);
+        # this task only checks who hasn't completed today's scroll.
         # Get all active users
         async with session_factory() as session:
             result = await session.execute(
@@ -82,9 +80,6 @@ async def evening_scroll_reminder(ctx: dict) -> None:
                 continue
 
             # Check completion
-            from app.shared.models.completion import UserCompletion
-            from sqlalchemy import select
-
             async with session_factory() as session:
                 result = await session.execute(
                     select(UserCompletion).where(
@@ -159,9 +154,6 @@ async def streak_loss_warning(ctx: dict) -> None:
                 content = await get_scroll_content(user)
 
                 if content:
-                    from app.shared.models.completion import UserCompletion
-                    from sqlalchemy import select
-
                     async with session_factory() as session:
                         result = await session.execute(
                             select(UserCompletion).where(
