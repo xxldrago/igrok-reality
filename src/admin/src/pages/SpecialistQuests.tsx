@@ -11,6 +11,15 @@ import {
   SpecialistQuestItem,
 } from '../services/api'
 import RoleGuard from '../components/RoleGuard'
+import MediaUpload from '../components/MediaUpload'
+import MediaPreview from '../components/MediaPreview'
+
+function guessMediaType(url: string): string | null {
+  const clean = url.split('?')[0].toLowerCase()
+  if (/\.(jpg|jpeg|png|gif|webp)$/.test(clean)) return 'photo'
+  if (/\.(mp4|mov|m4v|avi|mkv)$/.test(clean)) return 'video'
+  return 'document'
+}
 
 const { Title } = Typography
 
@@ -23,6 +32,8 @@ export default function SpecialistQuests() {
   const [dayFilter, setDayFilter] = useState<number | undefined>(undefined)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [form] = Form.useForm()
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
+  const [mediaType, setMediaType] = useState<string | null>(null)
   const [groups, setGroups] = useState<GroupItem[]>([])
 
   useEffect(() => {
@@ -49,12 +60,21 @@ export default function SpecialistQuests() {
     loadQuests()
   }, [groupFilter, dayFilter])
 
+  const openCreate = () => {
+    form.resetFields()
+    setMediaUrl(null)
+    setMediaType(null)
+    setCreateModalOpen(true)
+  }
+
   const handleCreate = async (values: { group_id: string; title: string; content: string; day_number: number; xp_reward?: number }) => {
     try {
-      await createSpecialistQuest(values)
+      await createSpecialistQuest({ ...values, media_file_id: mediaUrl })
       loadQuests()
       setCreateModalOpen(false)
       form.resetFields()
+      setMediaUrl(null)
+      setMediaType(null)
       message.success('Квест создан')
     } catch {
       message.error('Ошибка создания квеста')
@@ -91,6 +111,13 @@ export default function SpecialistQuests() {
       dataIndex: 'xp_reward',
       key: 'xp_reward',
       render: (xp: number) => `+${xp}`,
+    },
+    {
+      title: '📎',
+      dataIndex: 'media_file_id',
+      key: 'media_file_id',
+      width: 50,
+      render: (media: string | null) => (media ? <Tag color="blue">есть</Tag> : '—'),
     },
     {
       title: 'Дата публикации',
@@ -137,7 +164,7 @@ export default function SpecialistQuests() {
           onChange={(v) => setDayFilter(v ?? undefined)}
         />
         <RoleGuard roles={['master', 'specialist']}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             Создать квест
           </Button>
         </RoleGuard>
@@ -151,7 +178,20 @@ export default function SpecialistQuests() {
         pagination={{ pageSize: 20 }}
         expandable={{
           expandedRowRender: (record) => (
-            <div style={{ whiteSpace: 'pre-wrap', color: '#555' }}>{record.content}</div>
+            <div>
+              <div style={{ whiteSpace: 'pre-wrap', color: '#555', marginBottom: 8 }}>{record.content}</div>
+              {record.media_file_id ? (
+                <MediaPreview
+                  url={record.media_file_id}
+                  mediaType={
+                    record.media_file_id.startsWith('http')
+                      ? guessMediaType(record.media_file_id)
+                      : null
+                  }
+                  size="full"
+                />
+              ) : null}
+            </div>
           ),
         }}
       />
@@ -175,6 +215,16 @@ export default function SpecialistQuests() {
           </Form.Item>
           <Form.Item name="content" label="Содержание" rules={[{ required: true, message: 'Введите содержание' }]}>
             <TextArea rows={4} placeholder="Описание квеста" />
+          </Form.Item>
+          <Form.Item label="Вложение (фото / видео / файл)">
+            <MediaUpload
+              value={mediaUrl}
+              mediaType={mediaType}
+              onChange={(url, type) => {
+                setMediaUrl(url)
+                setMediaType(type)
+              }}
+            />
           </Form.Item>
           <Form.Item name="day_number" label="День (1-90)" rules={[{ required: true, message: 'Укажите день' }]}>
             <InputNumber min={1} max={90} style={{ width: '100%' }} />

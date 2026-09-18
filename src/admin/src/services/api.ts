@@ -828,7 +828,7 @@ export interface SpecialistQuestItem {
 export function getSpecialistQuests(params?: { group_id?: string; day_number?: number }) {
   return api.get<SpecialistQuestItem[]>('/admin/specialist-quests', { params })
 }
-export function createSpecialistQuest(data: { group_id: string; title: string; content: string; day_number: number; xp_reward?: number }) {
+export function createSpecialistQuest(data: { group_id: string; title: string; content: string; day_number: number; xp_reward?: number; media_file_id?: string | null }) {
   return api.post<SpecialistQuestItem>('/admin/specialist-quests', data)
 }
 export function deleteSpecialistQuest(id: string) {
