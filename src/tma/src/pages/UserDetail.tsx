@@ -42,7 +42,7 @@ export default function UserDetail() {
     <div>
       <div
         style={{ marginBottom: 16, cursor: 'pointer', color: 'var(--tg-theme-link-color)' }}
-        onClick={() => navigate('/app/users')}
+        onClick={() => navigate('/users')}
       >
         <ArrowLeftOutlined /> Назад к списку
       </div>

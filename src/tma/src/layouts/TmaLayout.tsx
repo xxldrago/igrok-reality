@@ -14,46 +14,53 @@ import {
 } from '@ant-design/icons'
 import { useTmaAuth } from '../contexts/TmaAuthContext'
 
+// NOTE: keys are basename-relative (BrowserRouter basename="/app").
+// navigate('/app/users') would produce /app/app/users and match nothing.
+/** Full browser path for an in-app key, for active-state comparison. */
+export function fullPath(key: string): string {
+  return key === '/' ? '/app' : `/app${key}`
+}
+
 const navItems = [
-  { key: '/app', icon: <DashboardOutlined />, label: 'Дашборд' },
-  { key: '/app/users', icon: <UserOutlined />, label: 'Пользователи' },
-  { key: '/app/scrolls', icon: <BookOutlined />, label: 'Свитки' },
-  { key: '/app/payments', icon: <DollarOutlined />, label: 'Платежи' },
+  { key: '/', icon: <DashboardOutlined />, label: 'Дашборд' },
+  { key: '/users', icon: <UserOutlined />, label: 'Пользователи' },
+  { key: '/scrolls', icon: <BookOutlined />, label: 'Свитки' },
+  { key: '/payments', icon: <DollarOutlined />, label: 'Платежи' },
 ]
 
 const roleNavItems = [
   {
-    key: '/app/finance',
+    key: '/finance',
     icon: <FundOutlined />,
     label: 'Финансы',
     roles: ['master', 'leader'],
   },
   {
-    key: '/app/moderation',
+    key: '/moderation',
     icon: <SafetyOutlined />,
     label: 'Модерация',
     roles: ['master', 'leader'],
   },
   {
-    key: '/app/reports',
+    key: '/reports',
     icon: <FileTextOutlined />,
     label: 'Отчёты',
     roles: ['master', 'leader', 'curator'],
   },
   {
-    key: '/app/broadcast',
+    key: '/broadcast',
     icon: <NotificationOutlined />,
     label: 'Рассылка',
     roles: ['master', 'leader'],
   },
   {
-    key: '/app/settings',
+    key: '/settings',
     icon: <SettingOutlined />,
     label: 'Настройки',
     roles: ['master'],
   },
   {
-    key: '/app/audit',
+    key: '/audit',
     icon: <AuditOutlined />,
     label: 'Аудит',
     roles: ['master', 'leader'],
@@ -108,7 +115,8 @@ export default function TmaLayout() {
           <div
             key={item.key}
             className={`tma-bottom-nav__item ${
-              location.pathname === item.key || location.pathname.startsWith(item.key + '/')
+              location.pathname === fullPath(item.key) ||
+              location.pathname.startsWith(fullPath(item.key) + '/')
                 ? 'tma-bottom-nav__item--active'
                 : ''
             }`}

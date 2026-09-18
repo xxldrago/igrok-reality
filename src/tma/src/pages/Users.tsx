@@ -104,7 +104,7 @@ export default function Users() {
               key={u.id}
               size="small"
               style={{ marginBottom: 8 }}
-              onClick={() => navigate(`/app/users/${u.id}`)}
+              onClick={() => navigate(`/users/${u.id}`)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>

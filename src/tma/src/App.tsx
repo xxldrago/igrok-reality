@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { Spin } from 'antd'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { Spin, Button, Result } from 'antd'
 import { TmaAuthProvider, useTmaAuth } from './contexts/TmaAuthContext'
 import TmaLayout from './layouts/TmaLayout'
 import AdminLoginFallback from './components/AdminLoginFallback'
@@ -47,6 +47,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function NotFound() {
+  const navigate = useNavigate()
+  return (
+    <Result
+      status="404"
+      title="Страница не найдена"
+      extra={
+        <Button type="primary" onClick={() => navigate('/')}>
+          На главную
+        </Button>
+      }
+    />
+  )
+}
+
 export default function App() {
   return (
     <TmaAuthProvider>
@@ -65,6 +80,7 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="audit" element={<AuditLog />} />
               <Route path="broadcast" element={<Broadcast />} />
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </BrowserRouter>
