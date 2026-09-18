@@ -3,6 +3,7 @@ import { Table, Input, Select, Space, Tag, Spin, Typography } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import { getReports, ReportItem, ReportListResponse } from '../services/api'
+import MediaPreview from '../components/MediaPreview'
 
 const { Title } = Typography
 
@@ -111,11 +112,8 @@ export default function Reports() {
         <span>
           {text || <span style={{ color: '#bbb' }}>без текста</span>}
           {record.media_url ? (
-            <div style={{ fontSize: 11 }}>
-              📎{' '}
-              <a href={record.media_url} target="_blank" rel="noreferrer">
-                {record.media_type || 'файл'}
-              </a>
+            <div style={{ marginTop: 4 }}>
+              <MediaPreview url={record.media_url} mediaType={record.media_type} size="thumb" />
             </div>
           ) : null}
         </span>
@@ -215,12 +213,18 @@ export default function Reports() {
             }))
           }
           expandable={{
-            expandedRowRender: (record) =>
-              record.text ? (
-                <div style={{ whiteSpace: 'pre-wrap' }}>{record.text}</div>
-              ) : (
-                <span style={{ color: '#999' }}>Только вложение</span>
-              ),
+            expandedRowRender: (record) => (
+              <div>
+                {record.text ? (
+                  <div style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{record.text}</div>
+                ) : (
+                  <div style={{ color: '#999', marginBottom: 8 }}>Только вложение</div>
+                )}
+                {record.media_url ? (
+                  <MediaPreview url={record.media_url} mediaType={record.media_type} size="full" />
+                ) : null}
+              </div>
+            ),
           }}
           locale={{ emptyText: 'Отчёты не найдены' }}
         />

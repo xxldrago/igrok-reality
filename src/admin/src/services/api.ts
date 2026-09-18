@@ -744,6 +744,20 @@ export function uploadMedia(file: File) {
   })
 }
 
+/** Direct URL for http(s) attachments, backend proxy path for Telegram file_ids. */
+export function attachmentSrc(url: string | null): string | null {
+  if (!url) return null
+  if (/^https?:\/\//i.test(url)) return url
+  return `/api/admin/media/telegram/${encodeURIComponent(url)}`
+}
+
+/** Download Telegram file_id bytes (admin JWT attached by interceptor). */
+export function fetchTelegramMedia(fileId: string) {
+  return api.get<Blob>(`/admin/media/telegram/${encodeURIComponent(fileId)}`, {
+    responseType: 'blob',
+  })
+}
+
 export interface ArchetypeStatsResponse {
   total: number
   by_archetype: Record<string, number>

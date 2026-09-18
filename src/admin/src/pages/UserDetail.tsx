@@ -7,6 +7,7 @@ import {
   UserProgressResponse,
   ProgressDayItem,
 } from '../services/api'
+import MediaPreview from '../components/MediaPreview'
 
 const { Title } = Typography
 
@@ -88,10 +89,12 @@ function DayDetail({ day }: { day: ProgressDayItem | undefined }) {
               </div>
             )}
             {done?.report_media_url && (
-              <div style={{ fontSize: 12 }}>
-                📎 <a href={done.report_media_url} target="_blank" rel="noreferrer">
-                  {done.report_media_type || 'файл'}
-                </a>
+              <div style={{ marginTop: 4 }}>
+                <MediaPreview
+                  url={done.report_media_url}
+                  mediaType={done.report_media_type}
+                  size="full"
+                />
               </div>
             )}
           </div>
