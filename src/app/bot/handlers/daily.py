@@ -14,6 +14,7 @@ from aiogram.types import ContentType, Message
 from sqlalchemy import select
 
 from app.shared.config import settings
+from app.bot.keyboards.scroll import today_keyboard
 from app.bot.services.day_type import (
     COMMAND_TO_SCROLL_CODE,
     GRACE_PERIOD_HOURS,
@@ -186,37 +187,43 @@ async def _handle_scroll_command(
     scroll_code: str,
     xp_override: int | None = None,
     slot: str = "",
+    tg_id: int | None = None,
+    reply=None,
 ) -> None:
     """Generic handler for scroll commands.
 
     Args:
-        message: Telegram message
+        message: Telegram message (reply target for command flow)
         command: The slash command (e.g. /wakeup)
         scroll_code: The scroll type code (e.g. rassvet)
         xp_override: Optional XP override (e.g. /scan gives +0)
         slot: Breathing-day slot (morning/day/evening) for repeated /breath
+        tg_id: Telegram user id override (button flow: callback.from_user.id)
+        reply: Reply coroutine override (button flow: callback.message.answer)
     """
-    user = await get_user_by_telegram_id(message.from_user.id)
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    user = await get_user_by_telegram_id(tid)
     if user is None:
-        await message.answer("Сначала зарегистрируйтесь через /start.")
+        await send("Сначала зарегистрируйтесь через /start.")
         return
 
     if user.paid_at is None:
-        await message.answer("Сначала оплатите участие: /pay")
+        await send("Сначала оплатите участие: /pay")
         return
 
     tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
-        await message.answer("Вы ещё не начали квест. Используйте /start.")
+        await send("Вы ещё не начали квест. Используйте /start.")
         return
 
     allowed, reason = await _is_command_allowed(
         user.id, quest_day, command, scroll_code, slot=slot
     )
     if not allowed:
-        await message.answer(reason)
+        await send(reason)
         return
 
     # Get scroll type for XP
@@ -252,7 +259,7 @@ async def _handle_scroll_command(
     if daily_scroll and daily_scroll.content:
         text += f"\n\n{daily_scroll.content}"
 
-    await message.answer(text)
+    await send(text)
 
 
 # --- Command handlers ---
@@ -282,16 +289,13 @@ async def handle_scanreport(message: Message, state: FSMContext) -> None:
     await _handle_scroll_command(message, "/scanreport", "korni")
 
 
-@daily_router.message(Command("breath"))
-async def handle_breath(message: Message, state: FSMContext) -> None:
-    """Handle /breath — Ветер (дыхательная практика).
+async def _resolve_breath(user) -> tuple[str, str]:
+    """Pick the breathing scroll (code, slot) for a user by hour.
 
-    On breathing days routes to the morning/day/evening scroll by hour,
-    so /breath can be completed 3 times (+5 XP each).
+    Shared by the /breath command and the inline-button flow.
     """
     from app.bot.services.day_type import get_breathing_slot
 
-    user = await get_user_by_telegram_id(message.from_user.id)
     code, slot = "vetr", ""
     if user is not None:
         tz_name = user.timezone or settings.TZ
@@ -300,7 +304,18 @@ async def handle_breath(message: Message, state: FSMContext) -> None:
             now_hour = datetime.now(ZoneInfo(tz_name)).hour
             slot = get_breathing_slot(now_hour)
             code = {"morning": "vetr", "day": "vetr_day", "evening": "vetr_evening"}[slot]
+    return code, slot
 
+
+@daily_router.message(Command("breath"))
+async def handle_breath(message: Message, state: FSMContext) -> None:
+    """Handle /breath — Ветер (дыхательная практика).
+
+    On breathing days routes to the morning/day/evening scroll by hour,
+    so /breath can be completed 3 times (+5 XP each).
+    """
+    user = await get_user_by_telegram_id(message.from_user.id)
+    code, slot = await _resolve_breath(user)
     await _handle_scroll_command(message, "/breath", code, slot=slot)
 
 
@@ -329,27 +344,34 @@ async def handle_sleep(message: Message, state: FSMContext) -> None:
 
 
 @daily_router.message(Command("report"))
-async def handle_report(message: Message, state: FSMContext) -> None:
+async def handle_report(
+    message: Message,
+    state: FSMContext,
+    tg_id: int | None = None,
+    reply=None,
+) -> None:
     """Handle /report — Отчёт о дне (+2 XP, optional text/photo)."""
-    user = await get_user_by_telegram_id(message.from_user.id)
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    user = await get_user_by_telegram_id(tid)
     if user is None:
-        await message.answer("Сначала зарегистрируйтесь через /start.")
+        await send("Сначала зарегистрируйтесь через /start.")
         return
 
     if user.paid_at is None:
-        await message.answer("Сначала оплатите участие: /pay")
+        await send("Сначала оплатите участие: /pay")
         return
 
     tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
-        await message.answer("Вы ещё не начали квест. Используйте /start.")
+        await send("Вы ещё не начали квест. Используйте /start.")
         return
 
     allowed, reason = await _is_command_allowed(user.id, quest_day, "/report", "otchet")
     if not allowed:
-        await message.answer(reason)
+        await send(reason)
         return
 
     # Awareness days: report is the weekly summary, +5 XP (spec 3.4); else +2
@@ -357,7 +379,7 @@ async def handle_report(message: Message, state: FSMContext) -> None:
     await _record_command(user.id, quest_day, "/report", "otchet", report_xp)
     await _update_xp(user.id, report_xp)
 
-    await message.answer(
+    await send(
         "✅ Отчёт о дне — день {day}\n+{xp} XP\n\n"
         "Можно добавить текст или фото (необязательно):".format(day=quest_day, xp=report_xp)
     )
@@ -401,18 +423,25 @@ async def handle_report_attachment(message: Message, state: FSMContext) -> None:
 
 
 @daily_router.message(Command("today"))
-async def handle_today(message: Message, state: FSMContext) -> None:
+async def handle_today(
+    message: Message,
+    state: FSMContext,
+    tg_id: int | None = None,
+    reply=None,
+) -> None:
     """Show today's scroll status — which commands have been used."""
-    user = await get_user_by_telegram_id(message.from_user.id)
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    user = await get_user_by_telegram_id(tid)
     if user is None:
-        await message.answer("Сначала зарегистрируйтесь через /start.")
+        await send("Сначала зарегистрируйтесь через /start.")
         return
 
     tz_name = user.timezone or settings.TZ
     quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
-        await message.answer("Вы ещё не начали квест.")
+        await send("Вы ещё не начали квест.")
         return
 
     # Get available scrolls for today
@@ -470,7 +499,10 @@ async def handle_today(message: Message, state: FSMContext) -> None:
 
     lines.append(f"\n💰 XP сегодня: {earned_xp}/{total_xp_today}")
 
-    await message.answer("\n".join(lines))
+    await send(
+        "\n".join(lines),
+        reply_markup=today_keyboard(available_codes, all_types, done_pairs),
+    )
 
 
 # --- Unknown command fallback (spec 4.1: typos are not recognized) ---

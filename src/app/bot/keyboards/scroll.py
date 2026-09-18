@@ -4,6 +4,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from app.bot.callbacks.runner import RunCommand
 from app.bot.callbacks.scroll import ScrollCompletion
 
 
@@ -34,6 +35,33 @@ def completion_keyboard(scroll_id: str) -> InlineKeyboardMarkup:
         text="📝 Начать отчёт",
         callback_data=ScrollCompletion(scroll_id=scroll_id).pack(),
     )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def today_keyboard(
+    available_codes: list[str],
+    types_map: dict,
+    done_pairs: set[tuple[str, str]],
+) -> InlineKeyboardMarkup:
+    """Build per-scroll run buttons for /today (done state included).
+
+    Args:
+        available_codes: Scroll type codes available today.
+        types_map: code -> scroll type (name, command).
+        done_pairs: {(command, slot)} already completed today.
+    """
+    slot_by_code = {"vetr": "morning", "vetr_day": "day", "vetr_evening": "evening"}
+    builder = InlineKeyboardBuilder()
+    for code in available_codes:
+        st = types_map.get(code)
+        if st is None:
+            continue
+        mark = "✅" if (st.command, slot_by_code.get(code, "")) in done_pairs else "⬜"
+        builder.button(
+            text=f"{mark} {st.name}",
+            callback_data=RunCommand(command=st.command).pack(),
+        )
     builder.adjust(1)
     return builder.as_markup()
 

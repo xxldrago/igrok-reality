@@ -17,6 +17,7 @@ from app.bot.handlers.payment import payment_router
 from app.bot.handlers.progress import progress_router
 from app.bot.handlers.referral import referral_router
 from app.bot.handlers.registration import registration_router
+from app.bot.handlers.runner import run_router
 from app.bot.handlers.scroll import scroll_router
 from app.bot.handlers.team import team_router
 from app.bot.handlers.commission import router as commission_router
@@ -74,6 +75,7 @@ async def main() -> None:
     dp.include_router(commission_router)
     dp.include_router(clan_router)
     dp.include_router(help_router)
+    dp.include_router(run_router)
     dp.include_router(daily_router)
 
     logger.info("Dispatcher configured — polling started")

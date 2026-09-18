@@ -18,8 +18,9 @@ leaderboard_router = Router(name="leaderboard")
 MEDALS = {0: "🥇", 1: "🥈", 2: "🥉"}
 
 
-async def format_leaderboard_message(message: Message) -> str:
+async def format_leaderboard_message(message: Message, tg_id: int | None = None) -> str:
     """Format leaderboard message with top users and medals."""
+    tid = tg_id if tg_id is not None else message.from_user.id
     limit = await get_leaderboard_limit()
     leaderboard = await get_leaderboard(limit)
 
@@ -34,7 +35,7 @@ async def format_leaderboard_message(message: Message) -> str:
         lines.append(f"{medal} {name} — {entry['xp']} XP")
 
     # Show user's rank if not in top N
-    current_user = await get_user_by_telegram_id(message.from_user.id)
+    current_user = await get_user_by_telegram_id(tid)
     if current_user:
         rank = await get_user_rank(current_user.id)
         if rank is not None and rank >= limit:
@@ -43,10 +44,14 @@ async def format_leaderboard_message(message: Message) -> str:
     return "\n".join(lines)
 
 
-async def handle_leaderboard(message: Message) -> None:
-    """Handle /leaderboard command — show top 10 users by XP."""
-    text = await format_leaderboard_message(message)
-    await message.answer(text, reply_markup=leaderboard_keyboard())
+async def handle_leaderboard(
+    message: Message, tg_id: int | None = None, reply=None
+) -> None:
+    """Handle /leaderboard command — show top users by XP."""
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    text = await format_leaderboard_message(message, tg_id=tid)
+    await send(text, reply_markup=leaderboard_keyboard())
 
 
 async def handle_leaderboard_refresh(callback: CallbackQuery) -> None:

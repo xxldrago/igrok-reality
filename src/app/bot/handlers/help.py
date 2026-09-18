@@ -70,7 +70,11 @@ _MASTER_COMMANDS: list[tuple[str, str]] = [
 
 @help_router.message(Command("menu"))
 async def handle_menu(message: Message) -> None:
-    """Show available commands based on the user's role and today's quest day."""
+    """Show inline-button menu based on the user's role and today's quest day."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+    from app.bot.callbacks.runner import RunCommand
+
     user = await get_user_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
@@ -80,38 +84,65 @@ async def handle_menu(message: Message) -> None:
 
     # Determine available scroll codes for today
     available_codes: set[str] = set()
+    quest_day = 0
     if user.started_at is not None:
         quest_day = _get_quest_day(user, user.timezone or "Asia/Krasnoyarsk")
         available_codes = set(get_available_scroll_codes(quest_day))
 
-    lines: list[str] = []
-    lines.append("*📋 Меню команд*\n")
+    # Scroll button labels come from scroll types
+    names: dict[str, str] = {}
+    if available_codes:
+        from sqlalchemy import select
 
-    # ── Scroll commands ────────────────────────────────────────────
-    lines.append("*📜 Свитки:*")
-    for cmd, desc, scroll_code in _PLAYER_COMMANDS:
-        if scroll_code is not None and available_codes and scroll_code not in available_codes:
-            lines.append(f"  {cmd} — {desc} \\(_недоступен сегодня\\)")
-        else:
-            lines.append(f"  {cmd} — {desc}")
+        from app.shared.database import session_factory
+        from app.shared.models.scroll_type import ScrollType
 
-    # ── Role-gated admin commands ──────────────────────────────────
+        async with session_factory() as session:
+            result = await session.execute(select(ScrollType))
+            names = {st.code: st.name for st in result.scalars().all()}
+
+    builder = InlineKeyboardBuilder()
+    for cmd, _desc, scroll_code in _PLAYER_COMMANDS:
+        if cmd == "/start" or scroll_code is None:
+            continue
+        if available_codes and scroll_code not in available_codes:
+            continue
+        label = names.get(scroll_code, scroll_code)
+        builder.button(text=label, callback_data=RunCommand(command=cmd).pack())
+    builder.adjust(2)
+
+    # ── Quick actions ──────────────────────────────────────────────
+    for label, cmd in (
+        ("📅 Сегодня", "/today"),
+        ("📝 Отчёт", "/report"),
+        ("⚡ Прогресс", "/progress"),
+        ("🏆 Топ", "/leaderboard"),
+        ("💳 Оплата", "/pay"),
+        ("🔗 Рефералка", "/referral"),
+        ("❓ Помощь", "/help"),
+    ):
+        builder.button(text=label, callback_data=RunCommand(command=cmd).pack())
+    builder.adjust(2)
+
+    lines = [f"📋 Меню — день {quest_day} из 90\n", "Выбирайте кнопками ниже:"]
+
+    # ── Role-gated admin commands (text — rarely used, kept as-is) ──
     if role in ("curator", "leader", "master"):
-        lines.append("\n*⚙️ Модерация:*")
+        lines.append("\n⚙️ Модерация:")
         for cmd, desc in _CURATOR_COMMANDS:
             lines.append(f"  {cmd} — {desc}")
 
     if role in ("leader", "master"):
-        lines.append("\n*📨 Командование:*")
+        lines.append("\n📨 Командование:")
         for cmd, desc in _LEADER_COMMANDS:
             lines.append(f"  {cmd} — {desc}")
 
     if role == "master":
-        lines.append("\n*🔑 Управление:*")
+        lines.append("\n🔑 Управление:")
         for cmd, desc in _MASTER_COMMANDS:
             lines.append(f"  {cmd} — {desc}")
 
-    await message.answer("\n".join(lines), parse_mode="Markdown")
+    await message.answer("\n".join(lines), reply_markup=builder.as_markup())
 
 
 # ── /help ──────────────────────────────────────────────────────────
@@ -131,9 +162,12 @@ HELP_TEXT = (
 
 
 @help_router.message(Command("help"))
-async def handle_help(message: Message, state: FSMContext) -> None:
+async def handle_help(
+    message: Message, state: FSMContext, reply=None
+) -> None:
     """Start help report flow."""
-    await message.answer(HELP_TEXT)
+    send = reply or message.answer
+    await send(HELP_TEXT)
     await state.set_state(HelpState.waiting_for_reason)
 
 

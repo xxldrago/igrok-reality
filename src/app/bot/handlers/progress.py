@@ -15,11 +15,15 @@ from app.shared.config import settings
 progress_router = Router(name="progress")
 
 
-async def handle_progress(message: Message) -> None:
+async def handle_progress(
+    message: Message, tg_id: int | None = None, reply=None
+) -> None:
     """Handle /progress command — show user's XP, streak, and completions count."""
-    user = await get_user_by_telegram_id(message.from_user.id)
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    user = await get_user_by_telegram_id(tid)
     if user is None:
-        await message.answer("Сначала зарегистрируйся через /start")
+        await send("Сначала зарегистрируйся через /start")
         return
 
     stats = await get_user_stats(user.id)
@@ -29,7 +33,7 @@ async def handle_progress(message: Message) -> None:
         f"🔥 Серия: {stats['streak']} дней\n"
         f"✅ Выполнено: {stats['completions']} свитков"
     )
-    await message.answer(text)
+    await send(text)
 
 
 @progress_router.message(Command("progress"))

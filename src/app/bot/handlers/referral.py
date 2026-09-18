@@ -17,12 +17,16 @@ referral_router = Router(name="referral")
 
 
 @referral_router.message(Command("referral"))
-async def referral_handler(message: Message) -> None:
+async def referral_handler(
+    message: Message, tg_id: int | None = None, reply=None
+) -> None:
     """Handle /referral command — show user their unique referral link."""
-    user = await get_user_by_telegram_id(message.from_user.id)
+    tid = tg_id if tg_id is not None else message.from_user.id
+    send = reply or message.answer
+    user = await get_user_by_telegram_id(tid)
 
     if user is None:
-        await message.answer("Сначала зарегистрируйтесь: /start")
+        await send("Сначала зарегистрируйтесь: /start")
         return
 
     # Ensure the user has a referral code (legacy users may not have one)
@@ -42,4 +46,4 @@ async def referral_handler(message: Message) -> None:
     builder.button(text="Скопировать ссылку", copy_text=CopyTextButton(text=link))
     keyboard = builder.as_markup()
 
-    await message.answer(text, reply_markup=keyboard)
+    await send(text, reply_markup=keyboard)
