@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Input, Select, Space, Tag, Spin, Typography } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
+import { Table, Input, Select, Space, Tag, Spin, Typography, Button, Popconfirm, message } from 'antd'
+import { SearchOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { getReports, ReportItem, ReportListResponse } from '../services/api'
+import { getReports, deleteReport, ReportItem, ReportListResponse } from '../services/api'
 import MediaPreview from '../components/MediaPreview'
+import RoleGuard from '../components/RoleGuard'
 
 const { Title } = Typography
 
@@ -133,7 +134,36 @@ export default function Reports() {
       width: 150,
       render: (date: string) => new Date(date).toLocaleString('ru-RU'),
     },
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 60,
+      render: (_, record) => (
+        <RoleGuard roles={['master', 'leader']}>
+          <Popconfirm
+            title="Удалить отчёт?"
+            description="Запись будет удалена безвозвратно."
+            okText="Удалить"
+            cancelText="Отмена"
+            okType="danger"
+            onConfirm={() => handleDeleteReport(record)}
+          >
+            <Button type="link" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </RoleGuard>
+      ),
+    },
   ]
+
+  const handleDeleteReport = async (record: ReportItem) => {
+    try {
+      await deleteReport(record.id, record.source)
+      message.success('Отчёт удалён')
+      fetchData()
+    } catch {
+      message.error('Ошибка удаления')
+    }
+  }
 
   return (
     <div>

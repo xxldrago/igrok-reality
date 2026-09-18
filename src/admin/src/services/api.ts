@@ -121,6 +121,10 @@ export function updateUser(id: string, data: UserUpdateData) {
   return api.put<UserListItem>(`/admin/users/${id}`, data)
 }
 
+export function deleteUser(id: string) {
+  return api.delete<{ user_id: string; deleted: boolean }>(`/admin/users/${id}`)
+}
+
 // --- Admin profile ---
 
 export interface AdminProfile {
@@ -468,6 +472,10 @@ export function replyModerationReport(id: string, data: ModerationReplyData) {
   return api.post<{ report_id: string; sent: boolean }>(`/admin/moderation/${id}/reply`, data)
 }
 
+export function deleteModerationReport(id: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/moderation/${id}`)
+}
+
 // --- Role change ---
 
 export function changeUserRole(userId: string, role: string) {
@@ -623,6 +631,16 @@ export function updateDailyScroll(
   data: { title?: string; content?: string; media_file_id?: string; requires_report?: boolean; xp_reward?: number | null },
 ) {
   return api.put(`/admin/daily-scrolls/${id}`, data)
+}
+
+export function deleteDailyScroll(id: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/daily-scrolls/${id}`)
+}
+
+export function deleteReport(id: string, source: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/reports/${id}`, {
+    params: { source },
+  })
 }
 
 // --- User Commands interfaces ---

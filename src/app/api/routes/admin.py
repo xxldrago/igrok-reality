@@ -1774,6 +1774,38 @@ async def update_daily_scroll(
         return {"id": str(scroll_id), "updated": True}
 
 
+@admin_router.delete(
+    "/daily-scrolls/{scroll_id}",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def delete_daily_scroll(scroll_id: UUID) -> dict:
+    """Delete a daily scroll (command history is detached, XP kept)."""
+    from sqlalchemy import update as sa_update
+
+    from app.shared.models.daily_scroll import DailyScroll as DailyScrollModel
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(DailyScrollModel).where(DailyScrollModel.id == scroll_id)
+        )
+        ds = result.scalar_one_or_none()
+        if ds is None:
+            raise HTTPException(status_code=404, detail="Daily scroll not found")
+
+        label = f"day={ds.day_number}"
+        await session.execute(
+            sa_update(UserDailyCommand)
+            .where(UserDailyCommand.daily_scroll_id == scroll_id)
+            .values(daily_scroll_id=None)
+        )
+        await session.delete(ds)
+        session.add(AuditLog(action="daily_scroll_deleted", details=f"Deleted {label} {scroll_id}"))
+        await session.commit()
+
+    return {"id": str(scroll_id), "deleted": True}
+
+
 # --- User Daily Commands endpoint ---
 
 
@@ -2144,6 +2176,62 @@ async def list_reports(
         page=page,
         page_size=page_size,
     )
+
+
+@admin_router.delete(
+    "/reports/{report_id}",
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def delete_report(
+    report_id: UUID, source: str = Query(..., description="'scroll' or 'daily'")
+) -> dict:
+    """Delete a single user report (completion or daily command row)."""
+    from app.shared.models.completion import UserCompletion
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    if source not in ("scroll", "daily"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="source must be 'scroll' or 'daily'",
+        )
+    model = UserCompletion if source == "scroll" else UserDailyCommand
+
+    async with session_factory() as session:
+        result = await session.execute(select(model).where(model.id == report_id))
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Report not found")
+        await session.delete(row)
+        session.add(
+            AuditLog(action="report_deleted", details=f"Deleted {source} report {report_id}")
+        )
+        await session.commit()
+
+    return {"id": str(report_id), "deleted": True}
+
+
+@admin_router.delete(
+    "/moderation/{report_id}",
+    dependencies=[Depends(require_role("master"))],
+)
+async def delete_moderation_report(report_id: UUID) -> dict:
+    """Delete a moderation report (spam cleanup)."""
+    from app.shared.models.moderation_report import ModerationReport
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ModerationReport).where(ModerationReport.id == report_id)
+        )
+        report = result.scalar_one_or_none()
+        if report is None:
+            raise HTTPException(status_code=404, detail="Report not found")
+        await session.delete(report)
+        session.add(
+            AuditLog(action="moderation_deleted", details=f"Deleted report {report_id}")
+        )
+        await session.commit()
+
+    return {"id": str(report_id), "deleted": True}
 
 
 # --- Quiz management endpoints ---
@@ -2658,6 +2746,102 @@ async def update_user_admin(user_id: UUID, req: UserUpdateRequest) -> UserListIt
         await session.commit()
         await session.refresh(user)
         return UserListItem.model_validate(user)
+
+
+@admin_router.delete(
+    "/users/{user_id}",
+    dependencies=[Depends(require_role("master"))],
+)
+async def delete_user_admin(user_id: UUID) -> dict:
+    """Delete a user with all dependent rows (master only, audited).
+
+    Blocked for masters (lockout risk) and for owners/authors of groups,
+    clans or specialist quests (reassign those first).
+    """
+    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import update as sa_update
+
+    from app.shared.models.clan import Clan, ClanMember
+    from app.shared.models.commission import CommissionBalance
+    from app.shared.models.completion import UserCompletion
+    from app.shared.models.group import Group
+    from app.shared.models.moderation_report import ModerationReport
+    from app.shared.models.notification import Notification
+    from app.shared.models.payment import Payment
+    from app.shared.models.prize_fund import PrizeFundPayout
+    from app.shared.models.role_history import RoleHistory
+    from app.shared.models.specialist_quest import SpecialistQuest
+    from app.shared.models.user import Referral
+    from app.shared.models.user_daily_command import UserDailyCommand
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+        if user.role == "master":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete a master (lockout risk)",
+            )
+
+        label = f"@{user.username}" if user.username else user.first_name
+
+        for model, field, name in (
+            (Group, Group.owner_id, "groups"),
+            (Clan, Clan.owner_id, "clans"),
+            (SpecialistQuest, SpecialistQuest.specialist_id, "specialist quests"),
+        ):
+            owned = await session.execute(
+                select(model.id).where(field == user_id).limit(1)
+            )
+            if owned.scalar_one_or_none() is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"User owns {name} — reassign or delete them first",
+                )
+
+        # Cascade: child rows first
+        for model, field in (
+            (Payment, Payment.user_id),
+            (UserCompletion, UserCompletion.user_id),
+            (UserDailyCommand, UserDailyCommand.user_id),
+            (CommissionBalance, CommissionBalance.user_id),
+            (PrizeFundPayout, PrizeFundPayout.user_id),
+            (Notification, Notification.user_id),
+            (ModerationReport, ModerationReport.user_id),
+            (RoleHistory, RoleHistory.user_id),
+            (ClanMember, ClanMember.user_id),
+        ):
+            await session.execute(sa_delete(model).where(field == user_id))
+        await session.execute(
+            sa_delete(Referral).where(
+                (Referral.referrer_id == user_id) | (Referral.referee_id == user_id)
+            )
+        )
+        # Nullify loose references (history stays readable)
+        await session.execute(
+            sa_update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)
+        )
+        await session.execute(
+            sa_update(RoleHistory)
+            .where(RoleHistory.changed_by_id == user_id)
+            .values(changed_by_id=None)
+        )
+        await session.execute(
+            sa_update(AuditLog).where(AuditLog.admin_id == user_id).values(admin_id=None)
+        )
+
+        await session.delete(user)
+        session.add(
+            AuditLog(action="user_deleted", details=f"Deleted user {user_id} ({label})")
+        )
+        await session.commit()
+
+    return {"user_id": str(user_id), "deleted": True}
 
 
 # --- Extended settings schema endpoint ---

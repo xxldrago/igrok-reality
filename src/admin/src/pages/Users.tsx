@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Input, InputNumber, Select, Space, Tag, Spin, Typography, Button, Modal, Form, Switch, message } from 'antd'
-import { SearchOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
+import { Table, Input, InputNumber, Select, Space, Tag, Spin, Typography, Button, Modal, Form, Switch, message, Popconfirm } from 'antd'
+import { SearchOutlined, EditOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { getUsers, createUser, updateUser, UserListItem, UserListResponse, UserUpdateData } from '../services/api'
+import { getUsers, createUser, updateUser, deleteUser, UserListItem, UserListResponse, UserUpdateData } from '../services/api'
 import UserDetail from './UserDetail'
 import RoleGuard from '../components/RoleGuard'
 
@@ -81,6 +81,18 @@ export default function Users() {
   const handleRowClick = (record: UserListItem) => {
     setSelectedUser(record)
     setDrawerOpen(true)
+  }
+
+  const handleDelete = async (record: UserListItem) => {
+    try {
+      await deleteUser(record.id)
+      message.success('Пользователь удалён')
+      fetchData()
+    } catch (e: unknown) {
+      const detail =
+        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      message.error(detail || 'Ошибка удаления')
+    }
   }
 
   const handleAdd = () => {
@@ -227,18 +239,31 @@ export default function Users() {
       title: 'Действия',
       key: 'actions',
       render: (_: unknown, record: UserListItem) => (
-        <RoleGuard roles={['master', 'leader']}>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation()
-              handleEdit(record)
-            }}
-          >
-            Изменить
-          </Button>
-        </RoleGuard>
+        <Space onClick={(e) => e.stopPropagation()}>
+          <RoleGuard roles={['master', 'leader']}>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            >
+              Изменить
+            </Button>
+          </RoleGuard>
+          <RoleGuard roles={['master']}>
+            <Popconfirm
+              title="Удалить пользователя?"
+              description="Будут удалены платежи, прогресс, рефералки и уведомления. Действие необратимо."
+              okText="Удалить"
+              cancelText="Отмена"
+              okType="danger"
+              onConfirm={() => handleDelete(record)}
+            >
+              <Button type="link" danger icon={<DeleteOutlined />}>
+                Удалить
+              </Button>
+            </Popconfirm>
+          </RoleGuard>
+        </Space>
       ),
     },
   ]

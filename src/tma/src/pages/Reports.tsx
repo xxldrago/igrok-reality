@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Input, Select, Space, Tag, Spin, Typography } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
+import { Table, Input, Select, Space, Tag, Spin, Typography, Button, Popconfirm, message } from 'antd'
+import { SearchOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { getReports, ReportItem, ReportListResponse } from '../services/api'
+import { getReports, deleteReport, ReportItem, ReportListResponse } from '../services/api'
 import MediaPreview from '../components/MediaPreview'
 
 const { Title } = Typography
@@ -132,6 +132,30 @@ export default function Reports() {
       key: 'created_at',
       width: 150,
       render: (date: string) => new Date(date).toLocaleString('ru-RU'),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 50,
+      render: (_, record) => (
+        <Popconfirm
+          title="Удалить отчёт?"
+          okText="Удалить"
+          cancelText="Отмена"
+          okType="danger"
+          onConfirm={async () => {
+            try {
+              await deleteReport(record.id, record.source)
+              message.success('Отчёт удалён')
+              fetchData()
+            } catch {
+              message.error('Ошибка удаления')
+            }
+          }}
+        >
+          <Button type="link" danger size="small" icon={<DeleteOutlined />} />
+        </Popconfirm>
+      ),
     },
   ]
 

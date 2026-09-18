@@ -355,6 +355,16 @@ export function replyModerationReport(id: string, data: ModerationReplyData) {
   return api.post<{ report_id: string; sent: boolean }>(`/admin/moderation/${id}/reply`, data)
 }
 
+export function deleteModerationReport(id: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/moderation/${id}`)
+}
+
+export function deleteReport(id: string, source: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/reports/${id}`, {
+    params: { source },
+  })
+}
+
 // --- User reports ---
 
 export interface ReportItem {

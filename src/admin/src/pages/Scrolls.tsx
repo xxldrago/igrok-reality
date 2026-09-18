@@ -27,6 +27,7 @@ import {
   getScrollCoverage,
   updateDailyScroll,
   createDailyScroll,
+  deleteDailyScroll,
   updateScrollType,
   getSettings,
   updateSettings,
@@ -227,6 +228,17 @@ export default function Scrolls() {
     }
   }
 
+  const handleDeleteDaily = async (id: string) => {
+    try {
+      await deleteDailyScroll(id)
+      message.success('Свиток удалён')
+      fetchDailyScrolls()
+      fetchCoverage()
+    } catch {
+      message.error('Ошибка удаления')
+    }
+  }
+
   const openCreate = () => {
     createForm.resetFields()
     createForm.setFieldsValue({
@@ -360,13 +372,27 @@ export default function Scrolls() {
     {
       title: 'Действия',
       key: 'actions',
-      width: 60,
+      width: 110,
       render: (_, record) => (
-        <Button
-          type="link"
-          icon={<EditOutlined />}
-          onClick={() => handleEdit(record)}
-        />
+        <Space size="small">
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
+          <RoleGuard roles={['master', 'leader']}>
+            <Popconfirm
+              title="Удалить свиток?"
+              description={`День ${record.day_number}. История выполнений сохранится.`}
+              okText="Удалить"
+              cancelText="Отмена"
+              okType="danger"
+              onConfirm={() => handleDeleteDaily(record.id)}
+            >
+              <Button type="link" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </RoleGuard>
+        </Space>
       ),
     },
   ]

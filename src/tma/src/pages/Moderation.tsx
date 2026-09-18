@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Table, Tag, Select, Space, Button, Typography, Modal, Form, Input, message } from 'antd'
-import { CheckCircleOutlined, StopOutlined, WarningOutlined, MessageOutlined } from '@ant-design/icons'
+import { Table, Tag, Select, Space, Button, Typography, Modal, Form, Input, message, Popconfirm } from 'antd'
+import { CheckCircleOutlined, StopOutlined, WarningOutlined, MessageOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
   getModerationReports,
   resolveModerationReport,
   replyModerationReport,
+  deleteModerationReport,
   ModerationReportItem,
 } from '../services/api'
 import MediaUpload from '../components/MediaUpload'
@@ -111,34 +112,54 @@ export default function Moderation() {
     {
       title: '',
       key: 'actions',
-      render: (_, record) =>
-        record.status === 'pending' ? (
-          <Space size="small">
-            <Button
-              size="small"
-              icon={<MessageOutlined />}
-              onClick={() => openReply(record)}
-            />
-            <Button
-              size="small"
-              icon={<WarningOutlined />}
-              onClick={() => handleResolve(record.id, 'warn')}
-            />
-            <Button
-              size="small"
-              danger
-              icon={<StopOutlined />}
-              onClick={() => handleResolve(record.id, 'ban')}
-            />
-            <Button
-              size="small"
-              danger
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleResolve(record.id, 'exclude')}
-            />
-          </Space>
-        ) : null,
+      render: (_, record) => (
+        <Space size="small">
+          {record.status === 'pending' ? (
+            <>
+              <Button
+                size="small"
+                icon={<MessageOutlined />}
+                onClick={() => openReply(record)}
+              />
+              <Button
+                size="small"
+                icon={<WarningOutlined />}
+                onClick={() => handleResolve(record.id, 'warn')}
+              />
+              <Button
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={() => handleResolve(record.id, 'ban')}
+              />
+              <Button
+                size="small"
+                danger
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleResolve(record.id, 'exclude')}
+              />
+            </>
+          ) : null}
+          <Popconfirm
+            title="Удалить жалобу?"
+            okText="Удалить"
+            cancelText="Отмена"
+            okType="danger"
+            onConfirm={async () => {
+              try {
+                await deleteModerationReport(record.id)
+                message.success('Жалоба удалена')
+                loadReports(statusFilter)
+              } catch {
+                message.error('Ошибка удаления')
+              }
+            }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
     },
   ]
 

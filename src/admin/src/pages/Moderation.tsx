@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Table, Tag, Select, Space, Button, Typography, Modal, Form, Input, message } from 'antd'
-import { CheckCircleOutlined, StopOutlined, WarningOutlined, MessageOutlined } from '@ant-design/icons'
+import { Table, Tag, Select, Space, Button, Typography, Modal, Form, Input, message, Popconfirm } from 'antd'
+import { CheckCircleOutlined, StopOutlined, WarningOutlined, MessageOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
   getModerationReports,
   resolveModerationReport,
   replyModerationReport,
+  deleteModerationReport,
   ModerationReportItem,
 } from '../services/api'
+import RoleGuard from '../components/RoleGuard'
 import MediaUpload from '../components/MediaUpload'
 
 const { Title } = Typography
@@ -60,6 +62,16 @@ export default function Moderation() {
       message.success(`Решение принято: ${decision}`)
     } catch {
       message.error('Ошибка')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteModerationReport(id)
+      loadReports(statusFilter)
+      message.success('Жалоба удалена')
+    } catch {
+      message.error('Ошибка удаления')
     }
   }
 
@@ -118,42 +130,59 @@ export default function Moderation() {
     {
       title: 'Действия',
       key: 'actions',
-      render: (_, record) =>
-        record.status === 'pending' ? (
-          <Space wrap>
-            <Button
-              size="small"
-              icon={<MessageOutlined />}
-              onClick={() => openReply(record)}
+      render: (_, record) => (
+        <Space wrap>
+          {record.status === 'pending' ? (
+            <>
+              <Button
+                size="small"
+                icon={<MessageOutlined />}
+                onClick={() => openReply(record)}
+              >
+                Ответить
+              </Button>
+              <Button
+                size="small"
+                icon={<WarningOutlined />}
+                onClick={() => handleResolve(record.id, 'warn')}
+              >
+                Предупредить
+              </Button>
+              <Button
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={() => handleResolve(record.id, 'ban')}
+              >
+                Заблокировать
+              </Button>
+              <Button
+                size="small"
+                danger
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleResolve(record.id, 'exclude')}
+              >
+                Исключить
+              </Button>
+            </>
+          ) : null}
+          <RoleGuard roles={['master']}>
+            <Popconfirm
+              title="Удалить жалобу?"
+              description="Запись будет удалена безвозвратно."
+              okText="Удалить"
+              cancelText="Отмена"
+              okType="danger"
+              onConfirm={() => handleDelete(record.id)}
             >
-              Ответить
-            </Button>
-            <Button
-              size="small"
-              icon={<WarningOutlined />}
-              onClick={() => handleResolve(record.id, 'warn')}
-            >
-              Предупредить
-            </Button>
-            <Button
-              size="small"
-              danger
-              icon={<StopOutlined />}
-              onClick={() => handleResolve(record.id, 'ban')}
-            >
-              Заблокировать
-            </Button>
-            <Button
-              size="small"
-              danger
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleResolve(record.id, 'exclude')}
-            >
-              Исключить
-            </Button>
-          </Space>
-        ) : null,
+              <Button size="small" danger icon={<DeleteOutlined />}>
+                Удалить
+              </Button>
+            </Popconfirm>
+          </RoleGuard>
+        </Space>
+      ),
     },
   ]
 
