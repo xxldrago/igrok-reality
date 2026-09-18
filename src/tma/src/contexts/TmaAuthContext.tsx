@@ -23,7 +23,18 @@ export function TmaAuthProvider({ children }: { children: ReactNode }) {
       const tg = window.Telegram?.WebApp
       if (!tg) {
         // Opened in a regular browser — password login fallback (no error).
+        // A token saved by a previous password login is validated here,
+        // otherwise the login form would reappear after every reload.
         setIsWebMode(true)
+        const stored = localStorage.getItem('tma_access_token')
+        if (stored) {
+          try {
+            const me = await api.get('/admin/auth/me')
+            setUser(me.data)
+          } catch {
+            localStorage.removeItem('tma_access_token')
+          }
+        }
         setLoading(false)
         return
       }
