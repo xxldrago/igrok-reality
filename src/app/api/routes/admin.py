@@ -2445,6 +2445,7 @@ class BroadcastRequest(BaseModel):
 
     text: str = Field(min_length=1, max_length=4000, description="Message text")
     archetype: Optional[str] = Field(None, description="Filter by archetype: head, shell, whirlwind, ghost. Null = all.")
+    group_id: Optional[UUID] = Field(None, description="Limit to members of this group. Null = all groups.")
     parse_mode: Optional[str] = Field(None, description="Telegram parse_mode: Markdown, HTML")
     media_url: Optional[str] = Field(None, description="Attachment URL (photo/video/document)")
     media_type: Optional[str] = Field(None, description="photo, video or document")
@@ -2510,6 +2511,22 @@ async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
             detail="media_type is required when media_url is set",
         )
 
+    group_name: Optional[str] = None
+    if req.group_id is not None:
+        from app.shared.models.group import Group
+
+        async with session_factory() as session:
+            group_result = await session.execute(
+                select(Group).where(Group.id == req.group_id)
+            )
+            group = group_result.scalar_one_or_none()
+            if group is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Group not found",
+                )
+            group_name = group.name
+
     # Create notifications (queued; the worker sends due ones every minute)
     notifications = await send_system_notification_to_all(
         "broadcast",
@@ -2517,8 +2534,9 @@ async def send_broadcast(req: BroadcastRequest) -> BroadcastResponse:
         media_url=req.media_url,
         media_type=req.media_type,
         scheduled_at=req.scheduled_at,
-        audience=req.archetype or "all",
+        audience=(group_name or req.archetype or "all")[:100],
         archetype=req.archetype,
+        group_id=req.group_id,
         parse_mode=req.parse_mode,
     )
 

@@ -49,9 +49,10 @@ async def send_system_notification_to_all(
     scheduled_at: datetime | None = None,
     audience: str | None = None,
     archetype: str | None = None,
+    group_id: UUID | None = None,
     parse_mode: str | None = None,
 ) -> list[Notification]:
-    """Create a notification for active users (optionally one archetype).
+    """Create a notification for active users (optionally one archetype/group).
 
     When scheduled_at is in the future the rows stay queued until due —
     the worker only picks notifications whose time has come.
@@ -60,6 +61,8 @@ async def send_system_notification_to_all(
         query = select(User).where(User.archetype.isnot(None), User.started_at.isnot(None))
         if archetype:
             query = query.where(User.archetype == archetype)
+        if group_id is not None:
+            query = query.where(User.group_id == group_id)
         result = await session.execute(query)
         users = list(result.scalars().all())
 

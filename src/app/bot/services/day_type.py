@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 
 # Meditation days: 1, 8, 15, 22, 29, 36, 43, 50, 57, 64, 71, 78, 85
@@ -57,6 +59,29 @@ def get_day_type(day_number: int) -> DayType:
 
 
 # Breathing-day /breath slots: (slot name, scroll type code)
+def get_current_quest_day(
+    started_at: datetime | None,
+    tz_name: str,
+    grace_hours: int = 5,
+    now: datetime | None = None,
+) -> int:
+    """Current quest day for a user (0 when the quest hasn't started).
+
+    Grace-aware: commands within grace_hours after midnight count for the
+    previous day. Clamped to 1-90.
+    """
+    if started_at is None:
+        return 0
+    tz = ZoneInfo(tz_name)
+    now = now or datetime.now(tz)
+    started = started_at.replace(tzinfo=timezone.utc).astimezone(tz)
+    effective_date = now.date()
+    if grace_hours > 0 and now.hour < grace_hours:
+        effective_date = now.date() - timedelta(days=1)
+    delta = (effective_date - started.date()).days
+    return min(max(delta + 1, 0), 90)
+
+
 BREATHING_SLOTS: list[tuple[str, str]] = [
     ("morning", "vetr"),  # 08:00 — standing
     ("day", "vetr_day"),  # 14:00 — sitting

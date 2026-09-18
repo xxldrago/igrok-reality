@@ -25,5 +25,5 @@ class Notification(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     media_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     media_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # photo|video|document
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
-    audience: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # archetype or 'all'
+    audience: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # archetype, group name or 'all'
     parse_mode: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # HTML|Markdown or None

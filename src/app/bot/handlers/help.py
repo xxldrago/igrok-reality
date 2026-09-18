@@ -152,6 +152,19 @@ async def handle_help_reason(message: Message, state: FSMContext) -> None:
         return
 
     await submit_report(user.id, reason)
+
+    # Notify the master channel (best-effort, never blocks the user flow).
+    try:
+        from app.bot.services.master_feed_service import forward_support_request
+
+        await forward_support_request(user, reason)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "support notify failed for user %s", user.id
+        )
+
     await state.clear()
     await message.answer(
         "Ваш запрос отправлен. Мы свяжемся с вами в ближайшее время."

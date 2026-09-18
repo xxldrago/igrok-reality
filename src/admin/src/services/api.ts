@@ -710,6 +710,7 @@ export function getUserProgress(userId: string) {
 export interface BroadcastRequest {
   text: string
   archetype?: string | null
+  group_id?: string | null
   parse_mode?: string
   media_url?: string | null
   media_type?: string | null

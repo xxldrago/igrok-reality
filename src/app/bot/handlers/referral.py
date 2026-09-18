@@ -34,8 +34,12 @@ async def referral_handler(message: Message) -> None:
         "Поделитесь с друзьями! За каждого оплатившего реферала вы получаете комиссию."
     )
 
+    from aiogram.types import CopyTextButton
+
     builder = InlineKeyboardBuilder()
-    builder.button(text="Скопировать ссылку", callback_data=f"copy_ref:{code}")
+    # Native Telegram copy button (copies to clipboard on tap).
+    # The old callback_data="copy_ref:..." button had no handler and did nothing.
+    builder.button(text="Скопировать ссылку", copy_text=CopyTextButton(text=link))
     keyboard = builder.as_markup()
 
     await message.answer(text, reply_markup=keyboard)

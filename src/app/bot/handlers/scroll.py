@@ -3,8 +3,10 @@
 Flow:
 1. User clicks '📝 Пройти свиток' → entries report FSM (waiting_for_report).
 2. User sends report content (text / photo / video / document) → stored in FSM state.
-3. User clicks '✅ Свиток пройден' → completion created with stored report, XP awarded, report forwarded to Master.
-   Or clicks '⏭ Пропустить отчёт' → completion created without report, XP awarded.
+3. User clicks '✅ Свиток пройден' → completion created with the attached
+   report, XP awarded, report forwarded to Master. Without attached content
+   the scroll is NOT counted; reports are accepted only on the scroll's own
+   quest day (until 23:59 local time).
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ scroll_router = Router(name="scroll")
 REPORT_PROMPT = (
     "\U0001F4DD Передайте отчёт по свитку.\n\n"
     "Пришлите текст, фото, видео или файл и нажмите «\u2705 Свиток пройден».\n"
-    "Если отчёта нет — нажмите «\u23ED Пропустить отчёт»."
+    "Без отчёта свиток не засчитается."
 )
 
 
@@ -101,13 +103,28 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
 
     # Load the daily scroll for report/XP policy (None for legacy rows).
     daily_scroll = await _get_daily_scroll(scroll_id)
-    requires_report = daily_scroll.requires_report if daily_scroll is not None else True
 
-    # Enforce mandatory reports: skip is not allowed without content.
-    has_content = bool(data.get("report_text") or data.get("media_file_id"))
-    if action == "skip" and requires_report and not has_content:
+    # Deadline: reports are accepted only on the scroll's own quest day
+    # (grace-aware, i.e. until 23:59 local time). Late submits are rejected.
+    scroll_day = await _resolve_scroll_day(scroll_id, daily_scroll)
+    if scroll_day is None:
+        await callback.answer("Свиток не найден.")
+        await state.clear()
+        return
+    current_day = await _get_user_quest_day(user_id)
+    if current_day == 0 or scroll_day != current_day:
         await callback.answer(
-            "Для этого свитка нужен отчёт — прикрепите текст или файл.",
+            "Отчёт принимается только в день свитка (до 23:59).",
+            show_alert=True,
+        )
+        await state.clear()
+        return
+
+    # A scroll counts as passed only with attached content + submit.
+    has_content = bool(data.get("report_text") or data.get("media_file_id"))
+    if not has_content:
+        await callback.answer(
+            "Сначала отправьте текст или файл отчёта, затем нажмите «✅ Свиток пройден».",
             show_alert=True,
         )
         return  # keep the state so the user can attach the report
@@ -124,18 +141,17 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
         await state.clear()
         return
 
-    # Attach report if user chose to submit and provided content.
-    if action == "submit":
-        report_text = data.get("report_text") or None
-        media_file_id = data.get("media_file_id") or None
-        media_type = data.get("media_type") or None
-        await update_completion_report(
-            user_id=user_id,
-            scroll_id=scroll_id,
-            report_text=report_text,
-            report_media_url=media_file_id,
-            report_media_type=media_type,
-        )
+    # Attach the report (content is guaranteed by the check above).
+    report_text = data.get("report_text") or None
+    media_file_id = data.get("media_file_id") or None
+    media_type = data.get("media_type") or None
+    await update_completion_report(
+        user_id=user_id,
+        scroll_id=scroll_id,
+        report_text=report_text,
+        report_media_url=media_file_id,
+        report_media_type=media_type,
+    )
 
     new_xp = await add_xp(user_id=user_id, xp=completion.xp_awarded)
     new_streak = await update_streak(user_id=user_id)
@@ -157,9 +173,8 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
 
     await state.clear()
 
-    # Forward report to Master if a report was attached.
-    if action == "submit":
-        await _finalize_report_and_forward(user_id, scroll_id)
+    # Forward the report to Master (content is mandatory, always attached).
+    await _finalize_report_and_forward(user_id, scroll_id)
 
 
 @scroll_router.message(
@@ -222,6 +237,41 @@ async def handle_report_media(message: Message, state: FSMContext) -> None:
         "\U0001F4CC Отчёт (медиа) сохранён. Можете дополнить или нажмите «\u2705 Свиток пройден».",
         reply_markup=report_action_keyboard(scroll_id),
     )
+
+
+async def _get_user_quest_day(user_id: UUID) -> int:
+    """Current grace-aware quest day of a user (0 when unknown/not started)."""
+    from sqlalchemy import select
+
+    from app.bot.services.day_type import get_current_quest_day
+    from app.bot.services.settings_service import get_grace_period_hours
+    from app.shared.database import session_factory
+    from app.shared.models.user import User
+    from app.shared.config import settings
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            return 0
+        tz_name = user.timezone or settings.TZ
+        grace = await get_grace_period_hours()
+        return get_current_quest_day(user.started_at, tz_name, grace)
+
+
+async def _resolve_scroll_day(scroll_id: UUID, daily_scroll) -> int | None:
+    """Quest day of a scroll: DailyScroll first, legacy Scroll fallback."""
+    if daily_scroll is not None:
+        return daily_scroll.day_number
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.scroll import Scroll
+
+    async with session_factory() as session:
+        result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
+        scroll = result.scalar_one_or_none()
+        return scroll.day_number if scroll is not None else None
 
 
 async def _get_daily_scroll(scroll_id: UUID):

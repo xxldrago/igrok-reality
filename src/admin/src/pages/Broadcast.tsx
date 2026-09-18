@@ -7,8 +7,10 @@ import {
   getArchetypeStats,
   getScheduledBroadcasts,
   cancelScheduledBroadcast,
+  getGroups,
   ArchetypeStatsResponse,
   ScheduledBroadcastItem,
+  GroupItem,
 } from '../services/api'
 import MediaUpload from '../components/MediaUpload'
 import RoleGuard from '../components/RoleGuard'
@@ -26,6 +28,8 @@ const audienceLabels: Record<string, string> = {
 export default function Broadcast() {
   const [text, setText] = useState('')
   const [archetype, setArchetype] = useState<string | null>(null)
+  const [groupId, setGroupId] = useState<string | null>(null)
+  const [groups, setGroups] = useState<GroupItem[]>([])
   const [parseMode, setParseMode] = useState<string | null>(null)
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<string | null>(null)
@@ -61,6 +65,7 @@ export default function Broadcast() {
   useEffect(() => {
     loadStats()
     loadScheduled()
+    getGroups().then((res) => setGroups(res.data)).catch(console.error)
   }, [])
 
   const handleSend = async () => {
@@ -73,6 +78,7 @@ export default function Broadcast() {
       const res = await sendBroadcast({
         text: text.trim(),
         archetype,
+        group_id: groupId,
         parse_mode: parseMode ?? undefined,
         media_url: mediaUrl,
         media_type: mediaType,
@@ -89,6 +95,7 @@ export default function Broadcast() {
       setMediaUrl(null)
       setMediaType(null)
       setScheduledAt(null)
+      setGroupId(null)
       loadScheduled()
     } catch (e) {
       console.error(e)
@@ -142,6 +149,14 @@ export default function Broadcast() {
               { value: 'whirlwind', label: '🌪️ Вихрь' },
               { value: 'ghost', label: '👻 Призрак' },
             ]}
+          />
+          <Select
+            placeholder="Группа (всем группам — пусто)"
+            allowClear
+            style={{ width: '100%', maxWidth: 280 }}
+            value={groupId ?? undefined}
+            onChange={setGroupId}
+            options={groups.map((g) => ({ value: g.id, label: g.name }))}
           />
           <Input.TextArea
             rows={6}

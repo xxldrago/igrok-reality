@@ -83,17 +83,19 @@ async def test_skip_denied_when_report_required() -> None:
         }
     )
     daily = MagicMock()
+    daily.day_number = 4
     daily.requires_report = True
     daily.xp_reward = None
 
     with (
         patch.object(scroll_mod, "_get_daily_scroll", new_callable=AsyncMock, return_value=daily),
+        patch.object(scroll_mod, "_get_user_quest_day", new_callable=AsyncMock, return_value=4),
         patch.object(scroll_mod, "create_completion", new_callable=AsyncMock) as mock_create,
     ):
         await scroll_mod.handle_report_action(callback, state)
 
     mock_create.assert_not_awaited()
-    assert "нужен отчёт" in callback.answer.call_args[0][0]
+    assert "Сначала отправьте" in callback.answer.call_args[0][0]
     state.clear.assert_not_awaited()
 
 
@@ -114,6 +116,7 @@ async def test_submit_uses_scroll_xp_override() -> None:
         }
     )
     daily = MagicMock()
+    daily.day_number = 4
     daily.requires_report = True
     daily.xp_reward = 7
     completion = MagicMock()
@@ -121,6 +124,7 @@ async def test_submit_uses_scroll_xp_override() -> None:
 
     with (
         patch.object(scroll_mod, "_get_daily_scroll", new_callable=AsyncMock, return_value=daily),
+        patch.object(scroll_mod, "_get_user_quest_day", new_callable=AsyncMock, return_value=4),
         patch.object(scroll_mod, "_resolve_scroll_xp", new_callable=AsyncMock, return_value=7),
         patch.object(scroll_mod, "create_completion", new_callable=AsyncMock, return_value=completion) as mock_create,
         patch.object(scroll_mod, "update_completion_report", new_callable=AsyncMock),
