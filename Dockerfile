@@ -39,3 +39,4 @@ COPY --from=admin-builder /build/dist/ src/admin/dist/
 COPY --from=tma-builder /build/dist/ src/tma/dist/
 
 ENV PYTHONPATH="/app/src:/app:$PYTHONPATH"
+ENV PYTHONUNBUFFERED=1
