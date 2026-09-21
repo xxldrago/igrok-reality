@@ -7,6 +7,7 @@ import logging
 from arq.worker import Worker
 from arq.connections import RedisSettings
 
+from app.bot.services.delivery_service import cleanup_expired_deliveries
 from app.shared.config import settings
 from app.worker.tasks.scrolls import deliver_daily_scrolls
 from app.worker.tasks.scroll_slot import deliver_scroll_slot
@@ -26,6 +27,7 @@ FUNCTIONS = [
     streak_loss_warning,
     new_stream_notification,
     send_pending_notifications,
+    cleanup_expired_deliveries,
 ]
 
 

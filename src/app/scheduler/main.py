@@ -112,6 +112,17 @@ async def enqueue_pending_notifications(ctx: None = None) -> None:
         await pool.close()
 
 
+async def enqueue_delivery_cleanup(ctx: None = None) -> None:
+    """Enqueue expired delivery-message cleanup via ARQ (daily 05:30)."""
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    pool = await create_pool(redis_settings)
+    try:
+        await pool.enqueue_job("cleanup_expired_deliveries")
+        logger.info("Enqueued cleanup_expired_deliveries via ARQ")
+    finally:
+        await pool.close()
+
+
 async def schedule_jobs() -> None:
     """Configure and add all scheduled jobs."""
     from app.bot.services.settings_service import (
@@ -170,6 +181,17 @@ async def schedule_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Scheduled notification pump every minute")
+
+    # Expired delivery cleanup (daily 05:30, after the grace period ends)
+    if scheduler.get_job("delivery_cleanup"):
+        scheduler.remove_job("delivery_cleanup")
+    scheduler.add_job(
+        enqueue_delivery_cleanup,
+        CronTrigger(hour=5, minute=30, timezone=settings.TZ),
+        id="delivery_cleanup",
+        replace_existing=True,
+    )
+    logger.info("Scheduled delivery cleanup at 05:30 %s time", settings.TZ)
 
 
 async def main() -> None:

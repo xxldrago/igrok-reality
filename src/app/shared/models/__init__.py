@@ -20,6 +20,7 @@ from app.shared.models.notification import Notification
 from app.shared.models.moderation_report import ModerationReport
 from app.shared.models.scroll_type import ScrollType
 from app.shared.models.daily_scroll import DailyScroll
+from app.shared.models.scroll_delivery import ScrollDelivery
 from app.shared.models.user_daily_command import UserDailyCommand
 from app.shared.models.specialist_quest import SpecialistQuest
 
@@ -45,6 +46,7 @@ __all__ = [
     "ModerationReport",
     "ScrollType",
     "DailyScroll",
+    "ScrollDelivery",
     "UserDailyCommand",
     "SpecialistQuest",
 ]

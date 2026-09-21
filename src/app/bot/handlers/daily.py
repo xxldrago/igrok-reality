@@ -252,6 +252,20 @@ async def _handle_scroll_command(
     # Award XP
     await _update_xp(user.id, xp)
 
+    # Remove the passed scroll's delivery message from the chat (best-effort).
+    try:
+        from app.bot.services.delivery_service import delete_delivery_message
+
+        await delete_delivery_message(
+            message.bot, message.from_user.id, user.id, quest_day, scroll_code
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "delivery cleanup failed for user %s", user.id
+        )
+
     # Send response
     scroll_name = scroll_type.name if scroll_type else scroll_code
     text = f"✅ {scroll_name} — день {quest_day}\n+{xp} XP"

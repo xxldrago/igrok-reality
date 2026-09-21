@@ -38,9 +38,9 @@ async def init_db() -> None:
         else:
             # Set to the last migration
             await conn.execute(
-                text("INSERT INTO alembic_version (version_num) VALUES ('20260918_broadcast_group')")
+                text("INSERT INTO alembic_version (version_num) VALUES ('20260919_scroll_deliveries')")
             )
-            print("Alembic version set to: 20260918_broadcast_group")
+            print("Alembic version set to: 20260919_scroll_deliveries")
 
     print("Database initialized successfully!")
 

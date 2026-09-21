@@ -173,6 +173,26 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
 
     await state.clear()
 
+    # Remove the passed scroll's delivery message from the chat.
+    try:
+        from app.bot.services.delivery_service import delete_delivery_message
+
+        scroll_code = await _resolve_scroll_code(daily_scroll)
+        if scroll_code is not None:
+            await delete_delivery_message(
+                callback.bot,
+                callback.from_user.id,
+                user_id,
+                scroll_day,
+                scroll_code,
+            )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "delivery cleanup failed for user %s", user_id
+        )
+
     # Forward the report to Master (content is mandatory, always attached).
     await _finalize_report_and_forward(user_id, scroll_id)
 
@@ -272,6 +292,23 @@ async def _resolve_scroll_day(scroll_id: UUID, daily_scroll) -> int | None:
         result = await session.execute(select(Scroll).where(Scroll.id == scroll_id))
         scroll = result.scalar_one_or_none()
         return scroll.day_number if scroll is not None else None
+
+
+async def _resolve_scroll_code(daily_scroll) -> str | None:
+    """Scroll type code for delivery-row lookup (None for legacy rows)."""
+    if daily_scroll is None:
+        return None
+    from sqlalchemy import select
+
+    from app.shared.database import session_factory
+    from app.shared.models.scroll_type import ScrollType
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(ScrollType).where(ScrollType.id == daily_scroll.scroll_type_id)
+        )
+        scroll_type = result.scalar_one_or_none()
+        return scroll_type.code if scroll_type is not None else None
 
 
 async def _get_daily_scroll(scroll_id: UUID):

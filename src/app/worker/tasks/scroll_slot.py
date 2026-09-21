@@ -13,6 +13,7 @@ from sqlalchemy import select
 
 from app.bot.keyboards.scroll import completion_keyboard
 from app.bot.services.day_type import get_available_scroll_codes
+from app.bot.services.delivery_service import record_delivery
 from app.bot.services.scroll_service import get_active_users
 from app.bot.services.settings_service import get_bot_token
 from app.shared.config import settings
@@ -124,53 +125,62 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                     completion_keyboard(str(daily_scroll.id)) if daily_scroll else None
                 )
 
-                async def _send() -> None:
+                async def _send() -> int | None:
+                    """Send the scroll, return the tracked message id (button msg)."""
                     if media:
                         if len(text) <= 1024:
-                            await bot.send_photo(
+                            sent_msg = await bot.send_photo(
                                 user.telegram_id,
                                 media,
                                 caption=text,
                                 reply_markup=keyboard,
                             )
-                        else:
-                            await bot.send_photo(user.telegram_id, media)
-                            await bot.send_message(
-                                user.telegram_id,
-                                text,
-                                reply_markup=keyboard,
-                            )
-                    else:
-                        await bot.send_message(
+                            return sent_msg.message_id
+                        await bot.send_photo(user.telegram_id, media)
+                        sent_msg = await bot.send_message(
                             user.telegram_id,
                             text,
                             reply_markup=keyboard,
                         )
+                        return sent_msg.message_id
+                    sent_msg = await bot.send_message(
+                        user.telegram_id,
+                        text,
+                        reply_markup=keyboard,
+                    )
+                    return sent_msg.message_id
 
                 # Send to user
+                sent_msg_id: int | None = None
                 try:
-                    await _send()
+                    sent_msg_id = await _send()
                     sent += 1
                 except TelegramRetryAfter as e:
                     logger.warning("Rate limited, sleeping %ds", e.retry_after)
                     await asyncio.sleep(e.retry_after)
                     try:
-                        await _send()
+                        sent_msg_id = await _send()
                         sent += 1
                     except TelegramAPIError:
                         # Media failed (bad URL/file_id) — fall back to text
                         try:
-                            await bot.send_message(user.telegram_id, text)
+                            fallback = await bot.send_message(user.telegram_id, text)
+                            sent_msg_id = fallback.message_id
                             sent += 1
                         except TelegramAPIError:
                             failed += 1
                 except TelegramAPIError:
                     # Media failed (bad URL/file_id) — fall back to text
                     try:
-                        await bot.send_message(user.telegram_id, text)
+                        fallback = await bot.send_message(user.telegram_id, text)
+                        sent_msg_id = fallback.message_id
                         sent += 1
                     except TelegramAPIError:
                         failed += 1
+
+                # Remember the delivery message for completion/expiry cleanup.
+                if sent_msg_id is not None:
+                    await record_delivery(user.id, quest_day, st.code, sent_msg_id)
 
                 # Small delay between messages
                 await asyncio.sleep(0.05)
