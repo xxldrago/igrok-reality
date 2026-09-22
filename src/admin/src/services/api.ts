@@ -798,14 +798,14 @@ export interface GroupItem {
   id: string
   name: string
   type: string
-  owner_id: string
+  owner_id: string | null
   max_members: number
   member_count: number
 }
 export function getGroups(params?: { group_type?: string }) {
   return api.get<GroupItem[]>('/admin/groups', { params })
 }
-export function createGroup(data: { name: string; type: string; owner_id: string; max_members?: number }) {
+export function createGroup(data: { name: string; type: string; owner_id?: string | null; max_members?: number }) {
   return api.post<GroupItem>('/admin/groups', data)
 }
 export function deleteGroup(id: string) {

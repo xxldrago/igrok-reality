@@ -110,9 +110,10 @@ async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
     """Shared post-payment actions (webhook + test payment).
 
     - Marks user.paid_at (unlocks scroll delivery and commands).
-    - Assigns the user to a gathering stream; stream launch (or an
-      already-launched stream) starts the quest clock next midnight,
+    - Assigns the user to a gathering quest group; group launch (or an
+      already-launched group) starts the quest clock next midnight,
       so mid-day purchases begin receiving scrolls the next day.
+      Unlaunched members are told to wait for 30 people.
     - Grants channel access (if configured).
     - Notifies the user; quest continues inside the bot (no channel jump).
     - Posts to the payment channel (if configured).
@@ -133,29 +134,48 @@ async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
         username = user.username
         first_name = user.first_name
 
-    # Stream assignment may launch the cohort (best-effort, never breaks payment)
+    # Quest group assignment may launch the cohort (best-effort, never breaks payment)
+    group_launched: bool | None = None
+    group_name = ""
+    group_paid = 0
+    group_min = 30
     try:
-        from app.bot.services.stream_service import assign_user_to_stream
+        from app.bot.services.quest_group_service import (
+            assign_user_to_group,
+            get_group_progress,
+        )
 
-        await assign_user_to_stream(user_id)
+        group = await assign_user_to_group(user_id)
+        if group is not None:
+            group_launched = group.launched_at is not None
+            group_name = group.name
+            group_paid, group_min = await get_group_progress(group.id)
     except Exception:
-        logger.exception("finalize: stream assignment failed for user %s", user_id)
+        logger.exception("finalize: group assignment failed for user %s", user_id)
+
+    if group_launched is False:
+        success_text = (
+            "Оплата прошла успешно!\n"
+            "\n"
+            f"Вы в группе «{group_name}». Игра начнётся, как только "
+            f"наберётся {group_min} человек. Сейчас нас уже "
+            f"{group_paid} из {group_min} — мы сообщим о старте здесь же, в боте."
+        )
+    else:
+        success_text = (
+            "Оплата прошла успешно! Доступ в квест открыт.\n"
+            "\n"
+            "Всё происходит прямо здесь, в боте:\n"
+            "/today — задания на сегодня\n"
+            "/report — отчёт о дне"
+        )
 
     # Channel access + notifications (best-effort, never breaks the payment)
     try:
         bot = Bot(token=await get_bot_token())
         try:
             await grant_access(user_id, bot)
-            await bot.send_message(
-                chat_id=telegram_id,
-                text=(
-                    "Оплата прошла успешно! Доступ в квест открыт.\n"
-                    "\n"
-                    "Всё происходит прямо здесь, в боте:\n"
-                    "/today — задания на сегодня\n"
-                    "/report — отчёт о дне"
-                ),
-            )
+            await bot.send_message(chat_id=telegram_id, text=success_text)
             label = f"@{username}" if username else first_name
             await _notify_payment_channel_bot(
                 bot, payment.amount, payment.idempotency_key or "", telegram_id, label

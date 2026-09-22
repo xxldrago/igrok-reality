@@ -24,8 +24,8 @@ router = APIRouter(prefix="/api/admin", tags=["groups"])
 
 class GroupCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    type: str = Field(..., pattern=r"^(curator|leader|specialist)$")
-    owner_id: UUID
+    type: str = Field(..., pattern=r"^(curator|leader|specialist|quest)$")
+    owner_id: Optional[UUID] = None
     max_members: int = Field(default=10, ge=1, le=100)
 
 
@@ -39,7 +39,7 @@ class GroupResponse(BaseModel):
     id: UUID
     name: str
     type: str
-    owner_id: UUID
+    owner_id: Optional[UUID] = None
     max_members: int
     member_count: int = 0
 
@@ -94,7 +94,7 @@ async def _count_members(group_id: UUID) -> int:
     dependencies=[Depends(require_role("master", "leader", "curator"))],
 )
 async def list_groups(
-    group_type: Optional[str] = Query(None, pattern=r"^(curator|leader|specialist)$"),
+    group_type: Optional[str] = Query(None, pattern=r"^(curator|leader|specialist|quest)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> list[GroupResponse]:
@@ -124,10 +124,15 @@ async def list_groups(
 )
 async def create_group(req: GroupCreate) -> GroupResponse:
     async with session_factory() as session:
-        # Validate owner exists
-        owner = await session.execute(select(User).where(User.id == req.owner_id))
-        if owner.scalar_one_or_none() is None:
-            raise HTTPException(status_code=404, detail="Owner user not found")
+        # Validate owner exists (quest groups are ownerless)
+        if req.owner_id is not None:
+            owner = await session.execute(select(User).where(User.id == req.owner_id))
+            if owner.scalar_one_or_none() is None:
+                raise HTTPException(status_code=404, detail="Owner user not found")
+        elif req.type != "quest":
+            raise HTTPException(
+                status_code=400, detail="Mentor groups require an owner"
+            )
 
         group = Group(
             name=req.name,

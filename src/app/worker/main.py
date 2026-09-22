@@ -16,6 +16,7 @@ from app.worker.tasks.notifications import (
     streak_loss_warning,
     new_stream_notification,
     send_pending_notifications,
+    group_gathering_update,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ FUNCTIONS = [
     streak_loss_warning,
     new_stream_notification,
     send_pending_notifications,
+    group_gathering_update,
     cleanup_expired_deliveries,
 ]
 

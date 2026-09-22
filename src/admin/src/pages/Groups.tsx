@@ -24,12 +24,14 @@ const typeColors: Record<string, string> = {
   curator: 'blue',
   leader: 'green',
   specialist: 'purple',
+  quest: 'gold',
 }
 
 const typeLabels: Record<string, string> = {
   curator: 'Куратор',
   leader: 'Лидер',
   specialist: 'Специалист',
+  quest: 'Квест (автонабор)',
 }
 
 export default function Groups() {
@@ -70,7 +72,8 @@ export default function Groups() {
     }
   }, [createModalOpen])
 
-  const ownerName = (ownerId: string): string => {
+  const ownerName = (ownerId: string | null): string => {
+    if (!ownerId) return '—'
     const found = ownerOptions.find((u) => u.id === ownerId)
     return found ? userLabel(found) : ownerId
   }
@@ -171,6 +174,7 @@ export default function Groups() {
             { value: 'curator', label: 'Куратор' },
             { value: 'leader', label: 'Лидер' },
             { value: 'specialist', label: 'Специалист' },
+            { value: 'quest', label: 'Квест (автонабор)' },
           ]}
         />
         <RoleGuard roles={['master', 'leader']}>
@@ -205,10 +209,11 @@ export default function Groups() {
                 { value: 'curator', label: 'Куратор' },
                 { value: 'leader', label: 'Лидер' },
                 { value: 'specialist', label: 'Специалист' },
+                { value: 'quest', label: 'Квест (автонабор)' },
               ]}
             />
           </Form.Item>
-          <Form.Item name="owner_id" label="Владелец" rules={[{ required: true, message: 'Выберите владельца' }]}>
+          <Form.Item name="owner_id" label="Владелец (не нужен для квестов)">
             <Select
               showSearch
               placeholder="Выберите пользователя по username"

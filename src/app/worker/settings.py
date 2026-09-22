@@ -16,6 +16,7 @@ from app.worker.tasks.notifications import (
     streak_loss_warning,
     new_stream_notification,
     send_pending_notifications,
+    group_gathering_update,
 )
 
 
@@ -31,7 +32,8 @@ class WorkerSettings:
             streak_loss_warning,
             new_stream_notification,
             send_pending_notifications,
-    cleanup_expired_deliveries,
+            group_gathering_update,
+            cleanup_expired_deliveries,
         ]
     )
     cron_jobs: list[Any] = field(default_factory=list)  # APScheduler handles cron

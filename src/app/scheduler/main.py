@@ -88,6 +88,17 @@ async def enqueue_streak_warning(ctx: None = None) -> None:
         await pool.close()
 
 
+async def enqueue_gathering_update(ctx: None = None) -> None:
+    """Enqueue the daily group-gathering headcount via ARQ."""
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    pool = await create_pool(redis_settings)
+    try:
+        await pool.enqueue_job("group_gathering_update")
+        logger.info("Enqueued group_gathering_update via ARQ")
+    finally:
+        await pool.close()
+
+
 async def enqueue_new_stream(ctx: None = None) -> None:
     """Enqueue the new stream notification task via ARQ."""
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -181,6 +192,17 @@ async def schedule_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Scheduled notification pump every minute")
+
+    # Group gathering headcount (daily 10:00 — how many of 30 gathered)
+    if scheduler.get_job("gathering_update"):
+        scheduler.remove_job("gathering_update")
+    scheduler.add_job(
+        enqueue_gathering_update,
+        CronTrigger(hour=10, minute=0, timezone=settings.TZ),
+        id="gathering_update",
+        replace_existing=True,
+    )
+    logger.info("Scheduled gathering update at 10:00 %s time", settings.TZ)
 
     # Expired delivery cleanup (daily 05:30, after the grace period ends)
     if scheduler.get_job("delivery_cleanup"):

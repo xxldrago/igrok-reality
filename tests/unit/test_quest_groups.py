@@ -1,4 +1,4 @@
-"""Tests for quest streams (cohorts 30-50), next-day start, emulate toggle."""
+"""Tests for quest group gathering (auto cohorts 30-50), next-day start, emulate toggle."""
 
 import sys
 from datetime import datetime, timezone
@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from app.bot.services import stream_service as stream_mod
+from app.bot.services import quest_group_service as qg_mod
 
 
 def _session_cm(mock_session):
@@ -20,56 +20,44 @@ def _session_cm(mock_session):
     return cm
 
 
-def _one(value):
-    """Result mock: scalar_one_or_none() -> value, scalar() -> value."""
+def _row(*, one=None, scalar=None, all_rows=None):
     r = MagicMock()
-    r.scalar_one_or_none.return_value = value
-    r.scalar.return_value = value
-    r.scalars.return_value.all.return_value = []
+    r.scalar_one_or_none.return_value = one
+    r.scalar.return_value = scalar
+    rows = all_rows if all_rows is not None else []
+    r.scalars.return_value.all.return_value = rows
+    r.all.return_value = rows
     return r
 
 
-def _scalar(value):
-    return _one(value)
-
-
-class TestStreamSettings:
+class TestGroupSettings:
     @pytest.mark.asyncio
     async def test_sizes_defaults(self) -> None:
         with patch.object(
-            stream_mod, "get_setting", new_callable=AsyncMock, return_value=""
+            qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
-            assert await stream_mod.get_stream_sizes() == (30, 50)
+            assert await qg_mod.get_group_sizes() == (30, 50)
 
     @pytest.mark.asyncio
     async def test_emulate_defaults_off(self) -> None:
         with patch.object(
-            stream_mod, "get_setting", new_callable=AsyncMock, return_value=""
+            qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
-            assert await stream_mod.get_emulate_full_group() is False
+            assert await qg_mod.get_emulate_full_group() is False
 
     @pytest.mark.asyncio
     async def test_emulate_on(self) -> None:
         with patch.object(
-            stream_mod, "get_setting", new_callable=AsyncMock, return_value="true"
+            qg_mod, "get_setting", new_callable=AsyncMock, return_value="true"
         ):
-            assert await stream_mod.get_emulate_full_group() is True
+            assert await qg_mod.get_emulate_full_group() is True
 
     def test_next_midnight(self) -> None:
         now = datetime(2026, 9, 20, 15, 30, tzinfo=timezone.utc)
-        start = stream_mod.next_midnight(now)
+        start = qg_mod.next_midnight(now)
         assert start.tzinfo is not None
-        assert (start - now).total_seconds() > 0
+        assert start > now
         assert (start - now).total_seconds() <= 24 * 3600
-
-
-def _row(*, one=None, scalar=None, all_rows=None):
-    """Result mock with independent scalar_one_or_none/scalar/scalars().all()."""
-    r = MagicMock()
-    r.scalar_one_or_none.return_value = one
-    r.scalar.return_value = scalar
-    r.scalars.return_value.all.return_value = all_rows if all_rows is not None else []
-    return r
 
 
 class TestAssignAndLaunch:
@@ -79,7 +67,7 @@ class TestAssignAndLaunch:
         user.paid_at = (
             datetime(2026, 9, 20, 12, 0, tzinfo=timezone.utc) if paid else None
         )
-        user.stream_id = None
+        user.group_id = None
         user.started_at = None
         return user
 
@@ -92,19 +80,23 @@ class TestAssignAndLaunch:
         mock_session.flush = AsyncMock()
         return mock_session
 
+    def _group(self, name="Группа №1"):
+        from app.shared.models.group import Group
+
+        group = Group(name=name, type="quest", owner_id=None, max_members=50)
+        group.id = uuid4()
+        return group
+
     @pytest.mark.asyncio
     async def test_launch_at_threshold(self) -> None:
-        """30th paid member launches the stream; clock starts next midnight."""
-        from app.shared.models.stream import Stream
-
+        """30th paid member launches the group; clock starts next midnight."""
         user = self._user()
-        stream = Stream(number=1, status="gathering")
-        stream.id = uuid4()
+        group = self._group()
 
         mock_session = self._session(
             [
                 _row(one=user),  # user lookup
-                _row(one=stream),  # gathering stream found
+                _row(one=group),  # gathering group found
                 _row(scalar=10),  # member count < max
                 _row(scalar=30),  # paid count >= min → launch
                 _row(all_rows=[user]),  # launch members
@@ -114,35 +106,30 @@ class TestAssignAndLaunch:
 
         with (
             patch.object(
-                stream_mod, "session_factory", return_value=_session_cm(mock_session)
+                qg_mod, "session_factory", return_value=_session_cm(mock_session)
             ),
             patch.object(
-                stream_mod, "get_setting", new_callable=AsyncMock, return_value=""
+                qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
             ),
         ):
-            out = await stream_mod.assign_user_to_stream(user.id)
+            out = await qg_mod.assign_user_to_group(user.id)
 
-        assert out is stream
-        assert stream.status == "launched"
-        assert stream.launched_at is not None
-        assert user.stream_id == stream.id
+        assert out is group
+        assert group.launched_at is not None
+        assert user.group_id == group.id
         assert user.started_at is not None
-        # Next midnight, not now
         assert user.started_at > datetime(2026, 9, 20, 12, 0, tzinfo=timezone.utc)
 
     @pytest.mark.asyncio
     async def test_no_launch_below_threshold(self) -> None:
-        """29 paid members: stream stays gathering, no clock."""
-        from app.shared.models.stream import Stream
-
+        """29 paid members: group stays gathering, no clock."""
         user = self._user()
-        stream = Stream(number=1, status="gathering")
-        stream.id = uuid4()
+        group = self._group()
 
         mock_session = self._session(
             [
                 _row(one=user),
-                _row(one=stream),
+                _row(one=group),
                 _row(scalar=10),
                 _row(scalar=29),  # below min
             ]
@@ -150,26 +137,23 @@ class TestAssignAndLaunch:
 
         with (
             patch.object(
-                stream_mod, "session_factory", return_value=_session_cm(mock_session)
+                qg_mod, "session_factory", return_value=_session_cm(mock_session)
             ),
             patch.object(
-                stream_mod, "get_setting", new_callable=AsyncMock, return_value=""
+                qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
             ),
         ):
-            out = await stream_mod.assign_user_to_stream(user.id)
+            out = await qg_mod.assign_user_to_group(user.id)
 
-        assert out is stream
-        assert stream.status == "gathering"
+        assert out is group
+        assert group.launched_at is None
         assert user.started_at is None
 
     @pytest.mark.asyncio
     async def test_emulate_launches_early(self) -> None:
         """Emulate toggle launches with a single paid member."""
-        from app.shared.models.stream import Stream
-
         user = self._user()
-        stream = Stream(number=2, status="gathering")
-        stream.id = uuid4()
+        group = self._group("Группа №2")
 
         async def fake_get_setting(key: str, default: str = "") -> str:
             return "true" if key == "emulate_full_group" else ""
@@ -177,7 +161,7 @@ class TestAssignAndLaunch:
         mock_session = self._session(
             [
                 _row(one=user),
-                _row(one=stream),
+                _row(one=group),
                 _row(scalar=1),
                 _row(scalar=1),  # only 1 paid, but emulate is on
                 _row(all_rows=[user]),
@@ -187,33 +171,30 @@ class TestAssignAndLaunch:
 
         with (
             patch.object(
-                stream_mod, "session_factory", return_value=_session_cm(mock_session)
+                qg_mod, "session_factory", return_value=_session_cm(mock_session)
             ),
             patch.object(
-                stream_mod, "get_setting", new_callable=AsyncMock, side_effect=fake_get_setting
+                qg_mod, "get_setting", new_callable=AsyncMock, side_effect=fake_get_setting
             ),
         ):
-            out = await stream_mod.assign_user_to_stream(user.id)
+            out = await qg_mod.assign_user_to_group(user.id)
 
-        assert out is stream
-        assert stream.status == "launched"
+        assert out is group
+        assert group.launched_at is not None
 
     @pytest.mark.asyncio
-    async def test_full_stream_opens_new_one(self) -> None:
-        """Member count at max → old stream closed, new gathering opened."""
-        from app.shared.models.stream import Stream
-
+    async def test_full_group_opens_new_one(self) -> None:
+        """Member count at max → new gathering group opened."""
         user = self._user()
-        full = Stream(number=1, status="gathering")
-        full.id = uuid4()
+        full = self._group("Группа №1")
 
         mock_session = self._session(
             [
                 _row(one=user),
                 _row(one=full),
-                _row(scalar=50),  # at max → close + new
-                _row(scalar=1),  # current max number
-                _row(scalar=0),  # paid in new stream
+                _row(scalar=50),  # at max → new group
+                _row(all_rows=[]),  # existing quest names (none numbered)
+                _row(scalar=0),  # paid in new group
             ]
         )
         added = []
@@ -221,16 +202,15 @@ class TestAssignAndLaunch:
 
         with (
             patch.object(
-                stream_mod, "session_factory", return_value=_session_cm(mock_session)
+                qg_mod, "session_factory", return_value=_session_cm(mock_session)
             ),
             patch.object(
-                stream_mod, "get_setting", new_callable=AsyncMock, return_value=""
+                qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
             ),
         ):
-            out = await stream_mod.assign_user_to_stream(user.id)
+            out = await qg_mod.assign_user_to_group(user.id)
 
-        assert full.status == "closed"
         assert out is not full
-        assert out.number == 2
-        assert out.status == "gathering"
-        assert user.stream_id == out.id
+        assert out.name == "Группа №1"
+        assert out.type == "quest"
+        assert user.group_id == out.id

@@ -512,12 +512,12 @@ SettingsGroup(
     ),
     SettingsGroup(
         group="streams",
-        title="Потоки — набор групп",
+        title="Группы — набор",
         fields=[
-            SettingsField("min_group_size", "Минимум для запуска потока", "number", "",
+            SettingsField("min_group_size", "Минимум для запуска группы", "number", "",
                           "Свитки начинаются, когда оплативших наберётся столько"),
-            SettingsField("max_group_size", "Максимум потока", "number", "",
-                          "Когда набралось столько — собирается новый поток"),
+            SettingsField("max_group_size", "Максимум группы", "number", "",
+                          "Когда набралось столько — собирается новая группа"),
             SettingsField("emulate_full_group", "Эмуляция полной группы", "bool", "false",
                           "ТЕСТЫ: считать любую набирающуюся группу полной"),
         ],

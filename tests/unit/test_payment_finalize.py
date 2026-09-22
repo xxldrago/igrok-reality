@@ -76,7 +76,7 @@ class TestFinalize:
             patch.object(ps, "calculate_commission", new_callable=AsyncMock),
             patch("aiogram.Bot"),
             patch(
-                "app.bot.services.stream_service.assign_user_to_stream",
+                "app.bot.services.quest_group_service.assign_user_to_group",
                 new_callable=AsyncMock,
             ) as mock_assign,
         ):
@@ -112,7 +112,7 @@ class TestFinalize:
             patch.object(ps, "calculate_commission", new_callable=AsyncMock),
             patch("aiogram.Bot"),
             patch(
-                "app.bot.services.stream_service.assign_user_to_stream",
+                "app.bot.services.quest_group_service.assign_user_to_group",
                 new_callable=AsyncMock,
             ),
         ):

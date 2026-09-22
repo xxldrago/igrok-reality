@@ -2898,17 +2898,15 @@ async def delete_user_admin(user_id: UUID) -> dict:
     return {"user_id": str(user_id), "deleted": True}
 
 
-# --- Streams endpoint ---
+# --- Quest groups endpoint ---
 
 
-class StreamResponse(BaseModel):
-    """Quest stream with counters."""
+class QuestGroupResponse(BaseModel):
+    """Quest group (auto cohort) with counters."""
 
     id: UUID
-    number: int
+    name: str
     status: str
-    min_size: int
-    max_size: int
     members: int
     paid: int
     launched_at: Optional[datetime] = None
@@ -2916,15 +2914,15 @@ class StreamResponse(BaseModel):
 
 
 @admin_router.get(
-    "/streams",
-    response_model=list[StreamResponse],
+    "/quest-groups",
+    response_model=list[QuestGroupResponse],
     dependencies=[Depends(require_role("master", "leader", "curator"))],
 )
-async def list_streams() -> list[StreamResponse]:
-    """List quest streams (cohorts) with member counters."""
-    from app.bot.services.stream_service import list_streams as load_streams
+async def list_quest_groups() -> list[QuestGroupResponse]:
+    """List auto quest groups (cohorts) with member counters."""
+    from app.bot.services.quest_group_service import list_quest_groups as load_groups
 
-    return [StreamResponse(**s) for s in await load_streams()]
+    return [QuestGroupResponse(**g) for g in await load_groups()]
 
 
 # --- Extended settings schema endpoint ---

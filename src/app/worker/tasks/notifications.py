@@ -233,3 +233,60 @@ async def new_stream_notification(ctx: dict) -> None:
         logger.info("New stream notification sent to %d users", sent)
     finally:
         await bot.session.close()
+
+async def group_gathering_update(ctx: dict) -> None:
+    """ARQ task: daily gathering progress for unlaunched quest groups.
+
+    Each paid member of a gathering group gets today's headcount, e.g.
+    "already 12 of 30". Runs every morning (scheduler cron).
+    """
+    from app.shared.models.group import Group
+
+    bot = Bot(token=await get_bot_token())
+    sent = 0
+
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Group).where(
+                    Group.type == "quest",
+                    Group.launched_at.is_(None),
+                )
+            )
+            groups = list(result.scalars().all())
+
+        from app.bot.services.quest_group_service import get_group_sizes
+
+        min_size, _ = await get_group_sizes()
+
+        for group in groups:
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(User).where(
+                        User.group_id == group.id,
+                        User.paid_at.isnot(None),
+                    )
+                )
+                members = list(result.scalars().all())
+
+            paid = len(members)
+            if paid == 0:
+                continue
+            for user in members:
+                try:
+                    await bot.send_message(
+                        user.telegram_id,
+                        f"👥 В вашей группе «{group.name}» уже {paid} из {min_size} человек.\n"
+                        "Игра начнётся, как только наберётся нужное число. Ждём вместе!",
+                    )
+                    sent += 1
+                except TelegramRetryAfter as e:
+                    logger.warning("Rate limited for user %s, sleeping %ds", user.id, e.retry_after)
+                    await asyncio.sleep(e.retry_after)
+                except TelegramAPIError:
+                    pass
+                await asyncio.sleep(0.05)
+
+        logger.info("Group gathering update sent to %d users", sent)
+    finally:
+        await bot.session.close()
