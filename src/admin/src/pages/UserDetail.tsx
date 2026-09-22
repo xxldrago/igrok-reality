@@ -212,6 +212,25 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
             </Descriptions>
           </div>
 
+          {/* Entrance test answers */}
+          <div>
+            <Title level={5}>Ответы входного теста</Title>
+            {user.quiz_answers && user.quiz_answers.length > 0 ? (
+              <Descriptions column={1} bordered size="small">
+                {user.quiz_answers.map((a) => (
+                  <Descriptions.Item
+                    key={a.question}
+                    label={`Вопрос ${a.question} (вариант ${a.key.toUpperCase()})`}
+                  >
+                    {a.text || '—'}
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            ) : (
+              <span style={{ color: '#999' }}>Нет сохранённых ответов</span>
+            )}
+          </div>
+
           {/* Progress */}
           <div>
             <Title level={5}>Прогресс</Title>

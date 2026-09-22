@@ -54,7 +54,7 @@ async def test_calculate_commission_succeeded_with_mentor(
     mock_reserve: AsyncMock,
 ) -> None:
     """calculate_commission returns 10% for succeeded payment with mentor."""
-    mock_reserve.return_value = 245  # 5% of 4900
+    mock_reserve.return_value = 1470  # 30% of 4900
     mentor = _make_user(telegram_id=99999)
     user = _make_user(referred_by_id=mentor.id, telegram_id=11111)
     payment = _make_payment(user_id=user.id, status="succeeded", amount=4900)
@@ -90,10 +90,10 @@ async def test_calculate_commission_succeeded_with_mentor(
 
     result = await calculate_commission(payment.id)
 
-    assert result["amount"] == 490  # 4900 * 0.10
+    assert result["amount"] == 735  # 4900 * 0.15
     assert result["mentor_id"] == str(mentor.id)
     assert result["mentor_telegram_id"] == 99999
-    assert result["prize_fund_amount"] == 245
+    assert result["prize_fund_amount"] == 1470  # 4900 * 30%
 
 
 @patch("app.bot.services.commission.session_factory")

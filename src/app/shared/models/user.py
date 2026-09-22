@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -39,6 +39,12 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     group_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("groups.id"), nullable=True)
     clan_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("clans.id"), nullable=True)
+    stream_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("streams.id"), nullable=True, index=True
+    )
+    # Quest stream; quest clock (started_at) starts on stream launch, not registration
+    quiz_answers: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Entrance test answers as JSON: ["a", "c", "b", "a"]
 
 
 class Referral(Base, UUIDPrimaryKeyMixin, TimestampMixin):

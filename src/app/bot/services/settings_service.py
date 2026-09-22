@@ -85,12 +85,12 @@ async def get_streak_bonus_config() -> StreakBonusConfig:
 
 
 async def get_prize_fund_percent() -> int:
-    """Get configured prize fund percentage (basis points, e.g., 500 = 5%)."""
-    val = await get_setting("prize_fund_percent", "500")
+    """Get configured prize fund percentage (basis points, e.g., 3000 = 30%)."""
+    val = await get_setting("prize_fund_percent", "3000")
     try:
         return int(val)
     except ValueError:
-        return 500  # default 5%
+        return 3000  # default 30%
 
 
 async def get_welcome_message() -> str:
@@ -487,7 +487,7 @@ SettingsGroup(
             SettingsField("commission_rate", "Ставка реферальной комиссии (0–1)", "text", "COMMISSION_RATE",
                           "Например 0.10 = 10%"),
             SettingsField("prize_fund_percent", "Процент в призовой фонд (базисные пункты)", "text", "",
-                          "Например 500 = 5%"),
+                          "Например 3000 = 30%"),
             SettingsField("xp_weight_common", "XP за общее задание", "number", ""),
             SettingsField("xp_weight_individual", "XP за индивидуальное задание", "number", ""),
             SettingsField("xp_weight_ritual", "XP за ритуал", "number", ""),
@@ -508,6 +508,18 @@ SettingsGroup(
             SettingsField("streak_warning_hour", "Час предупреждения о стрике", "number", "",
                           "Применяется после рестарта scheduler"),
             SettingsField("streak_warning_minute", "Минута предупреждения о стрике", "number", ""),
+        ],
+    ),
+    SettingsGroup(
+        group="streams",
+        title="Потоки — набор групп",
+        fields=[
+            SettingsField("min_group_size", "Минимум для запуска потока", "number", "",
+                          "Свитки начинаются, когда оплативших наберётся столько"),
+            SettingsField("max_group_size", "Максимум потока", "number", "",
+                          "Когда набралось столько — собирается новый поток"),
+            SettingsField("emulate_full_group", "Эмуляция полной группы", "bool", "false",
+                          "ТЕСТЫ: считать любую набирающуюся группу полной"),
         ],
     ),
     SettingsGroup(

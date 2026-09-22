@@ -105,7 +105,7 @@ async def test_one_time_commission_first_payment(
 
     result = await calculate_commission(payment.id)
 
-    assert result["amount"] == 490  # 4900 * 0.10
+    assert result["amount"] == 735  # 4900 * 0.15
     assert result["mentor_id"] == str(mentor.id)
     assert result["mentor_telegram_id"] == 99999
     # Verify balance was persisted
@@ -225,13 +225,13 @@ async def test_balance_created_on_first_commission(
 
     result = await calculate_commission(payment.id)
 
-    assert result["amount"] == 490
+    assert result["amount"] == 735  # 4900 * 0.15
     # Verify a new CommissionBalance was created
     mock_session.add.assert_called()
     added_obj = mock_session.add.call_args[0][0]
     assert isinstance(added_obj, CommissionBalance)
     assert added_obj.user_id == mentor.id
-    assert added_obj.total_pending == 490
+    assert added_obj.total_pending == 735
     assert added_obj.last_commission_at is not None
 
 
@@ -278,9 +278,9 @@ async def test_balance_increments_on_subsequent_commission(
 
     result = await calculate_commission(payment.id)
 
-    assert result["amount"] == 490
+    assert result["amount"] == 735  # 4900 * 0.15
     # Verify existing balance was incremented
-    assert existing_balance.total_pending == 690  # 200 + 490
+    assert existing_balance.total_pending == 935  # 200 + 735
     assert existing_balance.last_commission_at is not None
     # No new balance added (existing was used)
     mock_session.add.assert_not_called()

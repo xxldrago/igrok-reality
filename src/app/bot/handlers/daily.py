@@ -63,7 +63,7 @@ def _get_quest_day(
         effective_date = now.date() - timedelta(days=1)
 
     delta = (effective_date - started.date()).days
-    return min(delta + 1, 90)  # Clamp to 90
+    return min(max(delta + 1, 0), 90)  # Clamp to 0-90 (0 = quest not started)
 
 
 BREATHING_CODES = ("vetr", "vetr_day", "vetr_evening")

@@ -57,8 +57,8 @@ class TestPaymentKwargs:
 
 class TestFinalize:
     @pytest.mark.asyncio
-    async def test_finalize_sets_paid_and_starts_clock(self) -> None:
-        """First payment: user.paid_at set, started_at reset (no completions)."""
+    async def test_finalize_sets_paid_and_assigns_stream(self) -> None:
+        """Payment marks paid_at and assigns the user to a stream (clock starts there)."""
         from app.bot.services import payment_service as ps
         from app.shared.models.payment import Payment
 
@@ -68,15 +68,17 @@ class TestFinalize:
         mock_session = AsyncMock()
         res_user = MagicMock()
         res_user.scalar_one_or_none.return_value = user
-        res_cmd = MagicMock()
-        res_cmd.scalar_one_or_none.return_value = None  # no completions
-        mock_session.execute = AsyncMock(side_effect=[res_user, res_cmd])
+        mock_session.execute = AsyncMock(return_value=res_user)
 
         with (
             patch.object(ps, "session_factory", return_value=_session_cm(mock_session)),
             patch.object(ps, "grant_access", new_callable=AsyncMock),
             patch.object(ps, "calculate_commission", new_callable=AsyncMock),
             patch("aiogram.Bot"),
+            patch(
+                "app.bot.services.stream_service.assign_user_to_stream",
+                new_callable=AsyncMock,
+            ) as mock_assign,
         ):
             with patch.object(
                 ps, "get_bot_token", new_callable=AsyncMock, return_value="tok"
@@ -86,13 +88,12 @@ class TestFinalize:
                 await ps.finalize_successful_payment(user.id, payment)
 
         assert user.paid_at is not None
-        # Clock reset to ~now (started_at was 2026-01-01)
-        assert (datetime.now(timezone.utc) - user.started_at).days < 2
+        mock_assign.assert_awaited_once_with(user.id)
         mock_session.commit.assert_awaited()
 
     @pytest.mark.asyncio
     async def test_finalize_keeps_clock_with_completions(self) -> None:
-        """Late payment with existing completions: started_at untouched."""
+        """Late payment with existing quest clock: started_at untouched."""
         from app.bot.services import payment_service as ps
         from app.shared.models.payment import Payment
 
@@ -103,15 +104,17 @@ class TestFinalize:
         mock_session = AsyncMock()
         res_user = MagicMock()
         res_user.scalar_one_or_none.return_value = user
-        res_cmd = MagicMock()
-        res_cmd.scalar_one_or_none.return_value = uuid4()  # has completions
-        mock_session.execute = AsyncMock(side_effect=[res_user, res_cmd])
+        mock_session.execute = AsyncMock(return_value=res_user)
 
         with (
             patch.object(ps, "session_factory", return_value=_session_cm(mock_session)),
             patch.object(ps, "grant_access", new_callable=AsyncMock),
             patch.object(ps, "calculate_commission", new_callable=AsyncMock),
             patch("aiogram.Bot"),
+            patch(
+                "app.bot.services.stream_service.assign_user_to_stream",
+                new_callable=AsyncMock,
+            ),
         ):
             with patch.object(
                 ps, "get_bot_token", new_callable=AsyncMock, return_value="tok"

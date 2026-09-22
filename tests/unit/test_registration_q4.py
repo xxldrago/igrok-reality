@@ -30,6 +30,10 @@ def _state():
             "first_name": "Ivan",
             "last_name": None,
             "username": "ivan",
+            "q1_answer": "a",
+            "q2_answer": "a",
+            "q3_answer": "b",
+            "q4_answer": "a",
         }
     )
     return state
@@ -56,7 +60,7 @@ async def test_q4_fresh_user_completes() -> None:
         patch.object(reg_mod, "_handle_quiz_answer", new_callable=AsyncMock, return_value=("head", "Голова")),
         patch.object(reg_mod, "load_quiz_config", new_callable=AsyncMock, return_value=_quiz()),
         patch.object(reg_mod, "get_user_by_telegram_id", new_callable=AsyncMock, return_value=None),
-        patch.object(reg_mod, "create_user", new_callable=AsyncMock, return_value=user),
+        patch.object(reg_mod, "create_user", new_callable=AsyncMock, return_value=user) as mock_create,
         patch.object(reg_mod, "generate_referral_code", return_value="abc123"),
         patch.object(reg_mod, "create_start_link", new_callable=AsyncMock, return_value="https://t.me/bot?start=abc123"),
         patch("app.bot.handlers.payment.send_pay_prompt", new_callable=AsyncMock) as mock_pay,
@@ -65,6 +69,8 @@ async def test_q4_fresh_user_completes() -> None:
 
     # create_user awaited tested via mock below — re-run with handle on mock
     assert mock_pay.await_count == 1
+    assert mock_create.call_args[1]["quiz_answers"] == '["a", "a", "b", "a"]'
+    assert mock_create.call_args[1]["started_at"] is None
 
 
 @pytest.mark.asyncio

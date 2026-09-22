@@ -258,7 +258,15 @@ async def handle_q4(
         quiz = await load_quiz_config()
         result_text = quiz.results.get(archetype) or DEFAULT_RESULTS.get(archetype, "")
 
-        # Get-or-create: re-running /start must not crash on existing telegram_id
+        # Persist entrance test answers (visible in admin user card)
+        import json
+
+        quiz_answers = json.dumps(
+            [data.get(f"q{i}_answer") for i in range(1, 5)], ensure_ascii=False
+        )
+
+        # Get-or-create: re-running /start must not crash on existing telegram_id.
+        # Quest clock stays unset — it starts on stream launch, not registration.
         user = await get_user_by_telegram_id(data["telegram_id"])
         if user is None:
             user_referral_code = generate_referral_code()
@@ -269,12 +277,13 @@ async def handle_q4(
                 username=data.get("username"),
                 archetype=archetype,
                 referral_code=user_referral_code,
-                started_at=datetime.now(timezone.utc),
+                started_at=None,
+                quiz_answers=quiz_answers,
             )
         else:
             logger.info("handle_q4: re-registration for telegram_id=%s", data["telegram_id"])
             user_referral_code = user.referral_code
-            # Retook the quiz — store the new archetype
+            # Retook the quiz — store the new archetype + answers
             from sqlalchemy import select
 
             from app.shared.database import session_factory
@@ -285,6 +294,7 @@ async def handle_q4(
                 db_user = result.scalar_one_or_none()
                 if db_user is not None:
                     db_user.archetype = archetype
+                    db_user.quiz_answers = quiz_answers
                     await session.commit()
 
         # Handle referral if deep_link was present

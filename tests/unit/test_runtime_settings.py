@@ -182,7 +182,13 @@ class TestSettingsSchema:
         with _patch_get_setting(""):
             groups = await get_settings_schema()
             names = [g["group"] for g in groups]
-            assert names == ["telegram", "platega", "payments", "quest", "media", "content"]
+            assert names == ["telegram", "platega", "payments", "quest", "streams", "media", "content"]
+            streams = next(g for g in groups if g["group"] == "streams")
+            assert {f["key"] for f in streams["fields"]} == {
+                "min_group_size",
+                "max_group_size",
+                "emulate_full_group",
+            }
             payments = next(g for g in groups if g["group"] == "payments")
             price = next(f for f in payments["fields"] if f["key"] == "payment_amount")
             assert price["type"] == "price_rub"

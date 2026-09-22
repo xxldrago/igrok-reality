@@ -68,6 +68,40 @@ class UserPaymentItem(BaseModel):
     created_at: datetime
 
 
+class QuizAnswerItem(BaseModel):
+    """One entrance-test answer with resolved option text."""
+
+    question: int
+    key: str
+    text: str = ""
+
+
+def _resolve_quiz_answers(raw: Optional[str]) -> list[QuizAnswerItem]:
+    """Parse stored answer letters and resolve option texts from quiz config."""
+    import json
+
+    from app.bot.services.archetype import DEFAULT_QUESTIONS
+
+    if not raw:
+        return []
+    try:
+        letters = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(letters, list):
+        return []
+    items: list[QuizAnswerItem] = []
+    for i, key in enumerate(letters[:4], start=1):
+        text = ""
+        if i - 1 < len(DEFAULT_QUESTIONS):
+            for opt in DEFAULT_QUESTIONS[i - 1].options:
+                if opt.get("key") == key:
+                    text = opt.get("text", "")
+                    break
+        items.append(QuizAnswerItem(question=i, key=str(key), text=text))
+    return items
+
+
 class UserDetailResponse(BaseModel):
     """Full user profile with stats."""
 
@@ -88,6 +122,7 @@ class UserDetailResponse(BaseModel):
     payments: list[UserPaymentItem]
     referrals_count: int
     commission_balance: Optional[dict] = None
+    quiz_answers: list[QuizAnswerItem] = []
 
 
 class PayoutRequest(BaseModel):
@@ -823,6 +858,7 @@ async def get_user(
             ],
             referrals_count=referrals_count,
             commission_balance=commission_balance,
+            quiz_answers=_resolve_quiz_answers(user.quiz_answers),
         )
 
 
@@ -2860,6 +2896,35 @@ async def delete_user_admin(user_id: UUID) -> dict:
         await session.commit()
 
     return {"user_id": str(user_id), "deleted": True}
+
+
+# --- Streams endpoint ---
+
+
+class StreamResponse(BaseModel):
+    """Quest stream with counters."""
+
+    id: UUID
+    number: int
+    status: str
+    min_size: int
+    max_size: int
+    members: int
+    paid: int
+    launched_at: Optional[datetime] = None
+    created_at: datetime
+
+
+@admin_router.get(
+    "/streams",
+    response_model=list[StreamResponse],
+    dependencies=[Depends(require_role("master", "leader", "curator"))],
+)
+async def list_streams() -> list[StreamResponse]:
+    """List quest streams (cohorts) with member counters."""
+    from app.bot.services.stream_service import list_streams as load_streams
+
+    return [StreamResponse(**s) for s in await load_streams()]
 
 
 # --- Extended settings schema endpoint ---

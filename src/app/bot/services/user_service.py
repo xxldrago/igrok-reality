@@ -43,6 +43,7 @@ async def create_user(
     archetype: str,
     referral_code: str,
     started_at: datetime | None = None,
+    quiz_answers: str | None = None,
 ) -> User:
     """Create a new User record and return it."""
     async with session_factory() as session:
@@ -55,6 +56,7 @@ async def create_user(
             referral_code=referral_code,
             is_active=True,
             started_at=started_at,
+            quiz_answers=quiz_answers,
         )
         session.add(user)
         await session.commit()

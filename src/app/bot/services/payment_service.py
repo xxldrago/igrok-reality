@@ -110,16 +110,15 @@ async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
     """Shared post-payment actions (webhook + test payment).
 
     - Marks user.paid_at (unlocks scroll delivery and commands).
-    - Starts the quest clock (started_at=now) if the user has no
-      completions yet — days count from payment, not registration.
+    - Assigns the user to a gathering stream; stream launch (or an
+      already-launched stream) starts the quest clock next midnight,
+      so mid-day purchases begin receiving scrolls the next day.
     - Grants channel access (if configured).
     - Notifies the user; quest continues inside the bot (no channel jump).
     - Posts to the payment channel (if configured).
     - Calculates mentor commission.
     """
     from aiogram import Bot
-
-    from app.shared.models.user_daily_command import UserDailyCommand
 
     now = datetime.now(timezone.utc)
     async with session_factory() as session:
@@ -129,15 +128,18 @@ async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
             raise ValueError(f"finalize: user {user_id} not found")
 
         user.paid_at = user.paid_at or now
-        cmd_result = await session.execute(
-            select(UserDailyCommand.id).where(UserDailyCommand.user_id == user_id).limit(1)
-        )
-        if cmd_result.scalar_one_or_none() is None:
-            user.started_at = now
         await session.commit()
         telegram_id = user.telegram_id
         username = user.username
         first_name = user.first_name
+
+    # Stream assignment may launch the cohort (best-effort, never breaks payment)
+    try:
+        from app.bot.services.stream_service import assign_user_to_stream
+
+        await assign_user_to_stream(user_id)
+    except Exception:
+        logger.exception("finalize: stream assignment failed for user %s", user_id)
 
     # Channel access + notifications (best-effort, never breaks the payment)
     try:

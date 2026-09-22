@@ -56,6 +56,12 @@ export interface UserPaymentItem {
   created_at: string
 }
 
+export interface QuizAnswerItem {
+  question: number
+  key: string
+  text: string
+}
+
 export interface UserDetailResponse extends UserListItem {
   timezone: string
   completions_count: number
@@ -66,6 +72,7 @@ export interface UserDetailResponse extends UserListItem {
     total_pending: number
     total_paid_out: number
   } | null
+  quiz_answers: QuizAnswerItem[]
 }
 
 // --- User API methods ---

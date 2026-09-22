@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     PLATEGA_WEBHOOK_URL: str = ""
 
     # Commission
-    COMMISSION_RATE: float = 0.10
+    COMMISSION_RATE: float = 0.15
 
     # JWT Auth
     JWT_SECRET: str = "change-me-in-production"
