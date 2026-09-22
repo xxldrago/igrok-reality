@@ -150,6 +150,47 @@ export function getProfile() {
   return api.get<AdminProfile>('/admin/auth/profile')
 }
 
+// --- Admin accounts (master only) ---
+
+export interface AdminAccount {
+  id: string
+  username: string
+  role: string
+  telegram: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface AdminAccountCreate {
+  username: string
+  password: string
+  role?: string
+  telegram?: string
+}
+
+export interface AdminAccountUpdate {
+  password?: string
+  role?: string
+  telegram?: string
+  is_active?: boolean
+}
+
+export function getAdmins() {
+  return api.get<AdminAccount[]>('/admin/admins')
+}
+
+export function createAdmin(data: AdminAccountCreate) {
+  return api.post<AdminAccount>('/admin/admins', data)
+}
+
+export function updateAdmin(id: string, data: AdminAccountUpdate) {
+  return api.put<AdminAccount>(`/admin/admins/${id}`, data)
+}
+
+export function deleteAdmin(id: string) {
+  return api.delete<{ id: string; deleted: boolean }>(`/admin/admins/${id}`)
+}
+
 export function updateProfile(data: AdminProfileUpdate) {
   return api.put<AdminProfile>('/admin/auth/profile', data)
 }

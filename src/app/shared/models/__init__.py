@@ -17,6 +17,7 @@ from app.shared.models.role_history import RoleHistory
 from app.shared.models.clan import Clan, ClanMember
 from app.shared.models.prize_fund import PrizeFund, PrizeFundPayout
 from app.shared.models.notification import Notification
+from app.shared.models.admin_user import AdminUser
 from app.shared.models.moderation_report import ModerationReport
 from app.shared.models.scroll_type import ScrollType
 from app.shared.models.daily_scroll import DailyScroll
@@ -43,6 +44,7 @@ __all__ = [
     "PrizeFund",
     "PrizeFundPayout",
     "Notification",
+    "AdminUser",
     "ModerationReport",
     "ScrollType",
     "DailyScroll",

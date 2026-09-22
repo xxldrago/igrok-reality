@@ -17,6 +17,7 @@ import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 import Broadcast from './pages/Broadcast'
 import Profile from './pages/Profile'
+import Admins from './pages/Admins'
 import Quiz from './pages/Quiz'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="quiz" element={<Quiz />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="admins" element={<Admins />} />
           <Route path="audit" element={<AuditLog />} />
           <Route path="broadcast" element={<Broadcast />} />
         </Route>

@@ -378,6 +378,224 @@ class RoleChangeResponse(BaseModel):
     changed_at: datetime
 
 
+# --- Admin accounts endpoints (master only) ---
+
+
+ADMIN_ACCOUNT_ROLES = ("master", "leader", "curator")
+
+
+class AdminAccountResponse(BaseModel):
+    """Admin panel account (no password hash)."""
+
+    id: UUID
+    username: str
+    role: str
+    telegram: str = ""
+    is_active: bool
+    created_at: datetime
+
+
+class AdminAccountCreate(BaseModel):
+    """Create an admin account."""
+
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=6, max_length=200)
+    role: str = Field(default="master")
+    telegram: str = ""
+
+
+class AdminAccountUpdate(BaseModel):
+    """Update an admin account (all optional)."""
+
+    password: Optional[str] = Field(None, min_length=6, max_length=200)
+    role: Optional[str] = None
+    telegram: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+async def _active_master_count(session, exclude_id: UUID | None = None) -> int:
+    from app.shared.models.admin_user import AdminUser
+
+    query = select(AdminUser).where(
+        AdminUser.role == "master", AdminUser.is_active.is_(True)
+    )
+    if exclude_id is not None:
+        query = query.where(AdminUser.id != exclude_id)
+    result = await session.execute(query)
+    return len(list(result.scalars().all()))
+
+
+@admin_router.get(
+    "/admins",
+    response_model=list[AdminAccountResponse],
+    dependencies=[Depends(require_role("master"))],
+)
+async def list_admins() -> list[AdminAccountResponse]:
+    """List admin panel accounts."""
+    from app.shared.models.admin_user import AdminUser
+
+    async with session_factory() as session:
+        result = await session.execute(select(AdminUser).order_by(AdminUser.created_at))
+        return [
+            AdminAccountResponse(
+                id=a.id,
+                username=a.username,
+                role=a.role,
+                telegram=a.telegram or "",
+                is_active=a.is_active,
+                created_at=a.created_at,
+            )
+            for a in result.scalars().all()
+        ]
+
+
+@admin_router.post(
+    "/admins",
+    response_model=AdminAccountResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("master"))],
+)
+async def create_admin_account(req: AdminAccountCreate) -> AdminAccountResponse:
+    """Create an admin panel account."""
+    from app.bot.services.settings_service import hash_admin_password
+    from app.shared.models.admin_user import AdminUser
+
+    if req.role not in ADMIN_ACCOUNT_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"role must be one of {ADMIN_ACCOUNT_ROLES}",
+        )
+    username = req.username.strip()
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Username must not be empty"
+        )
+
+    async with session_factory() as session:
+        dup = await session.execute(
+            select(AdminUser).where(AdminUser.username == username)
+        )
+        if dup.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
+            )
+        telegram = req.telegram.strip()
+        if telegram and not telegram.startswith("@"):
+            telegram = f"@{telegram}"
+        row = AdminUser(
+            username=username,
+            password_hash=hash_admin_password(req.password),
+            role=req.role,
+            telegram=telegram,
+        )
+        session.add(row)
+        session.add(AuditLog(action="admin_created", details=f"Admin {username} created"))
+        await session.commit()
+        await session.refresh(row)
+        return AdminAccountResponse(
+            id=row.id,
+            username=row.username,
+            role=row.role,
+            telegram=row.telegram or "",
+            is_active=row.is_active,
+            created_at=row.created_at,
+        )
+
+
+@admin_router.put(
+    "/admins/{admin_id}",
+    response_model=AdminAccountResponse,
+    dependencies=[Depends(require_role("master"))],
+)
+async def update_admin_account(
+    admin_id: UUID,
+    req: AdminAccountUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> AdminAccountResponse:
+    """Update an admin account. Guards the last active master."""
+    from app.bot.services.settings_service import hash_admin_password
+    from app.shared.models.admin_user import AdminUser
+
+    async with session_factory() as session:
+        result = await session.execute(select(AdminUser).where(AdminUser.id == admin_id))
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Admin not found")
+
+        if req.role is not None and req.role not in ADMIN_ACCOUNT_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"role must be one of {ADMIN_ACCOUNT_ROLES}",
+            )
+        new_role = req.role if req.role is not None else row.role
+        new_active = req.is_active if req.is_active is not None else row.is_active
+        if row.role == "master" and (new_role != "master" or new_active is False):
+            remaining = await _active_master_count(session, exclude_id=row.id)
+            if remaining == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot demote/deactivate the last active master",
+                )
+        if req.role is not None:
+            row.role = req.role
+        if req.telegram is not None:
+            telegram = req.telegram.strip()
+            if telegram and not telegram.startswith("@"):
+                telegram = f"@{telegram}"
+            row.telegram = telegram
+        if req.password:
+            row.password_hash = hash_admin_password(req.password)
+        if req.is_active is not None:
+            row.is_active = req.is_active
+        session.add(
+            AuditLog(action="admin_updated", details=f"Admin {row.username} updated")
+        )
+        await session.commit()
+        await session.refresh(row)
+        return AdminAccountResponse(
+            id=row.id,
+            username=row.username,
+            role=row.role,
+            telegram=row.telegram or "",
+            is_active=row.is_active,
+            created_at=row.created_at,
+        )
+
+
+@admin_router.delete(
+    "/admins/{admin_id}",
+    dependencies=[Depends(require_role("master"))],
+)
+async def delete_admin_account(
+    admin_id: UUID, current_user: dict = Depends(get_current_user)
+) -> dict:
+    """Delete an admin account. Guards self and the last active master."""
+    from app.shared.models.admin_user import AdminUser
+
+    async with session_factory() as session:
+        result = await session.execute(select(AdminUser).where(AdminUser.id == admin_id))
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Admin not found")
+        if row.username == current_user.get("username"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself"
+            )
+        if row.role == "master" and row.is_active:
+            remaining = await _active_master_count(session, exclude_id=row.id)
+            if remaining == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot delete the last active master",
+                )
+        await session.delete(row)
+        session.add(
+            AuditLog(action="admin_deleted", details=f"Admin {row.username} deleted")
+        )
+        await session.commit()
+    return {"id": str(admin_id), "deleted": True}
+
+
 # --- Scroll management endpoints ---
 
 

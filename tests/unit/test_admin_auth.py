@@ -47,12 +47,25 @@ async def test_login_success():
 @pytest.mark.asyncio
 async def test_login_invalid_credentials():
     """POST /api/admin/auth/login with invalid credentials returns 401."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post(
-            "/api/admin/auth/login",
-            json={"username": "wrong", "password": "wrong"},
-        )
+    from unittest.mock import AsyncMock, MagicMock
+
+    import app.shared.database as db_mod
+
+    mock_session = AsyncMock()
+    empty = MagicMock()
+    empty.scalar_one_or_none.return_value = None
+    mock_session.execute = AsyncMock(return_value=empty)
+    cm = AsyncMock()
+    cm.__aenter__ = AsyncMock(return_value=mock_session)
+    cm.__aexit__ = AsyncMock(return_value=False)
+
+    with patch.object(db_mod, "session_factory", return_value=cm):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/api/admin/auth/login",
+                json={"username": "wrong", "password": "wrong"},
+            )
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid credentials"
 

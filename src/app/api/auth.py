@@ -82,46 +82,74 @@ def decode_access_token(token: str) -> dict:
 async def login(request: LoginRequest) -> TokenResponse:
     """Authenticate admin user and return JWT token.
 
-    Validates credentials against the DB override (admin panel → profile)
-    with fallback to ADMIN_USERNAME / ADMIN_PASSWORD env variables.
+    Primary source: admin_users rows (multiple accounts allowed).
+    Legacy fallback: single admin from DB override / env variables —
+    a successful legacy login provisions its own admin_users row.
     Returns 401 for invalid credentials.
     """
-    from app.bot.services.settings_service import (
-        get_admin_credentials,
-        verify_admin_password,
-    )
-
-    admin_username, password_hash = await get_admin_credentials()
-    if request.username != admin_username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    if password_hash is not None:
-        password_ok = verify_admin_password(request.password, password_hash)
-    else:
-        password_ok = request.password == settings.ADMIN_PASSWORD
-    if not password_ok:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Look up user role from database
-    from app.shared.database import session_factory
-    from app.shared.models.user import User
     from sqlalchemy import select
 
-    role = "master"  # Default for direct admin login
+    from app.bot.services.settings_service import (
+        get_admin_credentials,
+        hash_admin_password,
+        verify_admin_password,
+    )
+    from app.shared.database import session_factory
+    from app.shared.models.admin_user import AdminUser
+    from app.shared.models.user import User
+
+    def _unauthorized() -> HTTPException:
+        return HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     async with session_factory() as session:
         result = await session.execute(
+            select(AdminUser).where(
+                AdminUser.username == request.username,
+                AdminUser.is_active.is_(True),
+            )
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            if not verify_admin_password(request.password, row.password_hash):
+                raise _unauthorized()
+            access_token = create_access_token(
+                data={"sub": row.username, "role": row.role}
+            )
+            return TokenResponse(access_token=access_token)
+
+        # Legacy single-admin path
+        admin_username, password_hash = await get_admin_credentials()
+        if request.username != admin_username:
+            raise _unauthorized()
+        if password_hash is not None:
+            password_ok = verify_admin_password(request.password, password_hash)
+        else:
+            password_ok = request.password == settings.ADMIN_PASSWORD
+        if not password_ok:
+            raise _unauthorized()
+
+        # Look up role from player database, default master
+        role = "master"
+        user_result = await session.execute(
             select(User).where(User.username == request.username)
         )
-        user = result.scalar_one_or_none()
-        if user:
-            role = user.role
+        player = user_result.scalar_one_or_none()
+        if player:
+            role = player.role
+
+        # Provision a row so all future logins use the table
+        session.add(
+            AdminUser(
+                username=request.username,
+                password_hash=hash_admin_password(request.password),
+                role=role,
+            )
+        )
+        await session.commit()
 
     access_token = create_access_token(data={"sub": request.username, "role": role})
     return TokenResponse(access_token=access_token)
@@ -166,17 +194,32 @@ async def get_profile(token: str = Depends(oauth2_scheme)) -> AdminProfileRespon
     from sqlalchemy import select
 
     from app.shared.database import session_factory
+    from app.shared.models.admin_user import AdminUser
     from app.shared.models.settings import Setting
     from app.bot.services.settings_service import get_admin_credentials
 
     payload = decode_access_token(token)
-    if payload.get("sub") is None:
+    username = payload.get("sub")
+    if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    async with session_factory() as session:
+        result = await session.execute(
+            select(AdminUser).where(AdminUser.username == username)
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            return AdminProfileResponse(
+                username=row.username,
+                telegram=row.telegram or "",
+                has_custom_password=True,
+            )
+
+    # Legacy fallback (no row yet)
     admin_username, password_hash = await get_admin_credentials()
     telegram = ""
     try:
@@ -184,8 +227,8 @@ async def get_profile(token: str = Depends(oauth2_scheme)) -> AdminProfileRespon
             result = await session.execute(
                 select(Setting).where(Setting.key == "admin_telegram")
             )
-            row = result.scalar_one_or_none()
-            telegram = row.value if row else ""
+            setting_row = result.scalar_one_or_none()
+            telegram = setting_row.value if setting_row else ""
     except Exception:
         telegram = ""
 
@@ -227,8 +270,55 @@ async def update_profile(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only master can edit the admin profile",
         )
+    editor = payload.get("sub")
+
+    from app.shared.models.admin_user import AdminUser
 
     async with session_factory() as session:
+        own_row_result = await session.execute(
+            select(AdminUser).where(AdminUser.username == editor)
+        )
+        own_row = own_row_result.scalar_one_or_none()
+        if own_row is not None:
+            if request.username is not None:
+                username = request.username.strip()
+                if not username:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Username must not be empty",
+                    )
+                dup = await session.execute(
+                    select(AdminUser).where(AdminUser.username == username)
+                )
+                if dup.scalar_one_or_none() is not None and username != editor:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Username already taken",
+                    )
+                own_row.username = username
+                editor = username
+            if request.telegram is not None:
+                telegram = request.telegram.strip()
+                if telegram and not telegram.startswith("@"):
+                    telegram = f"@{telegram}"
+                own_row.telegram = telegram
+            if request.password:
+                if len(request.password) < 6:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Password must be at least 6 characters",
+                    )
+                own_row.password_hash = hash_admin_password(request.password)
+            session.add(
+                AuditLog(action="admin_profile_updated", details=f"Admin {editor} edited own profile")
+            )
+            await session.commit()
+            return AdminProfileResponse(
+                username=own_row.username,
+                telegram=own_row.telegram or "",
+                has_custom_password=True,
+            )
+
         async def _upsert(key: str, value: str) -> None:
             result = await session.execute(
                 select(Setting).where(Setting.key == key)

@@ -56,6 +56,7 @@ export default function AdminLayout() {
       ? [
           { key: '/admin/commissions', icon: <WalletOutlined />, label: 'Комиссии' },
           { key: '/admin/settings', icon: <SettingOutlined />, label: 'Настройки' },
+          { key: '/admin/admins', icon: <IdcardOutlined />, label: 'Администраторы' },
         ]
       : []),
     ...(user?.role === 'master' || user?.role === 'leader'
