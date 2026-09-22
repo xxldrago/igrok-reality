@@ -128,11 +128,14 @@ async def test_commission_rate_configurable(
 
     mock_session.execute = AsyncMock(side_effect=side_effect)
 
-    with patch("app.bot.services.commission.settings") as mock_settings:
-        mock_settings.COMMISSION_RATE = 0.15
+    with patch(
+        "app.bot.services.settings_service.get_setting",
+        new_callable=AsyncMock,
+        return_value="0.15",
+    ):
         result = await calculate_commission(payment.id)
 
-    assert result["amount"] == 1500  # 10000 * 0.15
+    assert result["amount"] == 1500  # 10000 * 0.15 (DB override)
     assert result["mentor_id"] == str(mentor.id)
     assert result["mentor_telegram_id"] == 99999
 

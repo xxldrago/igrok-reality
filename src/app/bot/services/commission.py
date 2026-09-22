@@ -14,7 +14,6 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from app.bot.services.prize_fund_service import reserve_prize_fund_share
-from app.shared.config import settings
 from app.shared.database import session_factory
 from app.shared.models.audit import AuditLog
 from app.shared.models.commission import CommissionBalance
@@ -111,7 +110,9 @@ async def calculate_commission(payment_id: UUID) -> dict:
         logger.error("calculate_commission: mentor %s not found", user.referred_by_id)
         return {"amount": 0, "mentor_id": None, "mentor_telegram_id": None, "prize_fund_amount": 0}
 
-    commission = int(payment.amount * settings.COMMISSION_RATE)
+    from app.bot.services.settings_service import get_commission_rate
+
+    commission = int(payment.amount * await get_commission_rate())
 
     # Persist commission to balance
     async with session_factory() as session:

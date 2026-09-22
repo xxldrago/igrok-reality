@@ -93,6 +93,22 @@ async def get_prize_fund_percent() -> int:
         return 3000  # default 30%
 
 
+async def get_commission_rate() -> float:
+    """Referral commission rate, 0-1 (DB override or COMMISSION_RATE env)."""
+    try:
+        val = await get_setting("commission_rate", "")
+    except Exception:
+        val = ""
+    if val:
+        try:
+            rate = float(val)
+            if 0 <= rate <= 1:
+                return rate
+        except (TypeError, ValueError):
+            pass
+    return float(settings.COMMISSION_RATE)
+
+
 async def get_welcome_message() -> str:
     """Get the welcome message shown after /start."""
     return await get_setting("welcome_message", DEFAULT_WELCOME_MESSAGE)

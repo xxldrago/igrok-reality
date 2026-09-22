@@ -176,6 +176,38 @@ class TestQuestMechanics:
             assert "персональных данных" in await get_consent_text()
 
 
+class TestCommissionRate:
+    @pytest.mark.asyncio
+    async def test_db_override_wins(self) -> None:
+        from app.bot.services.settings_service import get_commission_rate
+
+        with patch.object(
+            settings_service, "get_setting", new_callable=AsyncMock, return_value="0.15"
+        ):
+            assert await get_commission_rate() == 0.15
+
+    @pytest.mark.asyncio
+    async def test_invalid_falls_back_to_env(self) -> None:
+        from app.bot.services.settings_service import get_commission_rate
+
+        with patch.object(
+            settings_service, "get_setting", new_callable=AsyncMock, return_value="oops"
+        ):
+            assert await get_commission_rate() == float(settings.COMMISSION_RATE)
+
+    @pytest.mark.asyncio
+    async def test_db_error_falls_back_to_env(self) -> None:
+        from app.bot.services.settings_service import get_commission_rate
+
+        with patch.object(
+            settings_service,
+            "get_setting",
+            new_callable=AsyncMock,
+            side_effect=Exception("db down"),
+        ):
+            assert await get_commission_rate() == float(settings.COMMISSION_RATE)
+
+
 class TestSettingsSchema:
     @pytest.mark.asyncio
     async def test_schema_groups_and_fields(self) -> None:
