@@ -24,8 +24,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Column first (CASCADE drops its FK to streams), then the table itself.
+    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS stream_id CASCADE")
     op.execute("DROP TABLE IF EXISTS streams")
-    op.execute("ALTER TABLE users DROP COLUMN IF EXISTS stream_id")
     op.alter_column("groups", "owner_id", existing_type=UUID(as_uuid=True),
                     nullable=True)
     op.add_column("groups", sa.Column("launched_at", sa.DateTime(timezone=True), nullable=True))
