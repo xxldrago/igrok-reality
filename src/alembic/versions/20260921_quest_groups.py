@@ -32,8 +32,8 @@ def upgrade() -> None:
     op.add_column("groups", sa.Column("launched_at", sa.DateTime(timezone=True), nullable=True))
 
     op.execute(
-        "INSERT INTO groups (name, type, owner_id, max_members, launched_at) "
-        "VALUES ('Группа №1', 'quest', NULL, 50, now())"
+        "INSERT INTO groups (id, name, type, owner_id, max_members, launched_at) "
+        "VALUES (gen_random_uuid(), 'Группа №1', 'quest', NULL, 50, now())"
     )
     op.execute(
         "UPDATE users SET group_id = (SELECT id FROM groups WHERE name = 'Группа №1' AND type = 'quest') "
