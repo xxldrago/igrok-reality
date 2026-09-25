@@ -19,7 +19,16 @@ class TestInfoDefaults:
             settings_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
             text = await settings_mod.get_privacy_policy()
-            assert "конфиденциальности" in text.lower()
+            assert "152-ФЗ" in text
+            assert "ulviateplovodskaya@yandex.ru" in text
+
+    def test_privacy_chunks_fit_limit(self) -> None:
+        from app.bot.handlers.registration import split_message
+        from app.bot.services.settings_service import DEFAULT_PRIVACY_POLICY
+
+        chunks = split_message(DEFAULT_PRIVACY_POLICY)
+        assert len(chunks) >= 2
+        assert all(len(c) <= 4000 for c in chunks)
 
     @pytest.mark.asyncio
     async def test_agreement_default(self) -> None:
