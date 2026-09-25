@@ -123,7 +123,10 @@ async def handle_start(message: Message, state: FSMContext) -> None:
     consent_text = await get_consent_text()
     for chunk in split_message(welcome_text):
         await message.answer(chunk)
-    await message.answer(consent_text, reply_markup=consent_keyboard())
+    consent_chunks = split_message(consent_text)
+    for chunk in consent_chunks[:-1]:
+        await message.answer(chunk)
+    await message.answer(consent_chunks[-1], reply_markup=consent_keyboard())
 
 
 @registration_router.callback_query(ConsentCallback.filter(F.action == "agree"), RegistrationState.consent)

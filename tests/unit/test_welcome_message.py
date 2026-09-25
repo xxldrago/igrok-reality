@@ -26,6 +26,23 @@ class TestWelcomeMessage:
         assert len(chunks) >= 2  # 5291 chars > 4096 limit
         assert all(len(c) <= 4000 for c in chunks)
 
+
+class TestConsentMessage:
+    def test_consent_markers(self) -> None:
+        from app.bot.services.settings_service import DEFAULT_CONSENT_TEXT
+
+        assert "Согласие на обработку персональных данных" in DEFAULT_CONSENT_TEXT
+        assert "Хребтова Уйльвия Малих Гызы" in DEFAULT_CONSENT_TEXT
+        assert "трансграничную передачу" in DEFAULT_CONSENT_TEXT
+        assert "Я согласен" in DEFAULT_CONSENT_TEXT
+
+    def test_consent_chunks_fit_limit(self) -> None:
+        from app.bot.services.settings_service import DEFAULT_CONSENT_TEXT
+
+        chunks = split_message(DEFAULT_CONSENT_TEXT)
+        assert all(len(c) <= 4000 for c in chunks)
+        assert "".join(chunks).replace("\n", "") == DEFAULT_CONSENT_TEXT.replace("\n", "")
+
     def test_split_short_text_passthrough(self) -> None:
         assert split_message("hello") == ["hello"]
 
