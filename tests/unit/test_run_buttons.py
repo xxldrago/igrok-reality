@@ -141,8 +141,11 @@ async def test_menu_builds_run_buttons() -> None:
     kwargs = message.answer.call_args[1]
     kb = kwargs["reply_markup"]
     callbacks = [b.callback_data for row in kb.inline_keyboard for b in row]
+    labels = [b.text for row in kb.inline_keyboard for b in row]
     assert any(c.startswith("run:/today") for c in callbacks)
-    assert any(c.startswith("run:/report") for c in callbacks)
+    assert "Свитки сегодня" in labels
+    # Зря и Отчёт живут только в /today, не в меню
+    assert not any(c == "run:/report" for c in callbacks)
     assert any(c.startswith("run:/pay") for c in callbacks)
 
 

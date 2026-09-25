@@ -92,6 +92,9 @@ async def handle_menu(message: Message) -> None:
     for cmd, _desc, scroll_code in _PLAYER_COMMANDS:
         if cmd == "/start" or scroll_code is None:
             continue
+        # Зря и Отчёт живут только в /today
+        if scroll_code == "zrya":
+            continue
         if available_codes and scroll_code not in available_codes:
             continue
         label = names.get(scroll_code, scroll_code)
@@ -100,8 +103,7 @@ async def handle_menu(message: Message) -> None:
 
     # ── Quick actions ──────────────────────────────────────────────
     for label, cmd in (
-        ("📅 Сегодня", "/today"),
-        ("📝 Отчёт", "/report"),
+        ("Свитки сегодня", "/today"),
         ("⚡ Прогресс", "/progress"),
         ("🏆 Топ", "/leaderboard"),
         ("💳 Оплата", "/pay"),
