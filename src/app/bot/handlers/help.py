@@ -57,19 +57,6 @@ _PLAYER_COMMANDS: list[tuple[str, str, str | None]] = [
     ("/help", "Помощь / связаться с куратором", None),
 ]
 
-_CURATOR_COMMANDS: list[tuple[str, str]] = [
-    ("/moderation", "Модерация"),
-]
-
-_LEADER_COMMANDS: list[tuple[str, str]] = [
-    ("/broadcast", "Рассылка"),
-]
-
-_MASTER_COMMANDS: list[tuple[str, str]] = [
-    ("/admin", "Админ-панель"),
-]
-
-
 @help_router.message(Command("menu"))
 async def handle_menu(message: Message) -> None:
     """Show inline-button menu based on the user's role and today's quest day."""
@@ -81,8 +68,6 @@ async def handle_menu(message: Message) -> None:
     if user is None:
         await message.answer("Сначала зарегистрируйтесь через /start.")
         return
-
-    role = user.role or "player"
 
     # Determine available scroll codes for today
     available_codes: set[str] = set()
@@ -137,22 +122,6 @@ async def handle_menu(message: Message) -> None:
     builder.adjust(2)
 
     lines = [f"📋 Меню — день {quest_day} из 90\n", "Выбирайте кнопками ниже:"]
-
-    # ── Role-gated admin commands (text — rarely used, kept as-is) ──
-    if role in ("curator", "leader", "master"):
-        lines.append("\n⚙️ Модерация:")
-        for cmd, desc in _CURATOR_COMMANDS:
-            lines.append(f"  {cmd} — {desc}")
-
-    if role in ("leader", "master"):
-        lines.append("\n📨 Командование:")
-        for cmd, desc in _LEADER_COMMANDS:
-            lines.append(f"  {cmd} — {desc}")
-
-    if role == "master":
-        lines.append("\n🔑 Управление:")
-        for cmd, desc in _MASTER_COMMANDS:
-            lines.append(f"  {cmd} — {desc}")
 
     await message.answer("\n".join(lines), reply_markup=builder.as_markup())
 
