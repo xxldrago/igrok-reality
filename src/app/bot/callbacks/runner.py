@@ -10,3 +10,12 @@ class RunCommand(CallbackData, prefix="run"):
     """
 
     command: str
+
+
+class InfoPage(CallbackData, prefix="info"):
+    """Show an info page (privacy, agreement, contacts, pricing) from /menu.
+
+    page: one of "privacy" | "agreement" | "contacts" | "pricing".
+    """
+
+    page: str

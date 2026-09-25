@@ -9,7 +9,9 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
+
+from app.bot.callbacks.runner import InfoPage
 
 from app.bot.services.day_type import get_available_scroll_codes
 from app.bot.services.moderation_service import submit_report
@@ -124,6 +126,16 @@ async def handle_menu(message: Message) -> None:
         builder.button(text=label, callback_data=RunCommand(command=cmd).pack())
     builder.adjust(2)
 
+    # ── Info pages ─────────────────────────────────────────────────
+    for label, page in (
+        ("🔒 Конфиденциальность", "privacy"),
+        ("📜 Соглашение", "agreement"),
+        ("📞 Поддержка", "contacts"),
+        ("💰 Тарифы", "pricing"),
+    ):
+        builder.button(text=label, callback_data=InfoPage(page=page).pack())
+    builder.adjust(2)
+
     lines = [f"📋 Меню — день {quest_day} из 90\n", "Выбирайте кнопками ниже:"]
 
     # ── Role-gated admin commands (text — rarely used, kept as-is) ──
@@ -169,6 +181,30 @@ async def handle_help(
     send = reply or message.answer
     await send(HELP_TEXT)
     await state.set_state(HelpState.waiting_for_reason)
+
+
+_INFO_GETTERS = {
+    "privacy": "get_privacy_policy",
+    "agreement": "get_user_agreement",
+    "contacts": "get_support_contacts",
+    "pricing": "get_pricing_text",
+}
+
+
+@help_router.callback_query(InfoPage.filter())
+async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage) -> None:
+    """Show an info page (/menu buttons). Long texts are split into chunks."""
+    from app.bot.handlers.registration import split_message
+    from app.bot.services import settings_service
+
+    await callback.answer()
+    getter_name = _INFO_GETTERS.get(callback_data.page)
+    if getter_name is None:
+        await callback.message.answer("Раздел не найден. Откройте /menu.")
+        return
+    text = await getattr(settings_service, getter_name)()
+    for chunk in split_message(text):
+        await callback.message.answer(chunk)
 
 
 @help_router.message(HelpState.waiting_for_reason)

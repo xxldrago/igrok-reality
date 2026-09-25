@@ -397,6 +397,94 @@ DEFAULT_CONSENT_TEXT = (
 )
 
 
+async def _get_info_text(key: str, default: str) -> str:
+    """Info page text (DB override or default). Never raises."""
+    try:
+        value = await get_setting(key, "")
+        if value:
+            return value
+    except Exception:
+        logger.warning("settings: DB unreachable for %s, using default", key)
+    return default
+
+
+async def get_privacy_policy() -> str:
+    """Privacy policy text (editable via admin panel)."""
+    return await _get_info_text("privacy_policy", DEFAULT_PRIVACY_POLICY)
+
+
+async def get_user_agreement() -> str:
+    """User agreement text (editable via admin panel)."""
+    return await _get_info_text("user_agreement", DEFAULT_USER_AGREEMENT)
+
+
+async def get_support_contacts() -> str:
+    """Support contacts text (editable via admin panel)."""
+    try:
+        value = await get_setting("support_contacts", "")
+        if value:
+            return value
+    except Exception:
+        logger.warning("settings: DB unreachable for support_contacts, using default")
+    admin_tg = ""
+    try:
+        admin_tg = await get_setting("admin_telegram", "")
+    except Exception:
+        pass
+    contact = f" {admin_tg}" if admin_tg else " — уточняйте у куратора"
+    return DEFAULT_SUPPORT_CONTACTS.format(contact=contact)
+
+
+async def get_pricing_text() -> str:
+    """Pricing/tariffs text with the live price (editable via admin panel)."""
+    try:
+        value = await get_setting("pricing_text", "")
+        if value:
+            return value
+    except Exception:
+        logger.warning("settings: DB unreachable for pricing_text, using default")
+    amount = await get_payment_amount()
+    return DEFAULT_PRICING_TEXT.format(price_rub=amount // 100)
+
+
+DEFAULT_PRIVACY_POLICY = """🔒 Политика конфиденциальности
+
+1. Какие данные мы собираем: имя и username из Telegram, ваши ответы
+в тесте, прогресс квеста (XP, серии, отчёты) и данные об оплате.
+2. Зачем: ведение квеста, связь с вами, отправка заданий.
+3. Мы не передаём данные третьим лицам, кроме платёжного провайдера
+для обработки оплаты.
+4. По запросу удалим ваши данные — напишите в поддержку."""
+
+
+DEFAULT_USER_AGREEMENT = """📜 Пользовательское соглашение
+
+1. «Игрок.Реальность» — 90-дневный игровой квест. Участие добровольное.
+2. Оплата открывает доступ к заданиям. Возврат — по запросу в поддержку.
+3. Выполняйте задания честно — это ваша игра с собой.
+4. Администрация вправе ограничить доступ при нарушениях."""
+
+
+DEFAULT_SUPPORT_CONTACTS = """📞 Контакты поддержки
+
+По вопросам квеста, оплаты и техническим проблемам:{contact}
+
+Также можно написать прямо здесь: /help — обращение уйдёт куратору."""
+
+
+DEFAULT_PRICING_TEXT = """💰 Тарифы
+
+Участие в квесте «Игрок.Реальность» (90 дней) — {price_rub} ₽.
+
+Что входит:
+• ежедневные свитки-задания;
+• XP, серии и таблица лидеров;
+• проверка отчётов куратором;
+• доступ в чат потока.
+
+Оплата разовая, подписки нет. Для оплаты нажмите /pay."""
+
+
 # ---------------------------------------------------------------------------
 # Admin profile (login credentials editable via admin panel)
 # ---------------------------------------------------------------------------
@@ -554,6 +642,14 @@ SettingsGroup(
                           "Показывается вместе с кнопкой согласия на обработку данных"),
             SettingsField("consent_text", "Текст согласия (152-ФЗ)", "textarea", "",
                           "Показывается после приветствия, перед тестом"),
+            SettingsField("privacy_policy", "Политика конфиденциальности", "textarea", "",
+                          "Кнопка в /menu. Длинный текст режется на части сам"),
+            SettingsField("user_agreement", "Пользовательское соглашение", "textarea", "",
+                          "Кнопка в /menu"),
+            SettingsField("support_contacts", "Контакты поддержки", "textarea", "",
+                          "Кнопка в /menu. Пусто = телефон админа из настроек"),
+            SettingsField("pricing_text", "Цены и тарифы", "textarea", "",
+                          "Кнопка в /menu. Пусто = текст с живой ценой"),
         ],
     ),
 ]
