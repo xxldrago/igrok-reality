@@ -441,19 +441,7 @@ async def get_user_agreement() -> str:
 
 async def get_support_contacts() -> str:
     """Support contacts text (editable via admin panel)."""
-    try:
-        value = await get_setting("support_contacts", "")
-        if value:
-            return value
-    except Exception:
-        logger.warning("settings: DB unreachable for support_contacts, using default")
-    admin_tg = ""
-    try:
-        admin_tg = await get_setting("admin_telegram", "")
-    except Exception:
-        pass
-    contact = f" {admin_tg}" if admin_tg else " — уточняйте у куратора"
-    return DEFAULT_SUPPORT_CONTACTS.format(contact=contact)
+    return await _get_info_text("support_contacts", DEFAULT_SUPPORT_CONTACTS)
 
 
 async def get_pricing_text() -> str:
@@ -584,7 +572,7 @@ DEFAULT_USER_AGREEMENT = """📜 Пользовательское соглаше
 
 DEFAULT_SUPPORT_CONTACTS = """📞 Контакты поддержки
 
-По вопросам квеста, оплаты и техническим проблемам:{contact}
+По всем вопросам обращаться @misticheskie_skazkii
 
 Также можно написать прямо здесь: /help — обращение уйдёт куратору."""
 

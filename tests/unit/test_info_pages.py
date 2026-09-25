@@ -44,6 +44,7 @@ class TestInfoDefaults:
             settings_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
             text = await settings_mod.get_support_contacts()
+            assert "@misticheskie_skazkii" in text
             assert "/help" in text
 
     @pytest.mark.asyncio
