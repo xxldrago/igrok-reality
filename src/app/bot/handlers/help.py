@@ -115,7 +115,7 @@ async def handle_menu(message: Message) -> None:
 
     # ── Info pages ─────────────────────────────────────────────────
     for label, page in (
-        ("Политику конфиденциальности", "privacy"),
+        ("Политика конфиденциальности", "privacy"),
         ("Пользовательское соглашение", "agreement"),
         ("📞 Поддержка", "contacts"),
         ("💰 Тарифы", "pricing"),
