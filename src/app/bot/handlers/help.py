@@ -123,7 +123,7 @@ async def handle_menu(message: Message) -> None:
         builder.button(text=label, callback_data=InfoPage(page=page).pack())
     builder.adjust(2)
 
-    lines = [f"📋 Меню — день {quest_day} из 90\n", "Выбирайте кнопками ниже:"]
+    lines = [f"📋 Меню — день {quest_day} из 90\n", "Выбирайте кнопками ниже:", "/pay"]
 
     await message.answer("\n".join(lines), reply_markup=builder.as_markup())
 
