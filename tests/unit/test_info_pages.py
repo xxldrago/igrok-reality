@@ -36,7 +36,15 @@ class TestInfoDefaults:
             settings_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
             text = await settings_mod.get_user_agreement()
-            assert "соглашение" in text.lower()
+            assert "Пользовательское соглашение" in text
+            assert "chargeback" in text
+
+    def test_agreement_chunks_fit_limit(self) -> None:
+        from app.bot.handlers.registration import split_message
+        from app.bot.services.settings_service import DEFAULT_USER_AGREEMENT
+
+        chunks = split_message(DEFAULT_USER_AGREEMENT)
+        assert all(len(c) <= 4000 for c in chunks)
 
     @pytest.mark.asyncio
     async def test_contacts_default(self) -> None:
