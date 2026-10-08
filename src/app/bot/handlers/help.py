@@ -177,6 +177,16 @@ async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage) -> 
     for chunk in split_message(text):
         await callback.message.answer(chunk)
 
+    # Pricing ends with a live pay button (same as /pay).
+    if callback_data.page == "pricing":
+        from app.bot.handlers.payment import send_pay_prompt
+
+        user = await get_user_by_telegram_id(callback.from_user.id)
+        if user is None:
+            await callback.message.answer("Сначала зарегистрируйтесь через /start.")
+        else:
+            await send_pay_prompt(callback.message, user)
+
 
 @help_router.message(HelpState.waiting_for_reason)
 async def handle_help_reason(message: Message, state: FSMContext) -> None:

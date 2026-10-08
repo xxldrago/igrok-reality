@@ -70,7 +70,7 @@ class TestInfoDefaults:
         ):
             text = await settings_mod.get_pricing_text()
             assert "4900" in text
-            assert "/pay" in text
+            assert "кнопку ниже" in text
 
     @pytest.mark.asyncio
     async def test_db_override_wins(self) -> None:
@@ -110,18 +110,56 @@ async def test_info_handler_all_pages() -> None:
         ("pricing", "Тарифы"),
     ):
         callback = _callback()
-        with patch.object(
-            settings_mod,
-            {"privacy": "get_privacy_policy", "agreement": "get_user_agreement",
-             "contacts": "get_support_contacts", "pricing": "get_pricing_text"}[page],
-            new_callable=AsyncMock,
-            return_value=f"TEXT-{marker}",
+        user = MagicMock()
+        user.id = "user-1"
+        with (
+            patch.object(
+                settings_mod,
+                {"privacy": "get_privacy_policy", "agreement": "get_user_agreement",
+                 "contacts": "get_support_contacts", "pricing": "get_pricing_text"}[page],
+                new_callable=AsyncMock,
+                return_value=f"TEXT-{marker}",
+            ),
+            patch.object(
+                help_mod, "get_user_by_telegram_id", new_callable=AsyncMock, return_value=user
+            ),
+            patch(
+                "app.bot.handlers.payment.send_pay_prompt", new_callable=AsyncMock
+            ),
         ):
             data = MagicMock()
             data.page = page
             await help_mod.handle_info_page(callback, data)
         texts = [c[0][0] for c in callback.message.answer.call_args_list]
         assert any(marker in t for t in texts), page
+
+
+@pytest.mark.asyncio
+async def test_pricing_appends_pay_button() -> None:
+    """Pricing page is followed by the live pay prompt (not a /pay hint)."""
+    from app.bot.handlers import help as help_mod
+
+    user = MagicMock()
+    user.id = "user-1"
+    callback = _callback()
+    data = MagicMock()
+    data.page = "pricing"
+    with (
+        patch.object(
+            settings_mod, "get_pricing_text", new_callable=AsyncMock, return_value="Тарифы"
+        ),
+        patch.object(
+            help_mod, "get_user_by_telegram_id", new_callable=AsyncMock, return_value=user
+        ),
+        patch(
+            "app.bot.handlers.payment.send_pay_prompt", new_callable=AsyncMock
+        ) as mock_pay,
+    ):
+        await help_mod.handle_info_page(callback, data)
+    texts = [c[0][0] for c in callback.message.answer.call_args_list]
+    assert any("Тарифы" in t for t in texts)
+    mock_pay.assert_awaited_once()
+    assert mock_pay.call_args[0][1] == user
 
 
 @pytest.mark.asyncio
