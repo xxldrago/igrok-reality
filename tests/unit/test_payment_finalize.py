@@ -152,35 +152,38 @@ class TestPaidGates:
 
 
 class TestPayButtons:
-    def test_real_button_is_url(self) -> None:
-        kb = payment_keyboard(490000, "https://pay.example/1")
+    def test_stub_button_has_callback(self) -> None:
+        kb = payment_keyboard(490000)
         btn = kb.inline_keyboard[0][0]
-        assert btn.url == "https://pay.example/1"
+        assert btn.url is None
+        assert btn.callback_data is not None
         assert "4900" in btn.text
-        assert btn.callback_data is None
 
     @pytest.mark.asyncio
-    async def test_send_pay_prompt_live_mode(self) -> None:
+    async def test_send_pay_prompt_no_platega_calls(self) -> None:
+        """Stub prompt: no payment records, no provider calls."""
         from app.bot.handlers import payment as pay_mod
-        from app.shared.models.payment import Payment
 
         user = _make_user()
-        payment = Payment(user_id=user.id, amount=490000, status="pending")
         message = AsyncMock()
         message.answer = AsyncMock()
-        with (
-            patch.object(pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000),
-            patch.object(pay_mod, "create_payment", new_callable=AsyncMock, return_value=payment),
-            patch.object(
-                pay_mod,
-                "call_platega_api",
-                new_callable=AsyncMock,
-                return_value={"data": {"paymentUrl": "https://pay.example/9"}},
-            ),
+        with patch.object(
+            pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000
         ):
             await pay_mod.send_pay_prompt(message, user)
         text = message.answer.call_args[0][0]
         kwargs = message.answer.call_args[1]
         assert "4900" in text
         btn = kwargs["reply_markup"].inline_keyboard[0][0]
-        assert btn.url == "https://pay.example/9"
+        assert btn.callback_data is not None
+
+    @pytest.mark.asyncio
+    async def test_stub_button_answers_notice(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        callback = AsyncMock()
+        callback.answer = AsyncMock()
+        data = MagicMock()
+        data.amount = "490000"
+        await pay_mod.handle_pay_stub(callback, data)
+        assert "скоро будет доступна" in callback.answer.call_args[0][0]
