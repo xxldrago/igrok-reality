@@ -8,13 +8,3 @@ class PaymentInit(CallbackData, prefix="pay"):
 
     amount: str
 
-
-class TestPayment(CallbackData, prefix="testpay"):
-    """Callback data for the test payment button (staging only).
-
-    When pressed, emulate a successful Platega payment for the user
-    without redirecting them to an external payment provider.
-    """
-
-    amount: str
-

@@ -745,10 +745,6 @@ SettingsGroup(
         fields=[
             SettingsField("payment_amount", "Цена участия", "price_rub", "",
                           "В рублях. Применяется к новым платежам (/pay) сразу"),
-            SettingsField(
-                "payments_enabled", "Приём платежей", "bool", "true",
-                "Выключить для тестов (появляется кнопка тестовой оплаты)",
-            ),
         ],
     ),
     SettingsGroup(
@@ -820,12 +816,6 @@ SettingsGroup(
         ],
     ),
 ]
-
-
-async def get_payments_enabled() -> bool:
-    """Whether real payments are currently accepted."""
-    val = await get_setting("payments_enabled", "true")
-    return val.lower() not in ("false", "0", "no")
 
 
 def _setting_value_to_bool(value: str | bool | int | None) -> str:
