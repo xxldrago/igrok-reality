@@ -403,6 +403,9 @@ async def handle_report(
 @daily_router.message(ReportState.waiting_for_report)
 async def handle_report_attachment(message: Message, state: FSMContext) -> None:
     """Handle optional text/photo attachment for the daily report."""
+    # Skip bot commands (/help, /today, /start, etc. — they get routed to their own handlers)
+    if message.text and message.text.startswith('/'):
+        return
     # Update the last report command with the attachment
     async with session_factory() as session:
         result = await session.execute(
