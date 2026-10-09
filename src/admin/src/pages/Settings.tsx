@@ -153,7 +153,7 @@ export default function Settings() {
       case 'bool':
         return <Switch />
       case 'price_rub':
-        return <InputNumber style={{ width: '100%' }} min={0} addonAfter="₽" />
+              return <InputNumber style={{ width: '100%' }} min={0} addonAfter="₽/мес" />;
       case 'textarea':
         return <Input.TextArea rows={f.key === 'welcome_message' ? 8 : 4} />
       default:
