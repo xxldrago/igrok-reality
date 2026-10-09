@@ -25,14 +25,14 @@ async def send_pay_prompt(message: Message, user) -> None:
 
     if not payments_enabled:
         await message.answer(
-            f"👛 Приём платежей выключен. Нажмите кнопку для тестовой оплаты {amount // 100}₽/мес — "
+            f"👛 Приём платежей выключен. Нажмите кнопку для тестовой оплаты {amount // 100} ₽ в месяц — "
             "доступ будет выдан мгновенно.",
             reply_markup=payment_keyboard(amount=amount),
         )
         return
 
     await message.answer(
-        f"Для продолжения игры необходимо оплатить участие — {amount // 100} ₽/мес.\n"
+        f"Для продолжения игры необходимо оплатить участие — {amount // 100} ₽ в месяц.\n"
         "Нажмите кнопку для оплаты:",
         reply_markup=payment_keyboard(amount=amount),
     )
@@ -66,7 +66,7 @@ async def handle_pay(message: Message) -> None:
 
         from app.bot.keyboards.payment import payment_keyboard
         await message.answer(
-            f"Для продолжения игры необходимо оплатить участие — {amount // 100} ₽/мес.\n"
+            f"Для продолжения игры необходимо оплатить участие — {amount // 100} ₽ в месяц.\n"
             "Нажмите кнопку для оплаты:",
             reply_markup=payment_keyboard(amount=amount, payment_url=payment_url),
         )
@@ -75,10 +75,4 @@ async def handle_pay(message: Message) -> None:
 @payment_router.callback_query(PaymentInit.filter())
 async def handle_payment_init(callback: CallbackQuery) -> None:
     await callback.message.edit_text("Платёж инициализирован. Ожидание подтверждения...")
-    await callback.answer()
-
-
-@payment_router.callback_query(PaymentInit.filter())
-async def handle_payment_success(callback: CallbackQuery) -> None:
-    await callback.message.edit_text("Оплата прошла успешно!")
     await callback.answer()
