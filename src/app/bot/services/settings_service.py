@@ -254,6 +254,12 @@ async def get_payment_amount() -> int:
     return DEFAULT_PAYMENT_AMOUNT
 
 
+async def get_payments_enabled() -> bool:
+    """Whether payments are enabled (default: true)."""
+    raw = await _db_or_env("payments_enabled", "true")
+    return raw.lower() in ("true", "1", "yes")
+
+
 async def get_bot_token() -> str:
     """Bot token — DB override or BOT_TOKEN env."""
     return await _db_or_env("bot_token", settings.BOT_TOKEN)
