@@ -197,6 +197,11 @@ export function updateProfile(data: AdminProfileUpdate) {
 
 // --- Settings schema (grouped editor) ---
 
+export interface SettingsSchemaOption {
+  value: string
+  label: string
+}
+
 export interface SettingsSchemaField {
   key: string
   label: string
@@ -204,6 +209,7 @@ export interface SettingsSchemaField {
   hint: string
   value: string
   is_default: boolean
+  options?: SettingsSchemaOption[]
 }
 
 export interface SettingsSchemaGroup {

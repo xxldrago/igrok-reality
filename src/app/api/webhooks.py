@@ -1,4 +1,4 @@
-"""Platega.io webhook endpoint — payment status routing and user notifications."""
+"""Provider webhook endpoints — payment status routing and user notifications."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ from fastapi import APIRouter, Request, status
 from sqlalchemy import select
 
 from app.bot.services.channel_access import revoke_access
-from app.bot.services.payment_service import finalize_successful_payment, get_payment
+from app.bot.services.payment_service import (
+    finalize_successful_payment,
+    get_payment,
+    get_yookassa_payment,
+)
 from app.bot.services.settings_service import get_bot_token, get_platega_credentials
 from app.shared.database import session_factory
 from app.shared.models.payment import Payment
@@ -182,6 +186,92 @@ async def platega_webhook(request: Request) -> dict:
         await _notify_payment_channel(
             f"↩️ Возврат {amount_rub}₽ — {user_label} (tg {user.telegram_id})\n"
             f"Заказ {order_id}"
+        )
+
+    return {"status": "ok"}
+
+
+@router.post("/webhook/yookassa")
+async def yookassa_webhook(request: Request) -> dict:
+    """Handle YooKassa payment notifications.
+
+    The notification itself is NOT trusted — the payment status is always
+    re-fetched from YooKassa API with our credentials (no IP whitelist
+    needed). Matched to our Payment row by yookassa_payment_id.
+    Always returns 200 OK (YooKassa retries on non-200).
+    """
+    body = await request.json()
+    obj: dict = body.get("object") or {}
+    yookassa_id: str = obj.get("id", "")
+    if not yookassa_id:
+        logger.warning("YooKassa webhook without object.id")
+        return {"status": "ok"}
+
+    # --- Authoritative status from YooKassa API ---
+    try:
+        remote = await get_yookassa_payment(yookassa_id)
+    except Exception:
+        logger.exception("YooKassa verify failed for id=%s", yookassa_id)
+        return {"status": "ok"}
+    remote_status: str = remote.get("status", "")
+    logger.info("YooKassa notify: id=%s status=%s", yookassa_id, remote_status)
+
+    status_map = {
+        "succeeded": "succeeded",
+        "canceled": "canceled",
+    }
+    new_status = status_map.get(remote_status)
+    if new_status is None:
+        return {"status": "ok"}  # pending / waiting_for_capture — nothing to do
+
+    # --- Load our payment by YooKassa id ---
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(Payment.yookassa_payment_id == yookassa_id)
+        )
+        db_payment = result.scalar_one_or_none()
+    if db_payment is None:
+        logger.warning("YooKassa webhook for unknown payment id=%s", yookassa_id)
+        return {"status": "ok"}
+
+    # --- Validate transition (idempotent replays are no-ops) ---
+    if not _is_valid_transition(db_payment.status, new_status):
+        logger.warning(
+            "Invalid status transition: %s -> %s for yookassa_id=%s",
+            db_payment.status,
+            new_status,
+            yookassa_id,
+        )
+        return {"status": "ok"}
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(Payment.id == db_payment.id)
+        )
+        row = result.scalar_one()
+        row.status = new_status
+        await session.commit()
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User).where(User.id == db_payment.user_id)
+        )
+        user = result.scalar_one_or_none()
+    if user is None:
+        logger.error("User not found for yookassa_id=%s", yookassa_id)
+        return {"status": "ok"}
+
+    user_label = f"@{user.username}" if user.username else user.first_name
+    if new_status == "succeeded":
+        await finalize_successful_payment(user.id, db_payment)
+    elif new_status == "canceled":
+        await _send_payment_notification(
+            user.telegram_id,
+            "Оплата отменена. Вы можете попробовать снова.",
+        )
+        await _notify_payment_channel(
+            f"❌ Оплата отменена — {user_label} (tg {user.telegram_id})\n"
+            f"ЮKassa {yookassa_id}"
         )
 
     return {"status": "ok"}

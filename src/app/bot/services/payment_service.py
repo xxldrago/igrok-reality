@@ -1,4 +1,4 @@
-"""Payment service — Platega.io API client and payment CRUD."""
+"""Payment service — provider API clients (Platega.io, YooKassa) and payment CRUD."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ from app.bot.services.settings_service import (
     get_bot_token,
     get_platega_credentials,
     get_payment_channel_id,
+    get_yookassa_credentials,
+    get_yookassa_return_url,
 )
 from app.bot.services.channel_access import grant_access, revoke_access
 from app.bot.services.commission import calculate_commission
@@ -272,3 +274,74 @@ async def call_platega_api(payment: Payment) -> dict:
             await session.commit()
 
     return data
+
+
+YOOKASSA_API_URL = "https://api.yookassa.ru/v3/payments"
+
+
+def _kopecks_to_rub(amount: int) -> str:
+    """Format kopecks as a YooKassa amount string (e.g. 490000 -> '4900.00')."""
+    return f"{amount / 100:.2f}"
+
+
+async def create_yookassa_payment(payment: Payment) -> str:
+    """Create a YooKassa payment and return the confirmation URL.
+
+    Raises RuntimeError when credentials/return_url are missing,
+    httpx.HTTPError on transport errors, ValueError on bad API responses.
+    Updates payment.yookassa_payment_id from the response.
+    """
+    shop_id, secret = await get_yookassa_credentials()
+    if not shop_id or not secret:
+        raise RuntimeError("YooKassa credentials are not configured")
+    return_url = await get_yookassa_return_url()
+    if not return_url:
+        raise RuntimeError("YooKassa return_url is not configured")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            YOOKASSA_API_URL,
+            auth=(shop_id, secret),
+            headers={"Idempotence-Key": payment.idempotency_key or str(payment.id)},
+            json={
+                "amount": {"value": _kopecks_to_rub(payment.amount), "currency": payment.currency},
+                "capture": True,
+                "confirmation": {"type": "redirect", "return_url": return_url},
+                "description": f"Участие в квесте ({payment.amount // 100} ₽/мес)",
+                "metadata": {
+                    "payment_id": str(payment.id),
+                    "user_id": str(payment.user_id),
+                },
+            },
+            timeout=30.0,
+        )
+        data = response.json()
+
+    yk_id = data.get("id")
+    confirmation_url = data.get("confirmation", {}).get("confirmation_url")
+    if not yk_id or not confirmation_url:
+        raise ValueError(f"YooKassa create failed: {data}")
+
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(Payment.id == payment.id)
+        )
+        db_payment = result.scalar_one()
+        db_payment.yookassa_payment_id = yk_id
+        await session.commit()
+
+    return confirmation_url
+
+
+async def get_yookassa_payment(yookassa_id: str) -> dict:
+    """Fetch a YooKassa payment by id (used to verify webhook notifications)."""
+    shop_id, secret = await get_yookassa_credentials()
+    if not shop_id or not secret:
+        raise RuntimeError("YooKassa credentials are not configured")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{YOOKASSA_API_URL}/{yookassa_id}",
+            auth=(shop_id, secret),
+            timeout=30.0,
+        )
+        return response.json()

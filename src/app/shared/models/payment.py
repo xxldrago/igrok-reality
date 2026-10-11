@@ -18,6 +18,7 @@ class Payment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     platega_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    yookassa_payment_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # kopecks
     currency: Mapped[str] = mapped_column(String(3), default="RUB")
     status: Mapped[str] = mapped_column(

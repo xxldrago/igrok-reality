@@ -96,6 +96,55 @@ class TestRuntimeTokens:
             assert await get_platega_credentials() == ("mid-1", "sec-1")
 
 
+class TestPaymentProvider:
+    @pytest.mark.asyncio
+    async def test_default_is_stub(self) -> None:
+        from app.bot.services.settings_service import get_payment_provider
+
+        with _patch_get_setting(""):
+            assert await get_payment_provider() == "stub"
+
+    @pytest.mark.asyncio
+    async def test_yookassa_selected(self) -> None:
+        from app.bot.services.settings_service import get_payment_provider
+
+        with _patch_get_setting("yookassa"):
+            assert await get_payment_provider() == "yookassa"
+
+    @pytest.mark.asyncio
+    async def test_unknown_falls_back_to_stub(self) -> None:
+        from app.bot.services.settings_service import get_payment_provider
+
+        with _patch_get_setting("stripe"):
+            assert await get_payment_provider() == "stub"
+
+    @pytest.mark.asyncio
+    async def test_yookassa_credentials_db_override(self) -> None:
+        from app.bot.services.settings_service import get_yookassa_credentials
+
+        async def _fake(key: str, default: str = "") -> str:
+            return {"yookassa_shop_id": "shop-1", "yookassa_secret_key": "key-1"}.get(key, "")
+
+        with patch.object(settings_service, "get_setting", new_callable=AsyncMock) as m:
+            m.side_effect = _fake
+            assert await get_yookassa_credentials() == ("shop-1", "key-1")
+
+    @pytest.mark.asyncio
+    async def test_schema_has_provider_select_and_yookassa_group(self) -> None:
+        schema = await get_settings_schema()
+        groups = {g["group"]: g for g in schema}
+        provider_field = next(
+            f for f in groups["payments"]["fields"] if f["key"] == "payment_provider"
+        )
+        assert provider_field["type"] == "select"
+        assert {o["value"] for o in provider_field["options"]} == {"stub", "platega", "yookassa"}
+        assert {f["key"] for f in groups["yookassa"]["fields"]} == {
+            "yookassa_shop_id",
+            "yookassa_secret_key",
+            "yookassa_return_url",
+        }
+
+
 class TestAdminCredentials:
     def test_hash_verify_roundtrip(self) -> None:
         hashed = hash_admin_password("supersecret")
@@ -214,7 +263,7 @@ class TestSettingsSchema:
         with _patch_get_setting(""):
             groups = await get_settings_schema()
             names = [g["group"] for g in groups]
-            assert names == ["telegram", "platega", "payments", "quest", "streams", "media", "content"]
+            assert names == ["telegram", "platega", "payments", "yookassa", "quest", "streams", "media", "content"]
             streams = next(g for g in groups if g["group"] == "streams")
             assert {f["key"] for f in streams["fields"]} == {
                 "min_group_size",

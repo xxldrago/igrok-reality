@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Modal, Form, Input, InputNumber, Collapse, Card, message, Spin, Tag, Switch } from 'antd'
+import { Table, Button, Modal, Form, Input, InputNumber, Collapse, Card, message, Spin, Tag, Switch, Select } from 'antd'
 import { EditOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   getSettings,
@@ -154,6 +154,8 @@ export default function Settings() {
         return <Switch />
       case 'price_rub':
               return <InputNumber style={{ width: '100%' }} min={0} addonAfter="₽ в месяц" />;
+      case 'select':
+        return <Select options={(f.options || []).map((o) => ({ value: o.value, label: o.label }))} />;
       case 'textarea':
         return <Input.TextArea rows={f.key === 'welcome_message' ? 8 : 4} />
       default:
@@ -203,7 +205,7 @@ export default function Settings() {
       <Spin spinning={schemaLoading}>
         <Form form={schemaForm} layout="vertical">
           <Collapse
-            defaultActiveKey={['telegram', 'platega', 'payments']}
+            defaultActiveKey={['telegram', 'platega', 'yookassa', 'payments']}
             items={groups.map((g) => ({
               key: g.group,
               label: g.title,

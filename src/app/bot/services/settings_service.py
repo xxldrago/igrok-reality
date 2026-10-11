@@ -311,6 +311,31 @@ async def get_platega_webhook_url() -> str:
     return await _db_or_env("platega_webhook_url", settings.PLATEGA_WEBHOOK_URL)
 
 
+PAYMENT_PROVIDERS = ("stub", "platega", "yookassa")
+
+
+async def get_payment_provider() -> str:
+    """Active payment provider: stub | platega | yookassa (default: stub)."""
+    raw = (await _db_or_env("payment_provider", "stub")).strip().lower()
+    return raw if raw in PAYMENT_PROVIDERS else "stub"
+
+
+async def get_yookassa_credentials() -> tuple[str, str]:
+    """YooKassa (shop_id, secret_key) — DB overrides or env."""
+    shop_id = await _db_or_env("yookassa_shop_id", settings.YOOKASSA_SHOP_ID)
+    secret = await _db_or_env("yookassa_secret_key", settings.YOOKASSA_SECRET_KEY)
+    return shop_id, secret
+
+
+async def get_yookassa_return_url() -> str:
+    """Return URL after YooKassa checkout — DB override, env, or t.me fallback."""
+    override = await _db_or_env("yookassa_return_url", settings.YOOKASSA_RETURN_URL)
+    if override:
+        return override
+    username = await get_bot_username()
+    return f"https://t.me/{username}" if username else ""
+
+
 async def get_grace_period_hours() -> int:
     """Night grace period in hours (commands after midnight count for prev day)."""
     raw = await _db_or_env("grace_period_hours", "5")
@@ -707,9 +732,10 @@ class SettingsField:
 
     key: str
     label: str
-    type: str = "text"  # text | password | number | textarea | price_rub
+    type: str = "text"  # text | password | number | textarea | price_rub | select
     env_attr: str = ""  # settings.<env_attr> used as default when DB is empty
     hint: str = ""
+    options: list[dict[str, str]] = field(default_factory=list)  # select: [{value, label}]
 
 
 @dataclass
@@ -749,8 +775,28 @@ SettingsGroup(
         group="payments",
         title="Оплата участия",
         fields=[
+            SettingsField(
+                "payment_provider", "Активный провайдер", "select", "",
+                "Какой провайдер используется в боте. stub = кнопка-заглушка",
+                options=[
+                    {"value": "stub", "label": "Заглушка (оплата скоро будет)"},
+                    {"value": "platega", "label": "Platega.io"},
+                    {"value": "yookassa", "label": "ЮKassa"},
+                ],
+            ),
             SettingsField("payment_amount", "Цена участия", "price_rub", "",
                           "В рублях. Применяется к новым платежам (/pay) сразу"),
+        ],
+    ),
+    SettingsGroup(
+        group="yookassa",
+        title="ЮKassa — приём платежей (API)",
+        fields=[
+            SettingsField("yookassa_shop_id", "Shop ID", "text", "YOOKASSA_SHOP_ID"),
+            SettingsField("yookassa_secret_key", "Секретный ключ", "password", "YOOKASSA_SECRET_KEY",
+                          "Храните в тайне!"),
+            SettingsField("yookassa_return_url", "Return URL после оплаты", "text", "YOOKASSA_RETURN_URL",
+                          "Куда вернуть пользователя. Пусто = t.me бота"),
         ],
     ),
     SettingsGroup(
@@ -835,7 +881,7 @@ def _setting_value_to_bool(value: str | bool | int | None) -> str:
 async def get_settings_schema() -> list[dict[str, Any]]:
     """Return schema groups with effective values for the admin panel.
 
-    Each field dict: {key, label, type, hint, value, is_default}.
+    Each field dict: {key, label, type, hint, value, is_default, options}.
     """
     result: list[dict[str, Any]] = []
     for group in SETTINGS_SCHEMA:
@@ -855,6 +901,7 @@ async def get_settings_schema() -> list[dict[str, Any]]:
                     "hint": f.hint,
                     "value": db_value or env_default,
                     "is_default": is_default,
+                    "options": f.options,
                 }
             )
         result.append({"group": group.group, "title": group.title, "fields": fields})

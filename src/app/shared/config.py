@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     PLATEGA_SECRET: str = ""
     PLATEGA_WEBHOOK_URL: str = ""
 
+    # YooKassa
+    YOOKASSA_SHOP_ID: str = ""
+    YOOKASSA_SECRET_KEY: str = ""
+    YOOKASSA_RETURN_URL: str = ""
+
     # Commission
     COMMISSION_RATE: float = 0.15
 

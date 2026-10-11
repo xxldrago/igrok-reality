@@ -159,23 +159,87 @@ class TestPayButtons:
         assert btn.callback_data is not None
         assert "4900" in btn.text
 
+    def test_url_button(self) -> None:
+        kb = payment_keyboard(490000, payment_url="https://pay.example/1")
+        btn = kb.inline_keyboard[0][0]
+        assert btn.url == "https://pay.example/1"
+        assert btn.callback_data is None
+
     @pytest.mark.asyncio
-    async def test_send_pay_prompt_no_platega_calls(self) -> None:
-        """Stub prompt: no payment records, no provider calls."""
+    async def test_send_pay_prompt_stub_no_provider_calls(self) -> None:
+        """Stub provider: no payment records, no provider calls."""
         from app.bot.handlers import payment as pay_mod
 
         user = _make_user()
         message = AsyncMock()
         message.answer = AsyncMock()
-        with patch.object(
-            pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000
+        with (
+            patch.object(pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="stub"),
+            patch.object(pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000),
+            patch(
+                "app.bot.services.payment_service.create_payment", new_callable=AsyncMock
+            ) as mock_create,
         ):
             await pay_mod.send_pay_prompt(message, user)
+        mock_create.assert_not_awaited()
         text = message.answer.call_args[0][0]
         kwargs = message.answer.call_args[1]
         assert "4900" in text
         btn = kwargs["reply_markup"].inline_keyboard[0][0]
         assert btn.callback_data is not None
+
+    @pytest.mark.asyncio
+    async def test_send_pay_prompt_yookassa_url_button(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+        from app.shared.models.payment import Payment
+
+        user = _make_user()
+        payment = Payment(user_id=user.id, amount=490000, status="pending")
+        message = AsyncMock()
+        message.answer = AsyncMock()
+        with (
+            patch.object(pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="yookassa"),
+            patch.object(pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000),
+            patch(
+                "app.bot.services.payment_service.create_payment",
+                new_callable=AsyncMock,
+                return_value=payment,
+            ),
+            patch(
+                "app.bot.services.payment_service.create_yookassa_payment",
+                new_callable=AsyncMock,
+                return_value="https://yookassa.example/confirm",
+            ),
+        ):
+            await pay_mod.send_pay_prompt(message, user)
+        btn = message.answer.call_args[1]["reply_markup"].inline_keyboard[0][0]
+        assert btn.url == "https://yookassa.example/confirm"
+
+    @pytest.mark.asyncio
+    async def test_send_pay_prompt_provider_error(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+        from app.shared.models.payment import Payment
+
+        user = _make_user()
+        payment = Payment(user_id=user.id, amount=490000, status="pending")
+        message = AsyncMock()
+        message.answer = AsyncMock()
+        with (
+            patch.object(pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="yookassa"),
+            patch.object(pay_mod, "get_payment_amount", new_callable=AsyncMock, return_value=490000),
+            patch(
+                "app.bot.services.payment_service.create_payment",
+                new_callable=AsyncMock,
+                return_value=payment,
+            ),
+            patch(
+                "app.bot.services.payment_service.create_yookassa_payment",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("no creds"),
+            ),
+        ):
+            await pay_mod.send_pay_prompt(message, user)
+        assert "Ошибка при создании платежа" in message.answer.call_args[0][0]
 
     @pytest.mark.asyncio
     async def test_stub_button_answers_notice(self) -> None:
