@@ -852,6 +852,23 @@ export interface GroupItem {
 export function getGroups(params?: { group_type?: string }) {
   return api.get<GroupItem[]>('/admin/groups', { params })
 }
+export interface QuestGroupLeader {
+  name: string
+  xp: number
+}
+export interface QuestGroupItem {
+  id: string
+  name: string
+  status: string
+  members: number
+  paid: number
+  launched_at: string | null
+  created_at: string
+  leaders: QuestGroupLeader[]
+}
+export function getQuestGroups() {
+  return api.get<QuestGroupItem[]>('/admin/quest-groups')
+}
 export function createGroup(data: { name: string; type: string; owner_id?: string | null; max_members?: number }) {
   return api.post<GroupItem>('/admin/groups', data)
 }

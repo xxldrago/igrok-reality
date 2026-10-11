@@ -3123,6 +3123,13 @@ async def delete_user_admin(user_id: UUID) -> dict:
 # --- Quest groups endpoint ---
 
 
+class GroupLeaderResponse(BaseModel):
+    """Top member of a quest group."""
+
+    name: str
+    xp: int
+
+
 class QuestGroupResponse(BaseModel):
     """Quest group (auto cohort) with counters."""
 
@@ -3133,6 +3140,7 @@ class QuestGroupResponse(BaseModel):
     paid: int
     launched_at: Optional[datetime] = None
     created_at: datetime
+    leaders: list[GroupLeaderResponse] = []
 
 
 @admin_router.get(

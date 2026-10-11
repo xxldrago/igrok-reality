@@ -154,6 +154,18 @@ async def ensure_referral_code(user_id: UUID) -> str:
         return user.referral_code
 
 
+async def get_group_leaders(group_id: UUID, limit: int = 10) -> list[User]:
+    """Top users of one quest group by XP (descending)."""
+    async with session_factory() as session:
+        result = await session.execute(
+            select(User)
+            .where(User.group_id == group_id)
+            .order_by(User.xp.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+
 async def get_user_by_referral_code(referral_code: str) -> User | None:
     """Look up a user by their referral code (for deep-link resolution)."""
     async with session_factory() as session:

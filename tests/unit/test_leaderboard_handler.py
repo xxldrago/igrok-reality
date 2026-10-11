@@ -1,4 +1,4 @@
-"""Tests for /leaderboard handler — top users display."""
+"""Tests for /leaderboard handler — group-scoped display."""
 
 from __future__ import annotations
 
@@ -25,198 +25,115 @@ def telegram_id() -> int:
     return 123456789
 
 
+def _user(name: str, xp: int, group_id, telegram_id: int = 111) -> User:
+    u = User(telegram_id=telegram_id, first_name=name, archetype="head", xp=xp, streak=1, referral_code="r")
+    u.group_id = group_id
+    return u
+
+
 # --- /leaderboard handler tests ---
 
 
-@patch("app.bot.handlers.leaderboard.get_user_rank")
-@patch("app.bot.handlers.leaderboard.get_leaderboard")
-@patch("app.bot.handlers.leaderboard.get_user_by_id")
-@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id")
-async def test_leaderboard_shows_top_users(
-    mock_get_telegram_user: MagicMock,
-    mock_get_user: MagicMock,
-    mock_get_leaderboard: MagicMock,
-    mock_get_rank: MagicMock,
+@patch("app.bot.handlers.leaderboard.get_leaderboard_limit", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_group_leaders", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id", new_callable=AsyncMock)
+async def test_leaderboard_shows_group_top(
+    mock_me: MagicMock,
+    mock_leaders: MagicMock,
+    mock_limit: MagicMock,
     telegram_id: int,
 ) -> None:
-    """Test that /leaderboard shows top 10 users with medals."""
-    # Mock current user
-    current_user = User(
-        telegram_id=telegram_id,
-        first_name="CurrentUser",
-        archetype="head",
-        xp=50,
-        streak=2,
-        referral_code="abc123",
-    )
-    mock_get_telegram_user.return_value = current_user
+    """Group members are shown with medals, outsiders are not."""
+    from app.bot.handlers.leaderboard import handle_leaderboard
 
-    # Create user IDs for leaderboard entries
-    user_id_1 = uuid4()
-    user_id_2 = uuid4()
-    user_id_3 = uuid4()
-
-    # Mock leaderboard data
-    leaderboard = [
-        {"user_id": str(user_id_1), "xp": 100},
-        {"user_id": str(user_id_2), "xp": 90},
-        {"user_id": str(user_id_3), "xp": 80},
+    group_id = uuid4()
+    me = _user("Me", 50, group_id, telegram_id)
+    mock_me.return_value = me
+    mock_limit.return_value = 10
+    mock_leaders.return_value = [
+        _user("Alice", 100, group_id, 111),
+        _user("Bob", 90, group_id, 222),
+        _user("Charlie", 80, group_id, 333),
     ]
-    mock_get_leaderboard.return_value = leaderboard
-
-    # Mock user lookups
-    users = {
-        user_id_1: User(telegram_id=111, first_name="Alice", archetype="head", xp=100, streak=5, referral_code="a1"),
-        user_id_2: User(telegram_id=222, first_name="Bob", archetype="shell", xp=90, streak=3, referral_code="b2"),
-        user_id_3: User(telegram_id=333, first_name="Charlie", archetype="whirlwind", xp=80, streak=1, referral_code="c3"),
-    }
-    mock_get_user.side_effect = lambda uid: users.get(uid)
-
-    # Mock rank (user not in top 3)
-    mock_get_rank.return_value = 15
 
     message = AsyncMock()
     message.from_user.id = telegram_id
-
-    from app.bot.handlers.leaderboard import handle_leaderboard
     await handle_leaderboard(message)
 
     message.answer.assert_called_once()
-    call_args = message.answer.call_args[0][0]
-    assert "🥇" in call_args
-    assert "🥈" in call_args
-    assert "🥉" in call_args
-    assert "Alice" in call_args
-    assert "Bob" in call_args
-    assert "Charlie" in call_args
+    text = message.answer.call_args[0][0]
+    assert "🥇" in text and "🥈" in text and "🥉" in text
+    assert "Alice" in text and "Bob" in text and "Charlie" in text
+    assert "группы" in text
 
 
-@patch("app.bot.handlers.leaderboard.get_leaderboard")
-async def test_leaderboard_empty(
-    mock_get_leaderboard: MagicMock,
+@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id", new_callable=AsyncMock)
+async def test_leaderboard_no_group_hint(
+    mock_me: MagicMock,
     telegram_id: int,
 ) -> None:
-    """Test that /leaderboard shows hint when empty."""
-    mock_get_leaderboard.return_value = []
+    """User without a group gets a hint instead of a global board."""
+    from app.bot.handlers.leaderboard import handle_leaderboard
+
+    me = _user("Me", 50, None, telegram_id)
+    mock_me.return_value = me
 
     message = AsyncMock()
     message.from_user.id = telegram_id
-
-    from app.bot.handlers.leaderboard import handle_leaderboard
     await handle_leaderboard(message)
 
-    message.answer.assert_called_once()
-    call_args = message.answer.call_args[0][0]
-    assert "нет данных" in call_args.lower() or "свитков" in call_args.lower()
+    text = message.answer.call_args[0][0]
+    assert "не в группе" in text
 
 
-@patch("app.bot.handlers.leaderboard.get_user_rank")
-@patch("app.bot.handlers.leaderboard.get_leaderboard")
-@patch("app.bot.handlers.leaderboard.get_user_by_id")
-@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id")
-async def test_leaderboard_shows_user_rank_if_outside_top10(
-    mock_get_telegram_user: MagicMock,
-    mock_get_user: MagicMock,
-    mock_get_leaderboard: MagicMock,
-    mock_get_rank: MagicMock,
+@patch("app.bot.handlers.leaderboard.get_leaderboard_limit", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_group_leaders", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id", new_callable=AsyncMock)
+async def test_leaderboard_empty_group(
+    mock_me: MagicMock,
+    mock_leaders: MagicMock,
+    mock_limit: MagicMock,
     telegram_id: int,
 ) -> None:
-    """Test that user's rank is shown if not in top 10."""
-    current_user = User(
-        telegram_id=telegram_id,
-        first_name="CurrentUser",
-        archetype="head",
-        xp=50,
-        streak=2,
-        referral_code="abc123",
-    )
-    mock_get_telegram_user.return_value = current_user
+    """Empty group board shows the no-data hint."""
+    from app.bot.handlers.leaderboard import handle_leaderboard
 
-    # Mock leaderboard with 3 users
-    leaderboard = [
-        {"user_id": str(uuid4()), "xp": 100},
-        {"user_id": str(uuid4()), "xp": 90},
-        {"user_id": str(uuid4()), "xp": 80},
-    ]
-    mock_get_leaderboard.return_value = leaderboard
-
-    # Mock user lookups
-    users = [
-        User(telegram_id=111, first_name="Alice", archetype="head", xp=100, streak=5, referral_code="a1"),
-        User(telegram_id=222, first_name="Bob", archetype="shell", xp=90, streak=3, referral_code="b2"),
-        User(telegram_id=333, first_name="Charlie", archetype="whirlwind", xp=80, streak=1, referral_code="c3"),
-    ]
-    mock_get_user.side_effect = lambda uid: next((u for u in users if str(u.id) == str(uid)), None)
-
-    # User is at rank 25 (outside top 10)
-    mock_get_rank.return_value = 24
+    mock_me.return_value = _user("Me", 0, uuid4(), telegram_id)
+    mock_limit.return_value = 10
+    mock_leaders.return_value = []
 
     message = AsyncMock()
     message.from_user.id = telegram_id
-
-    from app.bot.handlers.leaderboard import handle_leaderboard
     await handle_leaderboard(message)
 
-    message.answer.assert_called_once()
-    call_args = message.answer.call_args[0][0]
-    assert "25" in call_args  # rank + 1
+    text = message.answer.call_args[0][0]
+    assert "нет данных" in text.lower()
 
 
-@patch("app.bot.handlers.leaderboard.get_user_rank")
-@patch("app.bot.handlers.leaderboard.get_leaderboard")
-@patch("app.bot.handlers.leaderboard.get_user_by_id")
-@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id")
-async def test_leaderboard_user_in_top10_no_extra_rank(
-    mock_get_telegram_user: MagicMock,
-    mock_get_user: MagicMock,
-    mock_get_leaderboard: MagicMock,
-    mock_get_rank: MagicMock,
+@patch("app.bot.handlers.leaderboard.get_leaderboard_limit", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_group_leaders", new_callable=AsyncMock)
+@patch("app.bot.handlers.leaderboard.get_user_by_telegram_id", new_callable=AsyncMock)
+async def test_leaderboard_rank_outside_top(
+    mock_me: MagicMock,
+    mock_leaders: MagicMock,
+    mock_limit: MagicMock,
     telegram_id: int,
 ) -> None:
-    """Test that user's rank is NOT shown if already in top 10."""
-    # Create user IDs for leaderboard entries
-    current_user_id = uuid4()
-    user_id_2 = uuid4()
-    user_id_3 = uuid4()
+    """Rank within the group is shown when the user is outside the top N."""
+    from app.bot.handlers.leaderboard import handle_leaderboard
 
-    current_user = User(
-        telegram_id=telegram_id,
-        first_name="CurrentUser",
-        archetype="head",
-        xp=100,
-        streak=5,
-        referral_code="abc123",
-    )
-    # Set the id manually for the test
-    current_user.id = current_user_id
-    mock_get_telegram_user.return_value = current_user
-
-    # Mock leaderboard with current user at #1
-    leaderboard = [
-        {"user_id": str(current_user_id), "xp": 100},
-        {"user_id": str(user_id_2), "xp": 90},
-        {"user_id": str(user_id_3), "xp": 80},
-    ]
-    mock_get_leaderboard.return_value = leaderboard
-
-    # Mock user lookups
-    users = {
-        current_user_id: current_user,
-        user_id_2: User(telegram_id=222, first_name="Bob", archetype="shell", xp=90, streak=3, referral_code="b2"),
-        user_id_3: User(telegram_id=333, first_name="Charlie", archetype="whirlwind", xp=80, streak=1, referral_code="c3"),
-    }
-    mock_get_user.side_effect = lambda uid: users.get(uid)
-
-    # User is at rank 0 (in top 10)
-    mock_get_rank.return_value = 0
+    group_id = uuid4()
+    me = _user("Me", 10, group_id, telegram_id)
+    me.id = uuid4()
+    mock_me.return_value = me
+    mock_limit.return_value = 1
+    top = _user("Alice", 100, group_id, 111)
+    # First call (top-1) returns only Alice; second call (top-1000) includes me at #2
+    mock_leaders.side_effect = [[top], [top, me]]
 
     message = AsyncMock()
     message.from_user.id = telegram_id
-
-    from app.bot.handlers.leaderboard import handle_leaderboard
     await handle_leaderboard(message)
 
-    message.answer.assert_called_once()
-    call_args = message.answer.call_args[0][0]
-    # Should NOT contain "позиции" since user is in top 10
-    assert "позиции" not in call_args.lower()
+    text = message.answer.call_args[0][0]
+    assert "#2" in text

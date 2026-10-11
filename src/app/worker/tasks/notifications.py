@@ -315,6 +315,74 @@ async def subscription_renewal_reminders(ctx: dict) -> None:
     finally:
         await bot.session.close()
 
+QUEST_GAME_DAYS = 90
+
+
+async def group_finish_check(ctx: dict) -> None:
+    """ARQ task: report finished quest groups to the admin (master channel).
+
+    A launched quest group finishes QUEST_GAME_DAYS after launched_at.
+    The finish is reported once (finish_notified_at flag) with the top-3
+    leaders by XP. Runs daily (scheduler cron).
+    """
+    from app.bot.services.user_service import get_group_leaders
+    from app.bot.services.settings_service import get_master_channel_id
+    from app.shared.models.group import Group
+
+    bot = Bot(token=await get_bot_token())
+    try:
+        master_chat_id = await get_master_channel_id()
+        if not master_chat_id:
+            logger.warning("group_finish_check: master_channel_id not configured, skipping")
+            return
+
+        now = datetime.now(timezone.utc)
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Group).where(
+                    Group.type == "quest",
+                    Group.launched_at.isnot(None),
+                    Group.finish_notified_at.is_(None),
+                )
+            )
+            groups = list(result.scalars().all())
+
+        for group in groups:
+            launched = group.launched_at
+            if launched is not None and launched.tzinfo is None:
+                launched = launched.replace(tzinfo=timezone.utc)
+            if launched is None or launched + timedelta(days=QUEST_GAME_DAYS) > now:
+                continue
+
+            leaders = await get_group_leaders(group.id, 3)
+            medals = ["🥇", "🥈", "🥉"]
+            lines = [f"🏁 Группа «{group.name}» завершила игру (90 дней)!"]
+            if leaders:
+                lines.append("\nПобедители:")
+                for i, user in enumerate(leaders):
+                    name = f"@{user.username}" if user.username else (user.first_name or "Игрок")
+                    lines.append(f"{medals[i]} {name} — {user.xp or 0} XP")
+            else:
+                lines.append("\nВ группе нет участников с XP.")
+
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(Group).where(Group.id == group.id)
+                )
+                db_group = result.scalar_one_or_none()
+                if db_group is None or db_group.finish_notified_at is not None:
+                    continue  # already reported (concurrent run)
+                db_group.finish_notified_at = now
+                await session.commit()
+
+            try:
+                await bot.send_message(master_chat_id, "\n".join(lines))
+            except TelegramAPIError:
+                logger.exception("group_finish_check: notify failed for group %s", group.id)
+    finally:
+        await bot.session.close()
+
+
 async def group_gathering_update(ctx: dict) -> None:
     """ARQ task: daily gathering progress for unlaunched quest groups.
 

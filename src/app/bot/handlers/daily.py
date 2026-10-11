@@ -24,6 +24,7 @@ from app.bot.services.day_type import (
 )
 from app.bot.services.scroll_service import get_scroll_for_user
 from app.bot.services.settings_service import get_grace_period_hours
+from app.bot.callbacks.scroll import DailyReportSubmit
 from app.bot.services.user_service import access_gate_message, get_user_by_telegram_id
 from app.shared.database import session_factory
 from app.shared.models.daily_scroll import DailyScroll
@@ -405,41 +406,54 @@ async def handle_report(
     # Awareness days: report is the weekly summary, +5 XP (spec 3.4); else +2
     report_xp = 5 if get_day_type(quest_day).is_awareness else 2
 
-    # Store report metadata in FSM state
+    # Store report metadata in FSM state (completion happens only on submit)
     await state.set_data({
         "report_xp": report_xp,
         "quest_day": quest_day,
         "report_command": "/report",
         "report_scroll_code": "otchet",
+        "report_text": None,
+        "report_media_url": None,
+        "report_media_type": None,
     })
 
     await send(
         f"✅ Отчёт о дне — день {quest_day}\n+{report_xp} XP\n\n"
         "Можно добавить текст или фото (необязательно):\n"
         "1. Пришлите текст/фото/видео/документ\n"
-        "2. Нажмите «✅ Свиток пройден» внизу"
+        "2. Нажмите «✅ Свиток пройден» внизу",
+        reply_markup=_daily_report_keyboard(),
     )
     await state.set_state(ReportState.waiting_for_report)
 
 
+def _daily_report_keyboard():
+    """Submit keyboard for the /report flow."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+    from app.bot.callbacks.scroll import DailyReportSubmit
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Свиток пройден", callback_data=DailyReportSubmit().pack())
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 @daily_router.message(ReportState.waiting_for_report)
 async def handle_report_attachment(message: Message, state: FSMContext) -> None:
-    """Handle optional text/photo attachment for the daily report.
+    """Store a text/photo attachment for the daily report (no completion yet).
 
-    Also handles the "Свиток пройден" button click.
+    The completion is created only when the user taps «✅ Свиток пройден»,
+    so stray messages are never counted as a passed report.
     """
     # Skip bot commands (/help, /today, /start, etc.)
     if message.text and message.text.startswith('/'):
         return
 
     data = await state.get_data()
-    report_xp = data.get("report_xp", 2)
-    quest_day = data.get("quest_day", 0)
-
-    # Process attachment
-    report_text = None
-    report_media_url = None
-    report_media_type = None
+    report_text = data.get("report_text")
+    report_media_url = data.get("report_media_url")
+    report_media_type = data.get("report_media_type")
 
     if message.text:
         report_text = message.text
@@ -452,24 +466,57 @@ async def handle_report_attachment(message: Message, state: FSMContext) -> None:
     elif message.document:
         report_media_url = message.document.file_id
         report_media_type = "document"
+    else:
+        return
 
-    # Record the completion with the report
-    user = await get_user_by_telegram_id(message.from_user.id)
-    if user:
-        await _record_command(
-            user.id,
-            quest_day,
-            "/report",
-            "otchet",
-            report_xp,
-            report_text=report_text,
-            report_media_url=report_media_url,
-            report_media_type=report_media_type,
-        )
+    await state.update_data(
+        report_text=report_text,
+        report_media_url=report_media_url,
+        report_media_type=report_media_type,
+    )
+    await message.answer(
+        "📎 Вложение сохранено. Нажмите «✅ Свиток пройден», чтобы завершить отчёт.",
+        reply_markup=_daily_report_keyboard(),
+    )
 
-        await _update_xp(user.id, report_xp)
+
+@daily_router.callback_query(DailyReportSubmit.filter())
+async def handle_daily_report_submit(callback: CallbackQuery, state: FSMContext) -> None:
+    """Complete the /report flow on explicit submit only."""
+    data = await state.get_data()
+    report_xp = data.get("report_xp", 2)
+    quest_day = data.get("quest_day", 0)
+    if not quest_day:
+        await callback.answer("Сессия истекла. Запустите /report заново.")
         await state.clear()
-        await message.answer("Отчёт сохранён. Спасибо!")
+        return
+
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    if user is None:
+        await callback.answer("Сначала зарегистрируйтесь через /start.")
+        await state.clear()
+        return
+
+    allowed, reason = await _is_command_allowed(user.id, quest_day, "/report", "otchet")
+    if not allowed:
+        await callback.answer(reason, show_alert=True)
+        await state.clear()
+        return
+
+    await _record_command(
+        user.id,
+        quest_day,
+        "/report",
+        "otchet",
+        report_xp,
+        report_text=data.get("report_text"),
+        report_media_url=data.get("report_media_url"),
+        report_media_type=data.get("report_media_type"),
+    )
+    await _update_xp(user.id, report_xp)
+    await state.clear()
+    await callback.message.edit_text("Отчёт сохранён. Спасибо!")
+    await callback.answer(f"+{report_xp} XP!")
 
 
 # --- Status command ---
@@ -630,28 +677,14 @@ async def handle_leaderboard(
     tg_id: int | None = None,
     reply=None,
 ) -> None:
-    """Show top users by XP."""
+    """Show the group leaders by XP (same as /leaderboard)."""
+    from app.bot.handlers.leaderboard import format_leaderboard_message
+    from app.bot.keyboards.leaderboard import leaderboard_keyboard
+
     tid = tg_id if tg_id is not None else message.from_user.id
     send = reply or message.answer
-    user = await get_user_by_telegram_id(tid)
-    if user is None:
-        await send("Сначала зарегистрируйтесь через /start.")
-        return
-
-    async with session_factory() as session:
-        result = await session.execute(
-            select(User)
-            .where(User.paid_at.isnot(None))
-            .order_by(User.xp.desc())
-            .limit(10)
-        )
-        top_users = result.scalars().all()
-
-    text = "🏆 Топ участников:\n\n"
-    for i, u in enumerate(top_users, 1):
-        text += f"{i}. {u.full_name or u.telegram_username} — {u.xp or 0} XP\n"
-
-    await send(text)
+    text = await format_leaderboard_message(message, tg_id=tid)
+    await send(text, reply_markup=leaderboard_keyboard())
 
 
 @daily_router.message(Command("help"))

@@ -8,7 +8,9 @@ import {
   deleteGroup,
   addGroupMember,
   getUsers,
+  getQuestGroups,
   GroupItem,
+  QuestGroupItem,
   UserListItem,
 } from '../services/api'
 import RoleGuard from '../components/RoleGuard'
@@ -34,9 +36,13 @@ const typeLabels: Record<string, string> = {
   quest: 'Квест (автонабор)',
 }
 
+const questMedals = ['🥇', '🥈', '🥉']
+
 export default function Groups() {
   const [groups, setGroups] = useState<GroupItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [questGroups, setQuestGroups] = useState<QuestGroupItem[]>([])
+  const [questLoading, setQuestLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [memberModalOpen, setMemberModalOpen] = useState(false)
@@ -57,6 +63,49 @@ export default function Groups() {
   useEffect(() => {
     loadGroups()
   }, [typeFilter])
+
+  useEffect(() => {
+    setQuestLoading(true)
+    getQuestGroups()
+      .then((res) => setQuestGroups(res.data))
+      .catch(console.error)
+      .finally(() => setQuestLoading(false))
+  }, [])
+
+  const questColumns: ColumnsType<QuestGroupItem> = [
+    { title: 'Поток', dataIndex: 'name', key: 'name' },
+    {
+      title: 'Статус',
+      dataIndex: 'status',
+      key: 'status',
+      render: (s: string) => (
+        <Tag color={s === 'launched' ? 'green' : 'orange'}>
+          {s === 'launched' ? 'Запущен' : 'Набор'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Оплатили',
+      key: 'paid',
+      render: (_, r) => `${r.paid} / ${r.members}`,
+    },
+    {
+      title: 'Лидеры',
+      key: 'leaders',
+      render: (_, r) =>
+        r.leaders.length === 0 ? (
+          <span style={{ color: '#999' }}>—</span>
+        ) : (
+          <div>
+            {r.leaders.map((l, i) => (
+              <div key={i}>
+                {questMedals[i] || `${i + 1}.`} {l.name} — {l.xp} XP
+              </div>
+            ))}
+          </div>
+        ),
+    },
+  ]
 
   const searchOwners = (query: string) => {
     setOwnerLoading(true)
@@ -189,6 +238,15 @@ export default function Groups() {
         dataSource={groups}
         rowKey="id"
         loading={loading}
+        pagination={false}
+      />
+
+      <Title level={4} style={{ marginTop: 32 }}>Квест-потоки (автонабор)</Title>
+      <Table
+        columns={questColumns}
+        dataSource={questGroups}
+        rowKey="id"
+        loading={questLoading}
         pagination={false}
       />
 

@@ -26,3 +26,5 @@ class Group(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     max_members: Mapped[int] = mapped_column(Integer, default=10)
     launched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # Quest groups only: set when min_size paid members gathered
+    finish_notified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Quest groups only: set when the 90-day finish was reported to the admin

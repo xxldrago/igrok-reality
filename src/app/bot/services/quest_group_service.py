@@ -206,9 +206,12 @@ async def list_quest_groups() -> list[dict]:
         )
         groups = list(result.scalars().all())
         out = []
+        from app.bot.services.user_service import get_group_leaders
+
         for group in groups:
             total = await _member_count(session, group.id)
             paid = await _paid_count(session, group.id)
+            leaders = await get_group_leaders(group.id, 3)
             out.append(
                 {
                     "id": str(group.id),
@@ -218,6 +221,13 @@ async def list_quest_groups() -> list[dict]:
                     "paid": paid,
                     "launched_at": group.launched_at.isoformat() if group.launched_at else None,
                     "created_at": group.created_at.isoformat() if group.created_at else None,
+                    "leaders": [
+                        {
+                            "name": (f"@{u.username}" if u.username else (u.first_name or "Игрок")),
+                            "xp": u.xp or 0,
+                        }
+                        for u in leaders
+                    ],
                 }
             )
         return out

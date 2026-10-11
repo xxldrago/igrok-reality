@@ -134,6 +134,17 @@ async def enqueue_renewal_reminders(ctx: None = None) -> None:
         await pool.close()
 
 
+async def enqueue_group_finish_check(ctx: None = None) -> None:
+    """Enqueue finished quest-group reporting via ARQ (daily 09:05)."""
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    pool = await create_pool(redis_settings)
+    try:
+        await pool.enqueue_job("group_finish_check")
+        logger.info("Enqueued group_finish_check via ARQ")
+    finally:
+        await pool.close()
+
+
 async def enqueue_delivery_cleanup(ctx: None = None) -> None:
     """Enqueue expired delivery-message cleanup via ARQ (daily 05:30)."""
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -225,6 +236,17 @@ async def schedule_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Scheduled renewal reminders at 09:00 %s time", settings.TZ)
+
+    # Finished quest-group reporting (daily 09:05)
+    if scheduler.get_job("group_finish_check"):
+        scheduler.remove_job("group_finish_check")
+    scheduler.add_job(
+        enqueue_group_finish_check,
+        CronTrigger(hour=9, minute=5, timezone=settings.TZ),
+        id="group_finish_check",
+        replace_existing=True,
+    )
+    logger.info("Scheduled group finish check at 09:05 %s time", settings.TZ)
 
     # Expired delivery cleanup (daily 05:30, after the grace period ends)
     if scheduler.get_job("delivery_cleanup"):
