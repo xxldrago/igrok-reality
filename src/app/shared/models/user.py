@@ -41,6 +41,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     clan_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("clans.id"), nullable=True)
     quiz_answers: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Entrance test answers as JSON: ["a", "c", "b", "a"]
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # for payment receipts
 
 
 class Referral(Base, UUIDPrimaryKeyMixin, TimestampMixin):

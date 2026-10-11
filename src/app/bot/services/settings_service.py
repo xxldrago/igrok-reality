@@ -327,6 +327,18 @@ async def get_yookassa_credentials() -> tuple[str, str]:
     return shop_id, secret
 
 
+async def get_yookassa_vat_code() -> int:
+    """YooKassa receipt VAT code (1–6, default 1 = VAT-exempt)."""
+    raw = await _db_or_env("yookassa_vat_code", "1")
+    try:
+        code = int(raw)
+        if 1 <= code <= 6:
+            return code
+    except (TypeError, ValueError):
+        pass
+    return 1
+
+
 async def get_yookassa_return_url() -> str:
     """Return URL after YooKassa checkout — DB override, env, or t.me fallback."""
     override = await _db_or_env("yookassa_return_url", settings.YOOKASSA_RETURN_URL)
@@ -797,6 +809,8 @@ SettingsGroup(
                           "Храните в тайне!"),
             SettingsField("yookassa_return_url", "Return URL после оплаты", "text", "YOOKASSA_RETURN_URL",
                           "Куда вернуть пользователя. Пусто = t.me бота"),
+            SettingsField("yookassa_vat_code", "Ставка НДС в чеке (1–6)", "number", "",
+                          "1 = без НДС. Применяется к новым платежам"),
         ],
     ),
     SettingsGroup(

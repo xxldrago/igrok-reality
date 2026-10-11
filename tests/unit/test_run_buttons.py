@@ -112,6 +112,11 @@ async def test_run_pay_and_unknown() -> None:
     with (
         patch.object(runner_mod, "get_user_by_telegram_id", new_callable=AsyncMock, return_value=user),
         patch.object(runner_mod, "send_pay_prompt", new_callable=AsyncMock) as mock_pay,
+        patch(
+            "app.bot.handlers.payment.ensure_email_for_provider",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
     ):
         await runner_mod.handle_run(callback, state, data)
     assert mock_pay.call_args[0][1] == user

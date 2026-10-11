@@ -142,6 +142,7 @@ class TestPaymentProvider:
             "yookassa_shop_id",
             "yookassa_secret_key",
             "yookassa_return_url",
+            "yookassa_vat_code",
         }
 
 

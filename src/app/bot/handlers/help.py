@@ -163,7 +163,7 @@ _INFO_GETTERS = {
 
 
 @help_router.callback_query(InfoPage.filter())
-async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage) -> None:
+async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage, state: FSMContext) -> None:
     """Show an info page (/menu buttons). Long texts are split into chunks."""
     from app.bot.handlers.registration import split_message
     from app.bot.services import settings_service
@@ -179,11 +179,13 @@ async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage) -> 
 
     # Pricing ends with a live pay button (same as /pay).
     if callback_data.page == "pricing":
-        from app.bot.handlers.payment import send_pay_prompt
+        from app.bot.handlers.payment import ensure_email_for_provider, send_pay_prompt
 
         user = await get_user_by_telegram_id(callback.from_user.id)
         if user is None:
             await callback.message.answer("Сначала зарегистрируйтесь через /start.")
+        elif not await ensure_email_for_provider(callback.message, user, state):
+            return
         else:
             await send_pay_prompt(callback.message, user)
 

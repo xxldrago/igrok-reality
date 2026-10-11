@@ -22,6 +22,7 @@ from app.bot.services.settings_service import (
     get_payment_channel_id,
     get_yookassa_credentials,
     get_yookassa_return_url,
+    get_yookassa_vat_code,
 )
 from app.bot.services.channel_access import grant_access, revoke_access
 from app.bot.services.commission import calculate_commission
@@ -284,9 +285,11 @@ def _kopecks_to_rub(amount: int) -> str:
     return f"{amount / 100:.2f}"
 
 
-async def create_yookassa_payment(payment: Payment) -> str:
+async def create_yookassa_payment(payment: Payment, email: str | None = None) -> str:
     """Create a YooKassa payment and return the confirmation URL.
 
+    When email is given, a fiscal receipt is attached (required when
+    auto-receipts are enabled in YooKassa).
     Raises RuntimeError when credentials/return_url are missing,
     httpx.HTTPError on transport errors, ValueError on bad API responses.
     Updates payment.yookassa_payment_id from the response.
@@ -298,21 +301,36 @@ async def create_yookassa_payment(payment: Payment) -> str:
     if not return_url:
         raise RuntimeError("YooKassa return_url is not configured")
 
+    body: dict = {
+        "amount": {"value": _kopecks_to_rub(payment.amount), "currency": payment.currency},
+        "capture": True,
+        "confirmation": {"type": "redirect", "return_url": return_url},
+        "description": f"Участие в квесте ({payment.amount // 100} ₽/мес)",
+        "metadata": {
+            "payment_id": str(payment.id),
+            "user_id": str(payment.user_id),
+        },
+    }
+    if email:
+        vat_code = await get_yookassa_vat_code()
+        body["receipt"] = {
+            "customer": {"email": email},
+            "items": [
+                {
+                    "description": "Участие в квесте",
+                    "quantity": "1.000",
+                    "amount": {"value": _kopecks_to_rub(payment.amount), "currency": payment.currency},
+                    "vat_code": vat_code,
+                }
+            ],
+        }
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             YOOKASSA_API_URL,
             auth=(shop_id, secret),
             headers={"Idempotence-Key": payment.idempotency_key or str(payment.id)},
-            json={
-                "amount": {"value": _kopecks_to_rub(payment.amount), "currency": payment.currency},
-                "capture": True,
-                "confirmation": {"type": "redirect", "return_url": return_url},
-                "description": f"Участие в квесте ({payment.amount // 100} ₽/мес)",
-                "metadata": {
-                    "payment_id": str(payment.id),
-                    "user_id": str(payment.user_id),
-                },
-            },
+            json=body,
             timeout=30.0,
         )
         data = response.json()

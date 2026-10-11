@@ -126,10 +126,15 @@ async def test_info_handler_all_pages() -> None:
             patch(
                 "app.bot.handlers.payment.send_pay_prompt", new_callable=AsyncMock
             ),
+            patch(
+                "app.bot.handlers.payment.ensure_email_for_provider",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
         ):
             data = MagicMock()
             data.page = page
-            await help_mod.handle_info_page(callback, data)
+            await help_mod.handle_info_page(callback, data, AsyncMock())
         texts = [c[0][0] for c in callback.message.answer.call_args_list]
         assert any(marker in t for t in texts), page
 
@@ -154,8 +159,13 @@ async def test_pricing_appends_pay_button() -> None:
         patch(
             "app.bot.handlers.payment.send_pay_prompt", new_callable=AsyncMock
         ) as mock_pay,
+        patch(
+            "app.bot.handlers.payment.ensure_email_for_provider",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
     ):
-        await help_mod.handle_info_page(callback, data)
+        await help_mod.handle_info_page(callback, data, AsyncMock())
     texts = [c[0][0] for c in callback.message.answer.call_args_list]
     assert any("Тарифы" in t for t in texts)
     mock_pay.assert_awaited_once()
@@ -169,7 +179,7 @@ async def test_info_handler_unknown_page() -> None:
     callback = _callback()
     data = MagicMock()
     data.page = "nope"
-    await help_mod.handle_info_page(callback, data)
+    await help_mod.handle_info_page(callback, data, AsyncMock())
     assert "/menu" in callback.message.answer.call_args[0][0]
 
 

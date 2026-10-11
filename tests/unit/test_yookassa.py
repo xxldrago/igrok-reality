@@ -110,6 +110,121 @@ class TestCreateYookassaPayment:
                 await svc.create_yookassa_payment(_make_payment())
 
 
+class TestEmailGate:
+    @pytest.mark.asyncio
+    async def test_non_yookassa_skips_gate(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        message = AsyncMock()
+        state = AsyncMock()
+        with patch.object(
+            pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="stub"
+        ):
+            assert await pay_mod.ensure_email_for_provider(message, MagicMock(), state) is True
+        message.answer.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_yookassa_with_email_proceeds(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        message = AsyncMock()
+        state = AsyncMock()
+        user = MagicMock()
+        user.email = "a@b.ru"
+        with patch.object(
+            pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="yookassa"
+        ):
+            assert await pay_mod.ensure_email_for_provider(message, user, state) is True
+
+    @pytest.mark.asyncio
+    async def test_yookassa_without_email_asks(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        message = AsyncMock()
+        message.answer = AsyncMock()
+        state = AsyncMock()
+        state.set_state = AsyncMock()
+        user = MagicMock()
+        user.email = None
+        with patch.object(
+            pay_mod, "get_payment_provider", new_callable=AsyncMock, return_value="yookassa"
+        ):
+            assert await pay_mod.ensure_email_for_provider(message, user, state) is False
+        assert "email" in message.answer.call_args[0][0].lower()
+
+    @pytest.mark.asyncio
+    async def test_email_input_invalid_reasks(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        message = AsyncMock()
+        message.text = "not-an-email"
+        message.answer = AsyncMock()
+        state = AsyncMock()
+        await pay_mod.handle_email_input(message, state)
+        assert "не email" in message.answer.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_email_input_saves_and_pays(self) -> None:
+        from app.bot.handlers import payment as pay_mod
+
+        message = AsyncMock()
+        message.text = "User@Example.RU "
+        message.from_user.id = 123
+        message.answer = AsyncMock()
+        state = AsyncMock()
+        state.clear = AsyncMock()
+
+        db_user = MagicMock()
+        res = MagicMock()
+        res.scalar_one_or_none.return_value = db_user
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=res)
+
+        with (
+            patch.object(pay_mod, "session_factory", return_value=_session_cm(mock_session)),
+            patch.object(pay_mod, "send_pay_prompt", new_callable=AsyncMock) as mock_pay,
+        ):
+            await pay_mod.handle_email_input(message, state)
+
+        assert db_user.email == "user@example.ru"
+        mock_pay.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_receipt_attached_when_email(self) -> None:
+        from app.bot.services import payment_service as svc
+
+        payment = _make_payment()
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "id": "yk-1",
+            "confirmation": {"confirmation_url": "https://y.example/c"},
+        }
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_post = AsyncMock(return_value=mock_resp)
+        mock_client.post = mock_post
+
+        mock_session = AsyncMock()
+        row = MagicMock()
+        res = MagicMock()
+        res.scalar_one.return_value = row
+        mock_session.execute = AsyncMock(return_value=res)
+
+        with (
+            patch.object(svc, "get_yookassa_credentials", new_callable=AsyncMock, return_value=("s", "k")),
+            patch.object(svc, "get_yookassa_return_url", new_callable=AsyncMock, return_value="https://t.me/b"),
+            patch.object(svc, "get_yookassa_vat_code", new_callable=AsyncMock, return_value=2),
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.object(svc, "session_factory", return_value=_session_cm(mock_session)),
+        ):
+            await svc.create_yookassa_payment(payment, email="a@b.ru")
+
+        receipt = mock_post.call_args[1]["json"]["receipt"]
+        assert receipt["customer"] == {"email": "a@b.ru"}
+        assert receipt["items"][0]["vat_code"] == 2
+
+
 class TestYookassaWebhook:
     def _notify(self, yk_id="yk-123"):
         return {"event": "payment.succeeded", "object": {"id": yk_id, "status": "succeeded"}}

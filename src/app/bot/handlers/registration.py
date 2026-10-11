@@ -343,9 +343,12 @@ async def handle_q4(
         else:
             await callback.message.edit_text(profile_text)
 
-        # Payment prompt right away: test button or Platega URL (no /pay typing needed)
-        from app.bot.handlers.payment import send_pay_prompt
+        # Payment prompt right away (no /pay typing needed).
+        # YooKassa needs the receipt email first — the FSM continues to pay after save.
+        from app.bot.handlers.payment import ensure_email_for_provider, send_pay_prompt
 
+        if not await ensure_email_for_provider(callback.message, user, state):
+            return
         await send_pay_prompt(callback.message, user)
     except Exception:
         logger.exception(

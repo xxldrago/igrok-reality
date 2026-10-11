@@ -71,9 +71,13 @@ async def handle_run(
     elif cmd == "/leaderboard":
         await handle_leaderboard(message, tg_id=tg_id, reply=reply)
     elif cmd == "/pay":
+        from app.bot.handlers.payment import ensure_email_for_provider
+
         user = await get_user_by_telegram_id(tg_id)
         if user is None:
             await reply("Сначала зарегистрируйтесь через /start.")
+        elif not await ensure_email_for_provider(message, user, state):
+            return
         else:
             await send_pay_prompt(message, user)
     elif cmd == "/referral":
