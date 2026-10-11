@@ -111,7 +111,7 @@ async def deliver_scroll_slot(ctx: dict, hour: int | None = None, **kwargs) -> N
                     if daily_scroll and daily_scroll.xp_reward is not None
                     else st.xp_reward
                 )
-                text += f"\n\n⏱ Выполни: {st.command} (+{effective_xp} XP)"
+                text += f"\n\n⏱ +{effective_xp} XP"
                 if daily_scroll and daily_scroll.requires_report:
                     text += "\n\n📝 После выполнения нажмите «Начать отчёт» и отправьте отчёт (текст/фото/видео/файл) — без отчёта свиток не засчитается."
                 else:
