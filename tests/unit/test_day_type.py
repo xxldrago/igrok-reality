@@ -123,14 +123,22 @@ class TestBreathingGate:
     """_is_command_allowed on breathing days (spec 3.3)."""
 
     def _session(self, scroll_type, existing=None):
+        from datetime import datetime, timezone
         from unittest.mock import AsyncMock, MagicMock
 
+        from app.shared.models.user import User
+
         mock_session = AsyncMock()
+        res_user = MagicMock()
+        res_user.scalar_one_or_none.return_value = User(
+            telegram_id=1,
+            paid_at=datetime.now(timezone.utc),
+        )
         res_type = MagicMock()
         res_type.scalar_one_or_none.return_value = scroll_type
         res_dup = MagicMock()
         res_dup.scalar_one_or_none.return_value = existing
-        mock_session.execute = AsyncMock(side_effect=[res_type, res_dup])
+        mock_session.execute = AsyncMock(side_effect=[res_user, res_type, res_dup])
         cm = AsyncMock()
         cm.__aenter__ = AsyncMock(return_value=mock_session)
         cm.__aexit__ = AsyncMock(return_value=False)

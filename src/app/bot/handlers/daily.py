@@ -18,6 +18,7 @@ from app.bot.keyboards.scroll import today_keyboard
 from app.bot.services.day_type import (
     COMMAND_TO_SCROLL_CODE,
     GRACE_PERIOD_HOURS,
+    get_breathing_slot,
     get_day_type,
     get_available_scroll_codes,
 )
@@ -52,15 +53,20 @@ def _get_quest_day(
     grace_hours defaults to GRACE_PERIOD_HOURS (callers pass the
     actual value from settings).
     """
+    if user.started_at is None:
+        return 0
     tz = ZoneInfo(tz_name)
-    now = now or datetime.now(timezone.utc)
-    local_time = now.astimezone(tz)
-    day_start = local_time.replace(hour=0, minute=0, second=0, microsecond=0)
-    days_since_start = (local_time - day_start).days
-    grace = timedelta(hours=grace_hours or GRACE_PERIOD_HOURS)
-    if local_time - day_start < grace:
-        days_since_start -= 1
-    return max(0, days_since_start + 1)
+    now = now or datetime.now(tz)
+    started = user.started_at.replace(tzinfo=timezone.utc).astimezone(tz)
+
+    # Determine which day this command belongs to
+    grace = GRACE_PERIOD_HOURS if grace_hours is None else grace_hours
+    effective_date = now.date()
+    if grace > 0 and now.hour < grace:
+        effective_date = now.date() - timedelta(days=1)
+
+    delta = (effective_date - started.date()).days
+    return min(max(delta + 1, 0), 90)  # Clamp to 0-90 (0 = quest not started)
 
 
 async def _is_command_allowed(
@@ -298,14 +304,32 @@ async def handle_scanreport(message: Message, state: FSMContext) -> None:
     await _handle_scroll_command(message, "/scanreport", "korni")
 
 
+async def _resolve_breath(user) -> tuple[str, str]:
+    """Pick the breathing scroll (code, slot) for a user by hour.
+
+    Shared by the /breath command and the inline-button flow.
+    """
+    code, slot = "vetr", ""
+    if user is not None:
+        tz_name = user.timezone or settings.TZ
+        quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
+        if quest_day > 0 and get_day_type(quest_day).is_breathing:
+            now_hour = datetime.now(ZoneInfo(tz_name)).hour
+            slot = get_breathing_slot(now_hour)
+            code = {"morning": "vetr", "day": "vetr_day", "evening": "vetr_evening"}[slot]
+    return code, slot
+
+
 @daily_router.message(Command("breath"))
-async def handle_breath(
-    message: Message,
-    state: FSMContext,
-    slot: str = "",
-) -> None:
-    """Handle /breath — Ветер (дыхательное упражнение, +5 XP)."""
-    await _handle_scroll_command(message, "/breath", "vetr", slot=slot)
+async def handle_breath(message: Message, state: FSMContext) -> None:
+    """Handle /breath — Ветер (дыхательная практика).
+
+    On breathing days routes to the morning/day/evening scroll by hour,
+    so /breath can be completed 3 times (+5 XP each).
+    """
+    user = await get_user_by_telegram_id(message.from_user.id)
+    code, slot = await _resolve_breath(user)
+    await _handle_scroll_command(message, "/breath", code, slot=slot)
 
 
 @daily_router.message(Command("micro"))
@@ -471,34 +495,109 @@ async def handle_today(
     quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
 
     if quest_day == 0:
-        await send("Вы ещё не начали квест. Используйте /start.")
+        await send("Вы ещё не начали квест.")
         return
 
-    # Get today's scrolls
+    # Get available scrolls for today
+    available_codes = get_available_scroll_codes(quest_day)
+
+    # Get completed commands (slot-aware for breathing-day repeats + actual XP)
+    from app.bot.services.day_type import BREATHING_SLOTS
+
+    slot_by_code = {code: slot for slot, code in BREATHING_SLOTS}
     async with session_factory() as session:
         result = await session.execute(
-            select(ScrollType).where(ScrollType.code.in_(COMMAND_TO_SCROLL_CODE.values()))
-        )
-        scroll_types = result.scalars().all()
-
-        # Get completed scrolls for this user today
-        result = await session.execute(
-            select(UserDailyCommand).where(
+            select(
+                UserDailyCommand.command,
+                UserDailyCommand.slot,
+                UserDailyCommand.xp_awarded,
+            ).where(
                 UserDailyCommand.user_id == user.id,
                 UserDailyCommand.quest_day == quest_day,
             )
         )
-        completed = result.scalars().all()
+        rows = result.all()
+        done_pairs = {(row[0], row[1]) for row in rows}
+        earned_xp = sum(row[2] for row in rows)
 
-    completed_codes = {c.scroll_type.code for c in completed if c.scroll_type}
+    # Get scroll types for display
+    async with session_factory() as session:
+        result = await session.execute(select(ScrollType))
+        all_types = {st.code: st for st in result.scalars().all()}
 
-    text = f"📊 Статус сегодня (день {quest_day}):\n\n"
-    for st in sorted(scroll_types, key=lambda x: COMMAND_TO_SCROLL_CODE.get(x.code, "")):
-        done = st.code in completed_codes
-        icon = "✅" if done else "❌"
-        text += f"{icon} {st.name}\n"
+    day_type = get_day_type(quest_day)
+    lines = [f"📅 День {quest_day} из 90\n"]
 
-    await send(text + "\nИспользуйте команды для прохождения свитков.")
+    if day_type.is_meditation:
+        lines.append("🧘 День медитации")
+    elif day_type.is_breathing:
+        lines.append("🌬️ День дыхания")
+    elif day_type.is_awareness:
+        lines.append("🔮 День осознания")
+    lines.append("")
+
+    for code in available_codes:
+        st = all_types.get(code)
+        if st is None:
+            continue
+        cmd = st.command
+        slot = slot_by_code.get(code, "")
+        done = "✅" if (cmd, slot) in done_pairs else "⬜"
+        time_str = f"{st.hour:02d}:{st.minute:02d}" if st.hour >= 0 else "когда удобно"
+        lines.append(f"{done} {st.name} — {cmd} (+{st.xp_reward} XP) — {time_str}")
+
+    # XP summary (earned = actually awarded, e.g. awareness report +5)
+    total_xp_today = sum(
+        all_types[c].xp_reward for c in available_codes if c in all_types
+    )
+
+    lines.append(f"\n💰 XP сегодня: {earned_xp}/{total_xp_today}")
+
+    await send(
+        "\n".join(lines),
+        reply_markup=today_keyboard(available_codes, all_types, done_pairs),
+    )
+
+
+# --- Unknown command fallback (spec 4.1: typos are not recognized) ---
+
+
+@daily_router.message(F.text.startswith("/"))
+async def handle_unknown_command(message: Message) -> None:
+    """Catch-all for mistyped commands — lists today's commands to resend.
+
+    Registered last in this router so real commands and FSM states match
+    first; the daily router itself is last in the dispatcher.
+    """
+    typed = (message.text or "").split()[0]
+
+    user = await get_user_by_telegram_id(message.from_user.id)
+    if user is None:
+        await message.answer(f"Неизвестная команда {typed}. Начните с /start.")
+        return
+
+    tz_name = user.timezone or settings.TZ
+    quest_day = _get_quest_day(user, tz_name, grace_hours=await get_grace_period_hours())
+    if quest_day == 0:
+        await message.answer(f"Неизвестная команда {typed}. Начните с /start.")
+        return
+
+    async with session_factory() as session:
+        result = await session.execute(select(ScrollType))
+        all_types = {st.code: st for st in result.scalars().all()}
+
+    lines = [
+        f"❓ Команда {typed} не распознана.",
+        "",
+        f"Доступно сегодня (день {quest_day}):",
+    ]
+    for code in get_available_scroll_codes(quest_day):
+        st = all_types.get(code)
+        if st:
+            lines.append(f"{st.command} — {st.name}")
+    lines.append("")
+    lines.append("Подсказка: /today — статус дня.")
+    await message.answer("\n".join(lines))
 
 
 @daily_router.message(Command("streak"))
