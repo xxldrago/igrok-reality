@@ -31,6 +31,7 @@ async def test_create_payment_reuses_pending(
     existing_payment = Payment(
         user_id=user_id,
         amount=4900,
+        currency="RUB",
         status="pending",
         idempotency_key="existing-key",
     )
@@ -89,6 +90,40 @@ async def test_create_payment_creates_new_when_no_pending(
     assert result.status == "pending"
     assert result.idempotency_key is not None
     mock_session.add.assert_called_once()
+
+
+@patch("app.bot.services.payment_service.session_factory")
+async def test_create_payment_updates_pending_on_price_change(
+    mock_session_factory: MagicMock, user_id: uuid4
+) -> None:
+    """Stale pending payment is updated to the current price (new idempotency key)."""
+    existing_payment = Payment(
+        user_id=user_id,
+        amount=490000,
+        status="pending",
+        idempotency_key="old-key",
+    )
+    existing_payment.id = uuid4()
+    existing_payment.yookassa_payment_id = "yk-old"
+    existing_payment.platega_transaction_id = "tx-old"
+
+    mock_session = AsyncMock()
+    mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = existing_payment
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.refresh = AsyncMock()
+
+    result = await create_payment(user_id=user_id, amount=100)
+
+    assert result is existing_payment
+    assert result.amount == 100
+    assert result.idempotency_key != "old-key"
+    assert result.yookassa_payment_id is None
+    assert result.platega_transaction_id is None
+    mock_session.add.assert_not_called()
 
 
 # --- update_payment_status ---

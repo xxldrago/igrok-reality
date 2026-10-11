@@ -33,7 +33,9 @@ async def create_payment(user_id: UUID, amount: int, currency: str = "RUB") -> P
 
     If a pending payment already exists for this user, reuses it instead
     of creating a duplicate — prevents duplicate charges when the user
-    taps /pay multiple times.
+    taps /pay multiple times. When the price changed since, the pending
+    row is updated (amount + fresh idempotency key, so the provider
+    doesn't return the old checkout by the old key).
     """
     # Idempotency: return existing pending payment if one exists
     async with session_factory() as session:
@@ -45,6 +47,14 @@ async def create_payment(user_id: UUID, amount: int, currency: str = "RUB") -> P
         )
         existing = result.scalar_one_or_none()
         if existing is not None:
+            if existing.amount != amount or existing.currency != currency:
+                existing.amount = amount
+                existing.currency = currency
+                existing.idempotency_key = str(uuid.uuid4())
+                existing.yookassa_payment_id = None
+                existing.platega_transaction_id = None
+                await session.commit()
+                await session.refresh(existing)
             return existing
 
     # No pending payment — create a new one
