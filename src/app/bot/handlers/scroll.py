@@ -200,6 +200,7 @@ async def handle_report_action(callback: CallbackQuery, state: FSMContext) -> No
 @scroll_router.message(
     CompletionReportState.waiting_for_report,
     F.content_type == ContentType.TEXT,
+    ~F.text.startswith("/"),
 )
 async def handle_report_text(message: Message, state: FSMContext) -> None:
     """Store text report content and show confirmation with action buttons."""

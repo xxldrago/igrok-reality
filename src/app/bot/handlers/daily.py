@@ -439,7 +439,7 @@ def _daily_report_keyboard():
     return builder.as_markup()
 
 
-@daily_router.message(ReportState.waiting_for_report)
+@daily_router.message(ReportState.waiting_for_report, ~F.text.startswith("/"))
 async def handle_report_attachment(message: Message, state: FSMContext) -> None:
     """Store a text/photo attachment for the daily report (no completion yet).
 

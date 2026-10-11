@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -50,7 +50,7 @@ async def ensure_email_for_provider(message: Message, user, state: FSMContext) -
     return False
 
 
-@payment_router.message(PaymentState.waiting_for_email)
+@payment_router.message(PaymentState.waiting_for_email, ~F.text.startswith("/"))
 async def handle_email_input(message: Message, state: FSMContext) -> None:
     """Validate and save the receipt email, then continue to payment."""
     email = (message.text or "").strip().lower()

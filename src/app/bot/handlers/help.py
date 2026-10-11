@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -190,7 +190,7 @@ async def handle_info_page(callback: CallbackQuery, callback_data: InfoPage, sta
             await send_pay_prompt(callback.message, user)
 
 
-@help_router.message(HelpState.waiting_for_reason)
+@help_router.message(HelpState.waiting_for_reason, ~F.text.startswith("/"))
 async def handle_help_reason(message: Message, state: FSMContext) -> None:
     """Save the help report reason."""
     user = await get_user_by_telegram_id(message.from_user.id)

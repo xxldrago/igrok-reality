@@ -50,22 +50,28 @@ async def myteam_handler(message: Message) -> None:
 
 @team_router.message(Command("mygroup"))
 async def mygroup_handler(message: Message) -> None:
-    """Show users in the assigned Group model (curator/specialist)."""
+    """Show the user's own quest group (or the owned group for mentors)."""
     user = await get_user_by_telegram_id(message.from_user.id)
     if user is None:
         await message.answer("Сначала зарегистрируйся через /start")
         return
 
-    if user.role not in MENTOR_ROLES:
-        await message.answer("Команда недоступна")
-        return
+    group = None
+    # 1. The quest cohort the user belongs to
+    if user.group_id is not None:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Group).where(Group.id == user.group_id)
+            )
+            group = result.scalar_one_or_none()
 
-    # Find the group owned by this user
-    async with session_factory() as session:
-        result = await session.execute(
-            select(Group).where(Group.owner_id == user.id)
-        )
-        group = result.scalar_one_or_none()
+    # 2. Fallback for mentors: the group they own
+    if group is None and user.role in MENTOR_ROLES:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Group).where(Group.owner_id == user.id)
+            )
+            group = result.scalar_one_or_none()
 
     if group is None:
         await message.answer("У вас нет назначенной группы. Обратитесь к Мастеру.")
