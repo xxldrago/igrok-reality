@@ -3,13 +3,62 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
 
 from app.shared.database import session_factory
 from app.shared.models.user import Referral, User
+
+# Paid access: each successful payment grants this many days from
+# max(now, previous expiry) — early renewal stacks, late renewal restarts.
+ACCESS_PERIOD_DAYS = 30
+
+# Days before expiry when daily renewal reminders are sent (each day).
+RENEWAL_REMINDER_DAYS = (3, 2, 1)
+
+
+def is_access_active(user) -> bool:
+    """Whether the user currently has paid access (access_until in the future)."""
+    until = getattr(user, "access_until", None)
+    if until is None:
+        return False
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return until > datetime.now(timezone.utc)
+
+
+def days_until_expiry(user) -> int | None:
+    """Full days left until access expiry (date-based, UTC). None if never paid."""
+    until = getattr(user, "access_until", None)
+    if until is None:
+        return None
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return (until.date() - datetime.now(timezone.utc).date()).days
+
+
+def access_gate_message(user) -> str | None:
+    """Return the denial text when access is missing/expired, else None."""
+    if user is None or getattr(user, "paid_at", None) is None:
+        return "Сначала оплатите участие: /pay"
+    if not is_access_active(user):
+        return "⏳ Доступ к игре завершён. Продлите участие: /pay"
+    return None
+
+
+def grant_access_period(db_user, now: datetime | None = None) -> None:
+    """Extend access_until by one period from max(now, previous expiry).
+
+    Mutates the attached ORM object (caller commits).
+    """
+    now = now or datetime.now(timezone.utc)
+    prev = db_user.access_until
+    if prev is not None and prev.tzinfo is None:
+        prev = prev.replace(tzinfo=timezone.utc)
+    base = max(now, prev) if prev is not None else now
+    db_user.access_until = base + timedelta(days=ACCESS_PERIOD_DAYS)
 
 
 def generate_referral_code() -> str:

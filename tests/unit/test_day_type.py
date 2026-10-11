@@ -1,7 +1,7 @@
 """Tests for day type determination and grace period logic."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from app.bot.services.day_type import (
@@ -133,6 +133,7 @@ class TestBreathingGate:
         res_user.scalar_one_or_none.return_value = User(
             telegram_id=1,
             paid_at=datetime.now(timezone.utc),
+            access_until=datetime.now(timezone.utc) + timedelta(days=5),
         )
         res_type = MagicMock()
         res_type.scalar_one_or_none.return_value = scroll_type

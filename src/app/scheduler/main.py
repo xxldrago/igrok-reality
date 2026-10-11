@@ -123,6 +123,17 @@ async def enqueue_pending_notifications(ctx: None = None) -> None:
         await pool.close()
 
 
+async def enqueue_renewal_reminders(ctx: None = None) -> None:
+    """Enqueue subscription renewal reminders via ARQ (daily 09:00)."""
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
+    pool = await create_pool(redis_settings)
+    try:
+        await pool.enqueue_job("subscription_renewal_reminders")
+        logger.info("Enqueued subscription_renewal_reminders via ARQ")
+    finally:
+        await pool.close()
+
+
 async def enqueue_delivery_cleanup(ctx: None = None) -> None:
     """Enqueue expired delivery-message cleanup via ARQ (daily 05:30)."""
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -203,6 +214,17 @@ async def schedule_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Scheduled gathering update at 10:00 %s time", settings.TZ)
+
+    # Subscription renewal reminders (daily 09:00 — 3/2/1 days + expiry day)
+    if scheduler.get_job("renewal_reminders"):
+        scheduler.remove_job("renewal_reminders")
+    scheduler.add_job(
+        enqueue_renewal_reminders,
+        CronTrigger(hour=9, minute=0, timezone=settings.TZ),
+        id="renewal_reminders",
+        replace_existing=True,
+    )
+    logger.info("Scheduled renewal reminders at 09:00 %s time", settings.TZ)
 
     # Expired delivery cleanup (daily 05:30, after the grace period ends)
     if scheduler.get_job("delivery_cleanup"):

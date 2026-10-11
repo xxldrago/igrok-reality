@@ -122,7 +122,8 @@ async def record_test_payment(user_id: UUID, amount: int) -> Payment:
 async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
     """Shared post-payment actions (webhook + test payment).
 
-    - Marks user.paid_at (unlocks scroll delivery and commands).
+    - Marks user.paid_at and extends access_until by 30 days from
+      max(now, previous expiry) — early renewal stacks (unlocks delivery/commands).
     - Assigns the user to a gathering quest group; group launch (or an
       already-launched group) starts the quest clock next midnight,
       so mid-day purchases begin receiving scrolls the next day.
@@ -141,7 +142,10 @@ async def finalize_successful_payment(user_id: UUID, payment: Payment) -> None:
         if user is None:
             raise ValueError(f"finalize: user {user_id} not found")
 
-        user.paid_at = user.paid_at or now
+        from app.bot.services.user_service import grant_access_period
+
+        user.paid_at = now
+        grant_access_period(user, now)
         await session.commit()
         telegram_id = user.telegram_id
         username = user.username

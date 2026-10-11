@@ -1,6 +1,7 @@
 """Tests for inline-button command execution (/menu, /today buttons)."""
 
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -27,7 +28,8 @@ def _user():
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "Europe/Moscow"
-    user.paid_at = "paid"
+    user.paid_at = datetime.now(timezone.utc)
+    user.access_until = datetime.now(timezone.utc) + timedelta(days=5)
     user.started_at = MagicMock()
     user.role = "player"
     return user

@@ -3009,10 +3009,14 @@ async def update_user_admin(user_id: UUID, req: UserUpdateRequest) -> UserListIt
             user.timezone = req.timezone.strip() or user.timezone
         if req.role is not None:
             user.role = req.role
-        if req.has_paid is True and user.paid_at is None:
+        if req.has_paid is True:
+            from app.bot.services.user_service import grant_access_period
+
             user.paid_at = datetime.now(timezone.utc)
+            grant_access_period(user)
         elif req.has_paid is False:
             user.paid_at = None
+            user.access_until = None
 
         session.add(AuditLog(action="user_updated", details=f"Updated user {user_id}"))
         await session.commit()

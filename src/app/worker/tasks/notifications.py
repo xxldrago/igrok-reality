@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
@@ -60,13 +60,13 @@ async def evening_scroll_reminder(ctx: dict) -> None:
     try:
         # NOTE: run time is owned by the scheduler (reminder_hour/minute);
         # this task only checks who hasn't completed today's scroll.
-        # Get all active users
+        # Get all active users (paid access not expired)
         async with session_factory() as session:
             result = await session.execute(
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
-                    User.paid_at.isnot(None),
+                    User.access_until > datetime.now(timezone.utc),
                 )
             )
             active_users = list(result.scalars().all())
@@ -134,7 +134,7 @@ async def streak_loss_warning(ctx: dict) -> None:
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
-                    User.paid_at.isnot(None),
+                    User.access_until > datetime.now(timezone.utc),
                     User.streak > 0,
                 )
             )
@@ -203,7 +203,7 @@ async def new_stream_notification(ctx: dict) -> None:
                 select(User).where(
                     User.archetype.isnot(None),
                     User.started_at.isnot(None),
-                    User.paid_at.isnot(None),
+                    User.access_until > datetime.now(timezone.utc),
                 )
             )
             active_users = list(result.scalars().all())
@@ -231,6 +231,87 @@ async def new_stream_notification(ctx: dict) -> None:
                 pass
 
         logger.info("New stream notification sent to %d users", sent)
+    finally:
+        await bot.session.close()
+
+
+def _renewal_keyboard():
+    """Inline keyboard with a pay button (runs /pay from the button)."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+    from app.bot.callbacks.runner import RunCommand
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="💳 Продлить доступ", callback_data=RunCommand(command="/pay").pack())
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def _days_word(n: int) -> str:
+    """Russian plural for days: 3 дня, 2 дня, 1 день."""
+    if n == 1:
+        return "1 день"
+    return f"{n} дня"
+
+
+async def subscription_renewal_reminders(ctx: dict) -> None:
+    """ARQ task: renewal reminders 3/2/1 days before expiry + notice on expiry day.
+
+    Each message carries a pay button (runs /pay from the button).
+    Runs daily (scheduler cron); users with days_left < 0 already got
+    their expiry notice and are skipped.
+    """
+    from app.bot.services.user_service import RENEWAL_REMINDER_DAYS, days_until_expiry
+
+    bot = Bot(token=await get_bot_token())
+    sent = 0
+
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(User).where(
+                    User.access_until.isnot(None),
+                    User.is_banned.isnot(True),
+                )
+            )
+            users = list(result.scalars().all())
+
+        for user in users:
+            days_left = days_until_expiry(user)
+            if days_left is None:
+                continue
+            if days_left in RENEWAL_REMINDER_DAYS:
+                text = (
+                    f"⏳ Доступ к игре закончится через {_days_word(days_left)}.\n"
+                    "Продли участие, чтобы не потерять прогресс и серию дней."
+                )
+            elif days_left == 0:
+                text = (
+                    "🔚 Доступ к игре завершён.\n"
+                    "Продли участие, чтобы продолжить квест с того же места."
+                )
+            else:
+                continue
+
+            try:
+                await bot.send_message(
+                    user.telegram_id, text, reply_markup=_renewal_keyboard()
+                )
+                sent += 1
+            except TelegramRetryAfter as e:
+                logger.warning("Rate limited for user %s, sleeping %ds", user.id, e.retry_after)
+                await asyncio.sleep(e.retry_after)
+                try:
+                    await bot.send_message(
+                        user.telegram_id, text, reply_markup=_renewal_keyboard()
+                    )
+                    sent += 1
+                except TelegramAPIError:
+                    pass
+            except TelegramAPIError:
+                pass
+
+        logger.info("Subscription renewal reminders sent to %d users", sent)
     finally:
         await bot.session.close()
 

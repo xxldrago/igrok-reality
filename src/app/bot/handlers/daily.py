@@ -24,7 +24,7 @@ from app.bot.services.day_type import (
 )
 from app.bot.services.scroll_service import get_scroll_for_user
 from app.bot.services.settings_service import get_grace_period_hours
-from app.bot.services.user_service import get_user_by_telegram_id
+from app.bot.services.user_service import access_gate_message, get_user_by_telegram_id
 from app.shared.database import session_factory
 from app.shared.models.daily_scroll import DailyScroll
 from app.shared.models.scroll_type import ScrollType
@@ -77,11 +77,12 @@ async def _is_command_allowed(
     from app.shared.models.user_daily_command import UserDailyCommand
 
     async with session_factory() as session:
-        # Check if user has paid
+        # Check paid access (never paid vs expired subscription)
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
-        if not user or user.paid_at is None:
-            return False, "Сначала оплатите участие: /pay"
+        gate = access_gate_message(user)
+        if gate is not None:
+            return False, gate
 
         # Check day range
         if quest_day > 90:
@@ -210,8 +211,9 @@ async def _handle_scroll_command(
         await send("Сначала зарегистрируйтесь через /start.")
         return
 
-    if user.paid_at is None:
-        await send("Сначала оплатите участие: /pay")
+    gate = access_gate_message(user)
+    if gate is not None:
+        await send(gate)
         return
 
     tz_name = user.timezone or settings.TZ
@@ -383,8 +385,9 @@ async def handle_report(
         await send("Сначала зарегистрируйтесь через /start.")
         return
 
-    if user.paid_at is None:
-        await send("Сначала оплатите участие: /pay")
+    gate = access_gate_message(user)
+    if gate is not None:
+        await send(gate)
         return
 
     tz_name = user.timezone or settings.TZ
@@ -487,8 +490,9 @@ async def handle_today(
         await send("Сначала зарегистрируйтесь через /start.")
         return
 
-    if user.paid_at is None:
-        await send("Сначала оплатите участие: /pay")
+    gate = access_gate_message(user)
+    if gate is not None:
+        await send(gate)
         return
 
     tz_name = user.timezone or settings.TZ

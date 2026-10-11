@@ -17,6 +17,7 @@ from app.worker.tasks.notifications import (
     new_stream_notification,
     send_pending_notifications,
     group_gathering_update,
+    subscription_renewal_reminders,
 )
 
 
@@ -33,6 +34,7 @@ class WorkerSettings:
             new_stream_notification,
             send_pending_notifications,
             group_gathering_update,
+            subscription_renewal_reminders,
             cleanup_expired_deliveries,
         ]
     )

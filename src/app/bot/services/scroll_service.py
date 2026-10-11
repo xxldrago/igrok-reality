@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -148,15 +148,16 @@ async def get_scroll_by_day(day_number: int) -> Scroll | None:
 async def get_active_users() -> list[User]:
     """Return users eligible for daily scroll delivery.
 
-    Paid users with archetype set and quest started (started_at not null).
-    The quest clock (started_at) is set on payment, not registration.
+    Users with active paid access, archetype set and quest started
+    (started_at not null). The quest clock (started_at) is set on
+    payment, not registration.
     """
     async with session_factory() as session:
         result = await session.execute(
             select(User).where(
                 User.archetype.isnot(None),
                 User.started_at.isnot(None),
-                User.paid_at.isnot(None),
+                User.access_until > datetime.now(timezone.utc),
             )
         )
         return list(result.scalars().all())
