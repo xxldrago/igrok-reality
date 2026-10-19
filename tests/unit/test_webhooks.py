@@ -93,33 +93,27 @@ async def test_webhook_invalid_secret(mock_get_platega_credentials: AsyncMock) -
 
 
 @pytest.mark.asyncio
-@patch("app.api.webhooks.finalize_successful_payment", new_callable=AsyncMock)
-@patch("app.api.webhooks.Bot")
-@patch("app.api.webhooks.session_factory")
-@patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
+@patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
+@patch("app.shared.database.session_factory")
 @patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
-async def test_webhook_confirmed(
+async def test_webhook_duplicate_idempotent(
     mock_get_platega_credentials: AsyncMock,
-    mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
-    mock_bot_cls: MagicMock,
-    mock_finalize: AsyncMock,
+    mock_notify: AsyncMock,
 ) -> None:
     """CONFIRMED status updates payment to 'succeeded' and runs shared finalize."""
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="pending")
-    mock_get_payment.return_value = payment
+    payment.platega_transaction_id = "tx-456"
 
     mock_session = AsyncMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    # Mock the execute chain for payment lookup
-    mock_result = MagicMock()
-    mock_result.scalar_one.return_value = payment
-    mock_session.execute = AsyncMock(return_value=mock_result)
-
+    # Mock the execute chain for payment lookup (by platega_transaction_id)
+    mock_payment_result = MagicMock()
+    mock_payment_result.scalar_one_or_none.return_value = payment
     # Mock the execute chain for user lookup
     user = _make_user()
     mock_user_result = MagicMock()
@@ -131,7 +125,7 @@ async def test_webhook_confirmed(
         nonlocal call_count
         call_count += 1
         if call_count == 1:
-            return mock_result  # payment query
+            return mock_payment_result  # payment query by platega_transaction_id
         return mock_user_result  # user query
 
     mock_session.execute = AsyncMock(side_effect=side_effect)
@@ -142,9 +136,8 @@ async def test_webhook_confirmed(
             "/webhook/platega",
             headers=VALID_HEADERS,
             json={
-                "orderId": "order-123",
+                "id": "tx-456",
                 "status": "CONFIRMED",
-                "transactionId": "tx-456",
             },
         )
 
@@ -158,12 +151,10 @@ async def test_webhook_confirmed(
 @pytest.mark.asyncio
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
 @patch("app.api.webhooks.Bot")
-@patch("app.api.webhooks.session_factory")
-@patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
+@patch("app.shared.database.session_factory")
 @patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_canceled(
     mock_get_platega_credentials: AsyncMock,
-    mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
     mock_notify: AsyncMock,
@@ -172,7 +163,7 @@ async def test_webhook_canceled(
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="pending")
-    mock_get_payment.return_value = payment
+    payment.platega_transaction_id = "tx-456"
 
     mock_session = AsyncMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -180,7 +171,7 @@ async def test_webhook_canceled(
 
     user = _make_user()
     mock_payment_result = MagicMock()
-    mock_payment_result.scalar_one.return_value = payment
+    mock_payment_result.scalar_one_or_none.return_value = payment
     mock_user_result = MagicMock()
     mock_user_result.scalar_one_or_none.return_value = user
 
@@ -200,7 +191,7 @@ async def test_webhook_canceled(
         response = await client.post(
             "/webhook/platega",
             headers=VALID_HEADERS,
-            json={"orderId": "order-123", "status": "CANCELED"},
+            json={"id": "tx-456", "status": "CANCELED"},
         )
 
     assert response.status_code == 200
@@ -215,22 +206,20 @@ async def test_webhook_canceled(
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
 @patch("app.api.webhooks.revoke_access", new_callable=AsyncMock)
 @patch("app.api.webhooks.Bot")
-@patch("app.api.webhooks.session_factory")
-@patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
+@patch("app.shared.database.session_factory")
 @patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_chargebacked(
     mock_get_platega_credentials: AsyncMock,
-    mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_bot_cls: MagicMock,
     mock_revoke_access: AsyncMock,
     mock_notify: AsyncMock,
 ) -> None:
-    """CHARGEBACKED status updates payment to 'chargebacked' and sends revoke message."""
+    """CANCELED status updates payment to 'canceled' and sends revoke message (chargeback)."""
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     payment = _make_payment(status="succeeded")
-    mock_get_payment.return_value = payment
+    payment.platega_transaction_id = "tx-456"
 
     mock_session = AsyncMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -238,7 +227,7 @@ async def test_webhook_chargebacked(
 
     user = _make_user()
     mock_payment_result = MagicMock()
-    mock_payment_result.scalar_one.return_value = payment
+    mock_payment_result.scalar_one_or_none.return_value = payment
     mock_user_result = MagicMock()
     mock_user_result.scalar_one_or_none.return_value = user
 
@@ -258,12 +247,28 @@ async def test_webhook_chargebacked(
         response = await client.post(
             "/webhook/platega",
             headers=VALID_HEADERS,
-            json={"orderId": "order-123", "status": "CHARGEBACKED"},
+            json={"id": "tx-456", "status": "CANCELED"},
         )
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-    assert payment.status == "chargebacked"
+    assert payment.status == "canceled"
+    mock_revoke_access.assert_awaited_once()
+    mock_notify.assert_awaited_once_with(
+        99999, "Возврат оформлен. Доступ в канал закрыт."
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/webhook/platega",
+            headers=VALID_HEADERS,
+            json={"id": "tx-456", "status": "CANCELED"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert payment.status == "canceled"
     mock_revoke_access.assert_awaited_once()
     mock_notify.assert_awaited_once_with(
         99999, "Возврат оформлен. Доступ в канал закрыт."
@@ -274,22 +279,19 @@ async def test_webhook_chargebacked(
 
 
 @pytest.mark.asyncio
-@patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
 @patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
-async def test_webhook_unknown_order(
+async def test_webhook_unknown_transaction(
     mock_get_platega_credentials: AsyncMock,
-    mock_get_payment: AsyncMock,
 ) -> None:
-    """Unknown orderId returns 200 OK without crash."""
+    """Unknown transactionId returns 200 OK without crash."""
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
-    mock_get_payment.return_value = None
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
             "/webhook/platega",
             headers=VALID_HEADERS,
-            json={"orderId": "unknown-order", "status": "CONFIRMED"},
+            json={"id": "unknown-transaction", "status": "CONFIRMED"},
         )
 
     assert response.status_code == 200
@@ -298,21 +300,18 @@ async def test_webhook_unknown_order(
 
 @pytest.mark.asyncio
 @patch("app.api.webhooks._send_payment_notification", new_callable=AsyncMock)
-@patch("app.api.webhooks.session_factory")
-@patch("app.api.webhooks.get_payment", new_callable=AsyncMock)
+@patch("app.shared.database.session_factory")
 @patch("app.api.webhooks.get_platega_credentials", new_callable=AsyncMock)
 async def test_webhook_duplicate_idempotent(
     mock_get_platega_credentials: AsyncMock,
-    mock_get_payment: AsyncMock,
     mock_session_factory: MagicMock,
     mock_notify: AsyncMock,
 ) -> None:
-    """Duplicate webhook for same orderId is handled gracefully."""
+    """Duplicate webhook for same transactionId is handled gracefully."""
     mock_get_platega_credentials.return_value = ("test-merchant", "test-secret")
 
     # First webhook: pending -> succeeded (valid)
     payment = _make_payment(status="succeeded")
-    mock_get_payment.return_value = payment
 
     mock_session = AsyncMock()
     mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -329,7 +328,7 @@ async def test_webhook_duplicate_idempotent(
         response1 = await client.post(
             "/webhook/platega",
             headers=VALID_HEADERS,
-            json={"orderId": "order-123", "status": "CONFIRMED"},
+            json={"id": "tx-456", "status": "CONFIRMED"},
         )
         # Duplicate call
         response2 = await client.post(

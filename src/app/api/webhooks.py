@@ -74,7 +74,7 @@ async def _notify_payment_channel(text: str) -> None:
 
 @router.post("/webhook/platega")
 async def platega_webhook(request: Request) -> dict:
-    """Handle Platega.io payment status webhooks.
+    """Handle Platega.io payment status webhooks (new API).
 
     Verifies X-MerchantId + X-Secret headers, routes by status,
     updates Payment record, and notifies user via Bot.
@@ -89,44 +89,45 @@ async def platega_webhook(request: Request) -> dict:
         logger.warning("Webhook rejected: invalid credentials (merchant_id=%s)", merchant_id)
         return {"error": "invalid credentials"}
 
-    # --- Parse body ---
+    # --- Parse body (new API format) ---
     body = await request.json()
-    order_id: str = body.get("orderId", "")
+    transaction_id: str = body.get("id", "")
     new_status_raw: str = body.get("status", "")
-    transaction_id: str = body.get("transactionId", "")
 
     logger.info(
-        "Webhook received: orderId=%s status=%s transactionId=%s",
-        order_id,
-        new_status_raw,
+        "Webhook received: transactionId=%s status=%s",
         transaction_id,
+        new_status_raw,
     )
 
-    # --- Load payment by idempotency key ---
-    payment = await get_payment(order_id)
+    # --- Load payment by Platega transaction ID ---
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment).where(Payment.platega_transaction_id == transaction_id)
+        )
+        payment = result.scalar_one_or_none()
+
     if payment is None:
-        logger.warning("Webhook for unknown orderId=%s — returning OK (idempotent)", order_id)
+        logger.warning("Webhook for unknown transactionId=%s — returning OK (idempotent)", transaction_id)
         return {"status": "ok"}
 
     # --- Normalize status ---
     status_map = {
         "CONFIRMED": "succeeded",
         "CANCELED": "canceled",
-        "CHARGEBACKED": "chargebacked",
-        "REFUNDED": "refunded",
     }
     new_status = status_map.get(new_status_raw)
     if new_status is None:
-        logger.warning("Webhook with unknown status=%s for orderId=%s", new_status_raw, order_id)
+        logger.warning("Webhook with unknown status=%s for transactionId=%s", new_status_raw, transaction_id)
         return {"status": "ok"}
 
     # --- Validate transition (T-05-05 mitigation) ---
     if not _is_valid_transition(payment.status, new_status):
         logger.warning(
-            "Invalid status transition: %s -> %s for orderId=%s",
+            "Invalid status transition: %s -> %s for transactionId=%s",
             payment.status,
             new_status,
-            order_id,
+            transaction_id,
         )
         return {"status": "ok"}
 

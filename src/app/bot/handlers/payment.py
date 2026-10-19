@@ -107,7 +107,7 @@ async def send_pay_prompt(message: Message, user) -> None:
             from app.bot.services.payment_service import call_platega_api
 
             response = await call_platega_api(payment)
-            payment_url = response.get("data", {}).get("paymentUrl")
+            payment_url = response.get("redirect")
     except Exception:
         logger.exception("Payment creation failed (provider=%s)", provider)
         await message.answer("Ошибка при создании платежа. Попробуйте позже.")

@@ -260,25 +260,26 @@ async def call_platega_api(payment: Payment) -> dict:
     bot_username = await get_bot_username()
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "https://platega.io/v2/transaction/process",
+            "https://app.platega.io/v2/transaction/process",
             headers={
                 "X-MerchantId": merchant_id,
                 "X-Secret": secret,
+                "Content-Type": "application/json",
             },
             json={
-                "paymentMethod": 3,
+                "paymentMethod": 11,
                 "paymentDetails": {"amount": payment.amount, "currency": payment.currency},
+                "description": f"Участие в квесте ({payment.amount // 100} ₽/мес)",
                 "return": f"https://t.me/{bot_username}?start=payment_success",
                 "failedUrl": f"https://t.me/{bot_username}?start=payment_failed",
                 "payload": str(payment.user_id),
-                "orderId": payment.idempotency_key,
-                "metadata": {"user_id": str(payment.user_id)},
             },
+            timeout=30.0,
         )
         data = response.json()
 
-    # Update payment with Platega transaction ID
-    platega_id = data.get("data", {}).get("paymentId")
+    # Update payment with Platega transaction ID (new API returns transactionId at top level)
+    platega_id = data.get("transactionId")
     if platega_id:
         async with session_factory() as session:
             result = await session.execute(
