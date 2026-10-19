@@ -260,7 +260,7 @@ async def call_platega_api(payment: Payment) -> dict:
     bot_username = await get_bot_username()
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "https://api.platega.io/v2/transaction/process",
+            "https://platega.io/v2/transaction/process",
             headers={
                 "X-MerchantId": merchant_id,
                 "X-Secret": secret,
