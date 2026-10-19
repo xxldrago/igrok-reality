@@ -45,12 +45,12 @@ async def get_group_sizes() -> tuple[int, int]:
 
 
 async def get_emulate_full_group() -> bool:
-    """Test toggle: pretend every gathering group is full."""
+    """Test toggle: pretend every gathering group is full (true = scrolls start immediately)."""
     try:
-        val = await get_setting("emulate_full_group", "false")
+        val = await get_setting("emulate_full_group", "true")
     except Exception:
-        return False
-    return val.lower() not in ("", "false", "0", "no")
+        return True
+    return val.lower() not in ("false", "0", "no")
 
 
 def next_midnight(now: datetime | None = None) -> datetime:

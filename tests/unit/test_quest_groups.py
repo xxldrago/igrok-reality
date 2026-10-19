@@ -39,11 +39,11 @@ class TestGroupSettings:
             assert await qg_mod.get_group_sizes() == (30, 50)
 
     @pytest.mark.asyncio
-    async def test_emulate_defaults_off(self) -> None:
+    async def test_emulate_defaults_on(self) -> None:
         with patch.object(
             qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
         ):
-            assert await qg_mod.get_emulate_full_group() is False
+            assert await qg_mod.get_emulate_full_group() is True
 
     @pytest.mark.asyncio
     async def test_emulate_on(self) -> None:
@@ -122,7 +122,7 @@ class TestAssignAndLaunch:
 
     @pytest.mark.asyncio
     async def test_no_launch_below_threshold(self) -> None:
-        """29 paid members: group stays gathering, no clock."""
+        """29 paid members: group stays gathering, no clock (emulate off)."""
         user = self._user()
         group = self._group()
 
@@ -141,6 +141,9 @@ class TestAssignAndLaunch:
             ),
             patch.object(
                 qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
+            ),
+            patch.object(
+                qg_mod, "get_emulate_full_group", new_callable=AsyncMock, return_value=False
             ),
         ):
             out = await qg_mod.assign_user_to_group(user.id)
@@ -184,7 +187,7 @@ class TestAssignAndLaunch:
 
     @pytest.mark.asyncio
     async def test_full_group_opens_new_one(self) -> None:
-        """Member count at max → new gathering group opened."""
+        """Member count at max → new gathering group opened (emulate off)."""
         user = self._user()
         full = self._group("Группа №1")
 
@@ -206,6 +209,9 @@ class TestAssignAndLaunch:
             ),
             patch.object(
                 qg_mod, "get_setting", new_callable=AsyncMock, return_value=""
+            ),
+            patch.object(
+                qg_mod, "get_emulate_full_group", new_callable=AsyncMock, return_value=False
             ),
         ):
             out = await qg_mod.assign_user_to_group(user.id)
