@@ -821,7 +821,7 @@ async def list_payments(
     dependencies=[Depends(require_role("master"))],
 )
 async def export_payments_csv() -> dict:
-    """Export confirmed payments as CSV data for accounting.
+    """Export successful payments as CSV data for accounting.
 
     NOTE: must stay BEFORE /payments/{payment_id} — otherwise "export"
     is parsed as payment_id and FastAPI returns 422 (uuid_parsing).
@@ -830,7 +830,7 @@ async def export_payments_csv() -> dict:
         result = await session.execute(
             select(Payment, User.username, User.first_name)
             .outerjoin(User, Payment.user_id == User.id)
-            .where(Payment.status == "confirmed")
+            .where(Payment.status == "succeeded")
             .order_by(Payment.created_at.desc())
         )
         rows = result.all()
