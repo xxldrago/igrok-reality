@@ -64,6 +64,7 @@ export interface QuizAnswerItem {
 
 export interface UserDetailResponse extends UserListItem {
   timezone: string
+  access_until: string | null
   completions_count: number
   payments: UserPaymentItem[]
   referrals_count: number
@@ -92,6 +93,14 @@ export function getUsers(params: GetUsersParams = {}) {
 
 export function getUser(id: string) {
   return api.get<UserDetailResponse>(`/admin/users/${id}`)
+}
+
+export function extendUserAccess(id: string, days: number) {
+  return api.post<{
+    access_until: string
+    paid_at: string | null
+    days_added: number
+  }>(`/admin/users/${id}/extend-access`, { days })
 }
 
 export interface UserCreateData {

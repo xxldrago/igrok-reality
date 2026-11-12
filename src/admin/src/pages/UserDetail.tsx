@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Drawer, Descriptions, Table, Spin, Typography, Space, Tag, Tooltip, Row, Col, Card } from 'antd'
+import { Drawer, Descriptions, Table, Spin, Typography, Space, Tag, Tooltip, Row, Col, Card, Button, Modal, InputNumber, message } from 'antd'
 import {
   getUser,
   getUserProgress,
+  extendUserAccess,
   UserDetailResponse,
   UserProgressResponse,
   ProgressDayItem,
 } from '../services/api'
 import MediaPreview from '../components/MediaPreview'
+import RoleGuard from '../components/RoleGuard'
 
 const { Title } = Typography
 
@@ -111,6 +113,9 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
   const [progress, setProgress] = useState<UserProgressResponse | null>(null)
   const [progressLoading, setProgressLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [extendDays, setExtendDays] = useState(30)
+  const [extending, setExtending] = useState(false)
 
   useEffect(() => {
     if (open && userId) {
@@ -137,6 +142,27 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
       setSelectedDay(null)
     }
   }, [open, userId])
+
+  const handleExtend = async () => {
+    if (!userId) return
+    setExtending(true)
+    try {
+      await extendUserAccess(userId, extendDays)
+      const res = await getUser(userId)
+      setUser(res.data)
+      message.success(`Доступ продлён на ${extendDays} дн.`)
+      setExtendOpen(false)
+    } catch (err) {
+      console.error('Failed to extend access:', err)
+      message.error('Не удалось продлить доступ')
+    } finally {
+      setExtending(false)
+    }
+  }
+
+  const accessActive = user?.access_until
+    ? new Date(user.access_until).getTime() > Date.now()
+    : false
 
   const paymentColumns = [
     {
@@ -179,6 +205,7 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
           <Spin size="large" />
         </div>
       ) : user ? (
+        <>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {/* Profile */}
           <div>
@@ -210,6 +237,36 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
                 {user.timezone}
               </Descriptions.Item>
             </Descriptions>
+          </div>
+
+          {/* Subscription */}
+          <div>
+            <Title level={5}>Подписка</Title>
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="Доступ до">
+                {user.access_until ? (
+                  <Space wrap>
+                    <span>{new Date(user.access_until).toLocaleString('ru-RU')}</span>
+                    {accessActive ? (
+                      <Tag color="green">активен</Tag>
+                    ) : (
+                      <Tag color="red">истёк</Tag>
+                    )}
+                  </Space>
+                ) : (
+                  <Tag color="red">нет доступа</Tag>
+                )}
+              </Descriptions.Item>
+            </Descriptions>
+            <RoleGuard roles={['master', 'leader']}>
+              <Button
+                type="primary"
+                style={{ marginTop: 8 }}
+                onClick={() => setExtendOpen(true)}
+              >
+                Продлить подписку
+              </Button>
+            </RoleGuard>
           </div>
 
           {/* Entrance test answers */}
@@ -345,6 +402,43 @@ export default function UserDetail({ userId, open, onClose }: UserDetailProps) {
                           />
           </div>
         </Space>
+
+        <Modal
+          title="Продлить подписку"
+          open={extendOpen}
+          onOk={handleExtend}
+          confirmLoading={extending}
+          okText="Продлить"
+          cancelText="Отмена"
+          onCancel={() => setExtendOpen(false)}
+        >
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <span>
+              Дни добавятся к текущей дате окончания доступа (или к сегодняшней,
+              если доступ уже истёк).
+            </span>
+            <Space wrap>
+              {[30, 90, 180].map((d) => (
+                <Button
+                  key={d}
+                  type={extendDays === d ? 'primary' : 'default'}
+                  onClick={() => setExtendDays(d)}
+                >
+                  +{d} дн.
+                </Button>
+              ))}
+            </Space>
+            <InputNumber
+              min={1}
+              max={365}
+              value={extendDays}
+              onChange={(v) => setExtendDays(typeof v === 'number' ? v : 30)}
+              addonAfter="дней"
+              style={{ width: '100%' }}
+            />
+          </Space>
+        </Modal>
+        </>
       ) : null}
     </Drawer>
   )

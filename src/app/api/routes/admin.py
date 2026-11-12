@@ -115,6 +115,7 @@ class UserDetailResponse(BaseModel):
     streak: int
     is_active: bool
     paid_at: Optional[datetime] = None
+    access_until: Optional[datetime] = None
     started_at: Optional[datetime] = None
     created_at: datetime
     timezone: str
@@ -130,6 +131,20 @@ class PayoutRequest(BaseModel):
 
     user_id: UUID
     amount: int = Field(ge=1, description="Payout amount in kopecks")
+
+
+class ExtendAccessRequest(BaseModel):
+    """Request body for extending a user's quest access."""
+
+    days: int = Field(30, ge=1, le=365, description="Days to add to access_until")
+
+
+class ExtendAccessResponse(BaseModel):
+    """Result of an access extension."""
+
+    access_until: datetime
+    paid_at: Optional[datetime] = None
+    days_added: int
 
 
 # --- Scroll management Pydantic models ---
@@ -1104,6 +1119,7 @@ async def get_user(
             streak=user.streak,
             is_active=user.is_active,
             paid_at=user.paid_at,
+            access_until=user.access_until,
             started_at=user.started_at,
             created_at=user.created_at,
             timezone=user.timezone,
@@ -3065,6 +3081,57 @@ async def update_user_admin(user_id: UUID, req: UserUpdateRequest) -> UserListIt
         await session.commit()
         await session.refresh(user)
         return UserListItem.model_validate(user)
+
+
+@admin_router.post(
+    "/users/{user_id}/extend-access",
+    response_model=ExtendAccessResponse,
+    dependencies=[Depends(require_role("master", "leader"))],
+)
+async def extend_user_access(
+    user_id: UUID, request: ExtendAccessRequest
+) -> ExtendAccessResponse:
+    """Extend a user's quest access by N days from max(now, current expiry).
+
+    Manual admin grant: no payment record is created, so it can be used for
+    comped access, support extensions or test accounts. Early extensions stack
+    on top of the existing expiry rather than resetting it.
+    """
+    from datetime import timedelta, timezone
+
+    async with session_factory() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        now = datetime.now(timezone.utc)
+        previous = user.access_until
+        if previous is not None and previous.tzinfo is None:
+            previous = previous.replace(tzinfo=timezone.utc)
+        base = max(now, previous) if previous is not None else now
+        user.access_until = base + timedelta(days=request.days)
+        if user.paid_at is None:
+            user.paid_at = now
+
+        session.add(
+            AuditLog(
+                action="access_extended",
+                details=(
+                    f"Extended access for user {user_id} by {request.days} days "
+                    f"until {user.access_until.isoformat()}"
+                ),
+            )
+        )
+        await session.commit()
+        return ExtendAccessResponse(
+            access_until=user.access_until,
+            paid_at=user.paid_at,
+            days_added=request.days,
+        )
 
 
 @admin_router.delete(
