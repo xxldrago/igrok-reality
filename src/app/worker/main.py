@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from arq.worker import Worker
+from arq.worker import create_worker
 
-from app.shared.config import settings
 from app.worker.settings import WorkerSettings
 
 logger = logging.getLogger(__name__)
@@ -15,13 +14,9 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     """Start the ARQ background worker (sync entrypoint)."""
     logger.info("Worker starting...")
-    worker_settings = WorkerSettings()
-    worker = Worker(
-        functions=worker_settings.functions,
-        redis_settings=worker_settings.redis_settings,
-        max_tries=worker_settings.max_tries,
-        retry_delay=worker_settings.retry_delay,
-    )
+    # create_worker maps only the attributes arq's Worker actually accepts,
+    # so settings can grow without crashing the worker at startup.
+    worker = create_worker(WorkerSettings())
     worker.run()
 
 

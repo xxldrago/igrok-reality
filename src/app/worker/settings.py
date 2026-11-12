@@ -46,4 +46,3 @@ class WorkerSettings:
         default_factory=lambda: RedisSettings.from_dsn(settings.REDIS_URL)
     )
     max_tries: int = 3
-    retry_delay: int = 60
