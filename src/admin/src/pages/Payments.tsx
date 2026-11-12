@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Table, Select, Space, Tag, Spin, Typography } from 'antd'
+import { Table, Select, Space, Tag, Spin, Typography, Button, Popconfirm, message } from 'antd'
+import { DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { getPayments, PaymentItem, PaymentListResponse } from '../services/api'
+import {
+  getPayments,
+  deletePayment,
+  PaymentItem,
+  PaymentListResponse,
+} from '../services/api'
+import RoleGuard from '../components/RoleGuard'
 
 const { Title } = Typography
 
@@ -65,6 +72,17 @@ export default function Payments() {
     }))
   }
 
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePayment(id)
+      message.success('Платёж удалён')
+      fetchData()
+    } catch (error) {
+      console.error('Failed to delete payment:', error)
+      message.error('Ошибка удаления платежа')
+    }
+  }
+
   const columns: ColumnsType<PaymentItem> = [
     {
       title: 'Пользователь',
@@ -120,6 +138,25 @@ export default function Payments() {
       render: (date: string) =>
         new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     },
+    {
+      title: 'Действия',
+      key: 'actions',
+      width: 90,
+      render: (_, record) => (
+        <RoleGuard roles={['master']}>
+          <Popconfirm
+            title="Удалить платёж?"
+            description="Удалится только запись о платеже. Доступ пользователя не изменится."
+            okText="Удалить"
+            cancelText="Отмена"
+            okType="danger"
+            onConfirm={() => handleDelete(record.id)}
+          >
+            <Button type="link" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </RoleGuard>
+      ),
+    },
   ]
 
   return (
@@ -156,9 +193,9 @@ export default function Payments() {
             total: data?.total || 0,
           }}
           onChange={handleTableChange}
-                    locale={{ emptyText: 'Платежи не найдены' }}
-                    scroll={{ x: 'max-content' }}
-                  />
+          locale={{ emptyText: 'Платежи не найдены' }}
+          scroll={{ x: 'max-content' }}
+        />
       </Spin>
     </div>
   )

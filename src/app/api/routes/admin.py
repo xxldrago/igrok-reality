@@ -883,6 +883,49 @@ async def get_payment(payment_id: UUID) -> PaymentResponse:
         )
 
 
+@admin_router.delete(
+    "/payments/{payment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role("master"))],
+)
+async def delete_payment(
+    payment_id: UUID, current_user: dict = Depends(get_current_user)
+) -> None:
+    """Delete a payment record (test-data cleanup).
+
+    Removes only the payment row — user access (paid_at / access_until)
+    is intentionally left untouched. Writes an audit log entry.
+    """
+    async with session_factory() as session:
+        result = await session.execute(
+            select(Payment, User)
+            .join(User, Payment.user_id == User.id)
+            .where(Payment.id == payment_id)
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payment not found",
+            )
+
+        payment, user = row
+        user_name = user.username or user.first_name or str(user.telegram_id)
+        session.add(
+            AuditLog(
+                action="payment_deleted",
+                details=(
+                    f"Deleted payment {payment.id} "
+                    f"(user={user_name}, amount={payment.amount / 100:.2f} "
+                    f"{payment.currency}, status={payment.status}) "
+                    f"by {current_user.get('username')}"
+                ),
+            )
+        )
+        await session.delete(payment)
+        await session.commit()
+
+
 # --- User management endpoints ---
 
 

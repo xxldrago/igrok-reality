@@ -365,6 +365,10 @@ export function getPayment(id: string) {
   return api.get<PaymentItem>(`/admin/payments/${id}`)
 }
 
+export function deletePayment(id: string) {
+  return api.delete(`/admin/payments/${id}`)
+}
+
 // --- Settings interfaces ---
 
 export interface SettingItem {
